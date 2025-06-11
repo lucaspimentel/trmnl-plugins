@@ -1,0 +1,11 @@
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data: ''
+polling_verb: get
+polling_url: https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity
+polling_headers: ''
+id: 93149
+name: MBTA Alerts
+refresh_interval: 15
