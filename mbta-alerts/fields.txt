@@ -1,0 +1,6 @@
+alert.
+    attributes.
+        service_effect
+        timeframe
+        short_header
+        updated_at
