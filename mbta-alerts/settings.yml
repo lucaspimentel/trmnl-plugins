@@ -7,5 +7,12 @@ polling_verb: get
 polling_url: https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&filter[route_type]=0,1&sort=-severity&fields[alert]=service_effect,timeframe,short_header,updated_at
 polling_headers: ''
 id: 93149
+custom_fields:
+- keyname: doesnt_matter
+  name: MBTA Alerts
+  field_type: author_bio
+  description: Shows service alerts from the Massachusetts Bay Transport Authority (MBTA)
+  github_url: https://github.com/lucaspimentel/trmnl-plugins
+  learn_more_url: https://github.com/lucaspimentel/trmnl-plugins
 name: MBTA Alerts
 refresh_interval: 15
