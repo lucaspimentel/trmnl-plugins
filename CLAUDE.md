@@ -1,0 +1,55 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository Overview
+
+This repository contains plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device. TRMNL plugins fetch data from external APIs and render it using Liquid templates for display on the device.
+
+For comprehensive TRMNL documentation, see: https://docs.usetrmnl.com/go/llms.txt
+
+## Plugin Architecture
+
+Each plugin is a directory containing:
+- **settings.yml**: Configuration file defining data source and plugin metadata
+  - `strategy`: Data fetching method (e.g., `polling`)
+  - `polling_url`: API endpoint to fetch data from
+  - `polling_verb`: HTTP method (typically `get`)
+  - `refresh_interval`: How often to fetch data (in minutes)
+  - `custom_fields`: Plugin metadata (name, description, GitHub URL)
+- **Layout templates** (`.liquid` files): Liquid templates for different display sizes
+  - `full.liquid`: Full screen layout
+  - `half_horizontal.liquid`: Half screen horizontal layout
+  - `half_vertical.liquid`: Half screen vertical layout
+  - `quadrant.liquid`: Quarter screen layout
+- **shared.liquid**: Reusable Liquid templates/partials
+- **fields.txt**: Documentation of data fields available from the API
+
+## Template System
+
+Templates use Liquid syntax with TRMNL-specific conventions:
+- `{% template name %}...{% endtemplate %}`: Define reusable templates
+- `{% render "template_name", param: value %}`: Include templates with parameters
+- `data`: Variable containing API response data
+- `trmnl.plugin_settings.instance_name`: Access plugin configuration
+
+Layout templates typically render shared templates with size-specific parameters (e.g., `max_height`).
+
+## Current Plugins
+
+### mbta-alerts
+Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA).
+- API: `https://api-v3.mbta.com/alerts` (filtered for subway/light rail routes)
+- Data fields: `service_effect`, `timeframe`, `short_header`, `updated_at`
+- Features: Displays alerts sorted by severity, shows "No current alerts" when empty
+
+## Development Workflow
+
+When creating or modifying plugins:
+1. Update `settings.yml` with API endpoint and configuration
+2. Define reusable templates in `shared.liquid`
+3. Create layout templates that render shared templates with appropriate parameters
+4. Document API data fields in `fields.txt`
+5. Test with different data scenarios (empty data, multiple items, long text)
+
+Note: There are no build, test, or lint commands - plugins are deployed directly to TRMNL.
