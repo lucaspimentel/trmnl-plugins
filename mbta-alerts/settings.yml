@@ -4,7 +4,7 @@ no_screen_padding: 'no'
 dark_mode: 'no'
 static_data: ''
 polling_verb: get
-polling_url: https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&filter[route_type]=0,1&sort=-severity&fields[alert]=service_effect,timeframe,short_header,updated_at
+polling_url: https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&filter[route_type]=0,1&sort=-severity&fields[alert]=service_effect,timeframe,header,updated_at
 polling_headers: ''
 id: 93149
 custom_fields:

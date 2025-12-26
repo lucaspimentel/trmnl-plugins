@@ -2,5 +2,5 @@ alert.
     attributes.
         service_effect
         timeframe
-        short_header
+        header
         updated_at

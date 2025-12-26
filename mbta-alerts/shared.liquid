@@ -14,7 +14,7 @@
         <span class="title title--small" data-pixel-perfect="true">{{ alert.attributes.service_effect }}</span>
         <span class="label label--small label--underline" data-pixel-perfect="true">{{ alert.attributes.timeframe }}</span>
       </div>
-      <span class="description clamp--3" data-pixel-perfect="true">{{ alert.attributes.short_header }} (updated: {{ alert.attributes.updated_at | date: "%b %-d, %-I:%M%P" }}).</span>
+      <span class="description clamp--3" data-pixel-perfect="true">{{ alert.attributes.header }} (updated: {{ alert.attributes.updated_at | date: "%b %-d, %-I:%M%P" }}).</span>
     </div>
   </div>
   {% endfor %}

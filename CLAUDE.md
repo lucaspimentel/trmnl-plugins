@@ -40,7 +40,7 @@ Layout templates typically render shared templates with size-specific parameters
 ### mbta-alerts
 Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA).
 - API: `https://api-v3.mbta.com/alerts` (filtered for subway/light rail routes)
-- Data fields: `service_effect`, `timeframe`, `short_header`, `updated_at`
+- Data fields: `service_effect`, `timeframe`, `header`, `updated_at`
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
 
 ## Development Workflow
