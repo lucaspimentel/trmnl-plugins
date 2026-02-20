@@ -1,0 +1,49 @@
+{
+  "skill_name": "trmnl-dev",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a new TRMNL plugin called 'weather' that polls the Open-Meteo API to show current temperature and conditions for Boston, MA. Use the free API at https://api.open-meteo.com/v1/forecast?latitude=42.36&longitude=-71.06&current=temperature_2m,weather_code",
+      "expected_output": "A complete plugin directory with settings.yml, shared.liquid, four layout files, and fields.txt",
+      "files": [],
+      "assertions": [
+        "A weather/ directory is created at the repository root with all required files",
+        "settings.yml has strategy: polling, the Open-Meteo URL, and a refresh_interval",
+        "shared.liquid defines reusable template blocks using {% template %} / {% endtemplate %} syntax",
+        "All four layout files (full, half_horizontal, half_vertical, quadrant) exist and use {% render %} with correct max_height values (full=410, half_horizontal=173, half_vertical=360, quadrant=173)",
+        "Layout files pass API data to shared templates using data: data or sub-paths like current: data.current (NOT bare current: current without the data. prefix)",
+        "Templates access API response fields through the data.* path (e.g., data.current.temperature_2m), not as bare top-level variables",
+        "Templates do NOT use {% when X or Y %} syntax in case statements — use separate when clauses or if/elsif chains instead",
+        "Templates handle the empty/error state where data may be nil (e.g., {% if data %} or {% if data.current %} with a fallback message)",
+        "Templates use TRMNL design system classes (.layout, .title, .description, .label, .title_bar) and data-pixel-perfect attribute on text elements",
+        "fields.txt documents the API response fields used, and README.md is updated with a link to the new plugin"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The mbta-alerts plugin is showing a blank screen. Help me debug it. The polling URL is https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&fields[alert]=service_effect,timeframe,short_header,updated_at",
+      "expected_output": "Diagnosis of the issue with the data access pattern and suggested fixes",
+      "files": [],
+      "assertions": [
+        "Reads the existing mbta-alerts plugin files (at minimum shared.liquid, settings.yml, and at least one layout file) before suggesting changes",
+        "Checks or discusses the API response JSON structure and how it maps to template variable paths",
+        "Suggests using {{ data | json }} or similar to inspect the raw data for debugging",
+        "Identifies whether the data access pattern (data vs data.data, array vs object) is correct for the MBTA API response format",
+        "Does not break existing template functionality when suggesting fixes"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add a .trmnlp.yml config to the mbta-alerts plugin so I can preview it locally with trmnlp. Set the timezone to America/New_York.",
+      "expected_output": "A .trmnlp.yml file configured for local development of the mbta-alerts plugin",
+      "files": [],
+      "assertions": [
+        "Creates a .trmnlp.yml file in the mbta-alerts directory",
+        "Includes watch configuration pointing to the template files",
+        "Sets time_zone to America/New_York",
+        "Includes a variables section with trmnl.plugin_settings.instance_name set to a meaningful value",
+        "Does not include sensitive data or API keys directly in the file (uses {{ env.VAR }} interpolation if API keys are needed)"
+      ]
+    }
+  ]
+}
