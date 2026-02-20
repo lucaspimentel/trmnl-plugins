@@ -52,4 +52,12 @@ When creating or modifying plugins:
 4. Document API data fields in `fields.txt`
 5. Test with different data scenarios (empty data, multiple items, long text)
 
-Note: There are no build, test, or lint commands - plugins are deployed directly to TRMNL.
+Note: There are no build, test, or lint commands — plugins are deployed directly to TRMNL.
+
+## Local Preview
+
+Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally. See the trmnl-dev skill (`.claude/skills/trmnl-dev/SKILL.md`) for detailed trmnlp usage and workflow instructions.
+
+## Skills
+
+The `.claude/skills/trmnl-dev/` directory contains a Claude Code skill for full-lifecycle plugin development, including scaffolding, template authoring, and local preview with trmnlp.

@@ -14,7 +14,19 @@ Each plugin directory contains:
 - Layout templates (`full.liquid`, `half_horizontal.liquid`, `half_vertical.liquid`, `quadrant.liquid`)
 - `fields.txt` - Documentation of API data fields
 
+## Local Development
+
+Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally:
+
+```bash
+gem install trmnl_preview   # or use Docker
+cd mbta-alerts
+trmnlp serve                # preview at http://localhost:4567
+```
+
 ## Resources
 
 - [TRMNL Website](https://usetrmnl.com/)
 - [TRMNL Documentation](https://docs.usetrmnl.com/)
+- [trmnlp - Local Preview Tool](https://github.com/usetrmnl/trmnlp)
+- [TRMNL Design System](https://trmnl.com/framework/docs)
