@@ -1,0 +1,9 @@
+---
+watch:
+  - src
+  - .trmnlp.yml
+
+variables:
+  trmnl:
+    plugin_settings:
+      instance_name: Boston

@@ -1,0 +1,53 @@
+data.
+    latitude
+    longitude
+    timezone
+    timezone_abbreviation
+    elevation
+    current_units.
+        time
+        interval
+        temperature_2m          (e.g. "°F")
+        apparent_temperature    (e.g. "°F")
+        relative_humidity_2m    (e.g. "%")
+        precipitation           (e.g. "inch")
+        weather_code            (e.g. "wmo code")
+        wind_speed_10m          (e.g. "mph")
+        wind_direction_10m      (e.g. "°")
+        is_day                  (e.g. "")
+    current.
+        time                    (ISO 8601, e.g. "2026-02-23T14:00")
+        interval                (seconds, e.g. 900)
+        temperature_2m          (°F)
+        apparent_temperature    (°F, "feels like")
+        relative_humidity_2m    (%, 0-100)
+        precipitation           (inch)
+        weather_code            (WMO code, integer)
+        wind_speed_10m          (mph)
+        wind_direction_10m      (degrees, 0-360)
+        is_day                  (1 = day, 0 = night)
+    hourly.
+        time                    (array of 144 ISO strings, hourly for 6 days)
+        temperature_2m          (array of 144 floats, °F)
+        weather_code            (array of 144 integers, WMO codes)
+        precipitation_probability (array of 144 integers, %)
+    daily.
+        time                    (array of 6 date strings, e.g. "2026-02-23")
+        temperature_2m_max      (array of 6 floats, °F)
+        temperature_2m_min      (array of 6 floats, °F)
+        weather_code            (array of 6 integers, WMO codes)
+        precipitation_probability_max (array of 6 integers, %)
+
+WMO Weather Code Groups:
+    0          = Clear sky
+    1          = Mainly clear
+    2          = Partly cloudy
+    3          = Overcast
+    45, 48     = Fog
+    51-55      = Drizzle
+    61-65      = Rain
+    66-67      = Freezing rain
+    71-77      = Snow
+    80-82      = Rain showers
+    85-86      = Snow showers
+    95-99      = Thunderstorm

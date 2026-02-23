@@ -1,0 +1,300 @@
+{% comment %}
+  weather_current: Current conditions block
+  Params: current, current_units, location_name
+{% endcomment %}
+{% template weather_current %}
+{% assign wc = current.weather_code %}
+{% assign is_day = current.is_day %}
+{% if wc == 0 %}
+  {% assign condition = "Clear" %}
+  {% if is_day == 1 %}{% assign icon = "clear-day" %}{% else %}{% assign icon = "clear-night" %}{% endif %}
+{% elsif wc == 1 %}
+  {% assign condition = "Mainly Clear" %}
+  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day" %}{% else %}{% assign icon = "partly-cloudy-night" %}{% endif %}
+{% elsif wc == 2 %}
+  {% assign condition = "Partly Cloudy" %}
+  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day" %}{% else %}{% assign icon = "partly-cloudy-night" %}{% endif %}
+{% elsif wc == 3 %}
+  {% assign condition = "Overcast" %}
+  {% assign icon = "overcast" %}
+{% elsif wc == 45 or wc == 48 %}
+  {% assign condition = "Fog" %}
+  {% assign icon = "fog" %}
+{% elsif wc >= 51 and wc <= 55 %}
+  {% assign condition = "Drizzle" %}
+  {% assign icon = "drizzle" %}
+{% elsif wc >= 61 and wc <= 65 %}
+  {% assign condition = "Rain" %}
+  {% assign icon = "rain" %}
+{% elsif wc == 66 or wc == 67 %}
+  {% assign condition = "Freezing Rain" %}
+  {% assign icon = "sleet" %}
+{% elsif wc >= 71 and wc <= 77 %}
+  {% assign condition = "Snow" %}
+  {% assign icon = "snow" %}
+{% elsif wc >= 80 and wc <= 82 %}
+  {% assign condition = "Showers" %}
+  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day-rain" %}{% else %}{% assign icon = "partly-cloudy-night-rain" %}{% endif %}
+{% elsif wc == 85 or wc == 86 %}
+  {% assign condition = "Snow Showers" %}
+  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day-snow" %}{% else %}{% assign icon = "partly-cloudy-night-snow" %}{% endif %}
+{% elsif wc >= 95 and wc <= 99 %}
+  {% assign condition = "Thunderstorm" %}
+  {% assign icon = "thunderstorms" %}
+{% else %}
+  {% assign condition = "Unknown" %}
+  {% assign icon = "not-available" %}
+{% endif %}
+{% assign icon_url = "https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/" | append: icon | append: ".svg" %}
+{% assign wd = current.wind_direction_10m %}
+{% if wd >= 338 or wd < 23 %}
+  {% assign wind_dir = "N" %}
+{% elsif wd >= 23 and wd < 68 %}
+  {% assign wind_dir = "NE" %}
+{% elsif wd >= 68 and wd < 113 %}
+  {% assign wind_dir = "E" %}
+{% elsif wd >= 113 and wd < 158 %}
+  {% assign wind_dir = "SE" %}
+{% elsif wd >= 158 and wd < 203 %}
+  {% assign wind_dir = "S" %}
+{% elsif wd >= 203 and wd < 248 %}
+  {% assign wind_dir = "SW" %}
+{% elsif wd >= 248 and wd < 293 %}
+  {% assign wind_dir = "W" %}
+{% else %}
+  {% assign wind_dir = "NW" %}
+{% endif %}
+{% assign temp_f = current.temperature_2m | round %}
+{% assign temp_c = current.temperature_2m | minus: 32 | times: 5 | divided_by: 9 | round %}
+{% assign feels_f = current.apparent_temperature | round %}
+{% assign feels_c = current.apparent_temperature | minus: 32 | times: 5 | divided_by: 9 | round %}
+{% assign wind_int = current.wind_speed_10m | round %}
+<div style="display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; padding: 4px 0;">
+  <div>
+    <div class="label label--big" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
+    <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ condition }}</div>
+    <div class="description" data-pixel-perfect="true">Feels like {{ feels_f }}°F / {{ feels_c }}°C</div>
+    <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity_2m }}%</div>
+    <div class="description" data-pixel-perfect="true">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+  </div>
+  <div style="display:flex; flex-direction:row; align-items:center; gap:12px;">
+    <img src="{{ icon_url }}" style="width:96px; height:96px;">
+    <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ temp_f }}°F / {{ temp_c }}°C</div>
+  </div>
+</div>
+{% endtemplate %}
+
+{% comment %}
+  weather_hourly_chart: Highcharts spline for next 24 hours
+  Params: hourly, current_time, chart_height
+{% endcomment %}
+{% template weather_hourly_chart %}
+<script src="https://code.highcharts.com/highcharts.js"></script>
+{% assign current_hour = current_time | slice: 0, 13 %}
+{% assign start_index = 0 %}
+{% assign found_start = false %}
+{% for t in hourly.time %}
+  {% unless found_start %}
+    {% assign t_hour = t | slice: 0, 13 %}
+    {% if t_hour == current_hour %}
+      {% assign start_index = forloop.index0 %}
+      {% assign found_start = true %}
+    {% endif %}
+  {% endunless %}
+{% endfor %}
+
+{% assign hour_labels = "" %}
+{% assign temp_data = "" %}
+{% assign precip_data = "" %}
+{% assign loop_count = 0 %}
+{% for t in hourly.time offset: start_index limit: 25 %}
+  {% assign h_str = t | slice: 11, 5 %}
+  {% assign h_num = h_str | slice: 0, 2 | plus: 0 %}
+  {% if h_num == 0 %}
+    {% assign h_label = "12am" %}
+  {% elsif h_num < 12 %}
+    {% assign h_label = h_num | append: "am" %}
+  {% elsif h_num == 12 %}
+    {% assign h_label = "12pm" %}
+  {% else %}
+    {% assign h_minus = h_num | minus: 12 %}
+    {% assign h_label = h_minus | append: "pm" %}
+  {% endif %}
+  {% if loop_count == 0 %}
+    {% assign h_label = "Now" %}
+  {% endif %}
+  {% assign temp_val = hourly.temperature_2m[forloop.index0] | round %}
+  {% assign precip_val = hourly.precipitation_probability[forloop.index0] %}
+  {% if loop_count == 0 %}
+    {% assign hour_labels = h_label | prepend: '"' | append: '"' %}
+    {% assign temp_data = temp_val | append: "" %}
+    {% assign precip_data = precip_val | append: "" %}
+  {% else %}
+    {% assign hour_labels = hour_labels | append: ',"' | append: h_label | append: '"' %}
+    {% assign temp_data = temp_data | append: "," | append: temp_val %}
+    {% assign precip_data = precip_data | append: "," | append: precip_val %}
+  {% endif %}
+  {% assign loop_count = loop_count | plus: 1 %}
+{% endfor %}
+<div style="margin: 4px 0;">
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">TODAY</div>
+  <div id="hourly-chart" style="width:100%; height:{{ chart_height }}px;"></div>
+</div>
+<script>
+Highcharts.chart('hourly-chart', {
+  chart: {
+    animation: false,
+    backgroundColor: 'transparent',
+    margin: [10, 44, 28, 36],
+    spacing: [0, 0, 0, 0]
+  },
+  title: { text: null },
+  legend: { enabled: false },
+  tooltip: { enabled: false },
+  credits: { enabled: false },
+  plotOptions: {
+    series: { enableMouseTracking: false, animation: false },
+    column: { groupPadding: 0, pointPadding: 0, borderWidth: 0 }
+  },
+  xAxis: {
+    categories: [{{ hour_labels }}],
+    tickInterval: 3,
+    labels: { style: { fontSize: '10px', color: '#000' } },
+    lineColor: '#ccc',
+    tickColor: '#ccc'
+  },
+  yAxis: [
+    {
+      title: { text: null },
+      labels: { style: { fontSize: '10px', color: '#000' }, format: '{value}°F' },
+      gridLineColor: '#eee'
+    },
+    {
+      title: { text: null },
+      linkedTo: 0,
+      opposite: true,
+      gridLineWidth: 0,
+      labels: {
+        style: { fontSize: '10px', color: '#000' },
+        formatter: function() { return Math.round((this.value - 32) * 5 / 9) + '°C'; }
+      }
+    },
+    {
+      title: { text: null },
+      min: 0, max: 100,
+      opposite: true,
+      labels: { enabled: false },
+      gridLineWidth: 0
+    }
+  ],
+  series: [
+    {
+      name: 'Precip %',
+      type: 'column',
+      data: [{{ precip_data }}],
+      yAxis: 2,
+      color: 'rgba(0,0,0,0.12)',
+      zIndex: 0
+    },
+    {
+      name: 'Temp',
+      type: 'spline',
+      data: [{{ temp_data }}],
+      yAxis: 0,
+      color: '#000',
+      lineWidth: 2,
+      marker: { enabled: false },
+      zIndex: 1
+    }
+  ]
+});
+</script>
+{% endtemplate %}
+
+{% comment %}
+  weather_daily_bars: N-day forecast with CSS range bars
+  Params: daily, num_days
+{% endcomment %}
+{% template weather_daily_bars %}
+{% assign overall_min = daily.temperature_2m_min[0] %}
+{% assign overall_max = daily.temperature_2m_max[0] %}
+{% for i in (0..4) %}
+  {% assign d_min = daily.temperature_2m_min[i] %}
+  {% assign d_max = daily.temperature_2m_max[i] %}
+  {% if d_min < overall_min %}{% assign overall_min = d_min %}{% endif %}
+  {% if d_max > overall_max %}{% assign overall_max = d_max %}{% endif %}
+{% endfor %}
+{% assign overall_min_int = overall_min | floor %}
+{% assign overall_max_int = overall_max | ceil %}
+{% assign range = overall_max_int | minus: overall_min_int %}
+{% if range < 1 %}{% assign range = 1 %}{% endif %}
+
+<div style="margin: 4px 0;">
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">{{ section_label | default: "FORECAST" }}</div>
+  {% assign day_limit = num_days | default: 5 %}
+  {% assign start_day = 1 %}
+  {% for i in (0..5) %}
+    {% assign adj_i = i | plus: start_day %}
+    {% if adj_i <= 5 %}
+      {% assign wc = daily.weather_code[adj_i] %}
+      {% if wc == 0 %}
+        {% assign day_icon = "clear-day" %}
+      {% elsif wc == 1 %}
+        {% assign day_icon = "partly-cloudy-day" %}
+      {% elsif wc == 2 %}
+        {% assign day_icon = "partly-cloudy-day" %}
+      {% elsif wc == 3 %}
+        {% assign day_icon = "overcast" %}
+      {% elsif wc == 45 or wc == 48 %}
+        {% assign day_icon = "fog" %}
+      {% elsif wc >= 51 and wc <= 55 %}
+        {% assign day_icon = "drizzle" %}
+      {% elsif wc >= 61 and wc <= 65 %}
+        {% assign day_icon = "rain" %}
+      {% elsif wc == 66 or wc == 67 %}
+        {% assign day_icon = "sleet" %}
+      {% elsif wc >= 71 and wc <= 77 %}
+        {% assign day_icon = "snow" %}
+      {% elsif wc >= 80 and wc <= 82 %}
+        {% assign day_icon = "partly-cloudy-day-rain" %}
+      {% elsif wc == 85 or wc == 86 %}
+        {% assign day_icon = "partly-cloudy-day-snow" %}
+      {% elsif wc >= 95 and wc <= 99 %}
+        {% assign day_icon = "thunderstorms" %}
+      {% else %}
+        {% assign day_icon = "not-available" %}
+      {% endif %}
+      {% assign day_icon_url = "https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/" | append: day_icon | append: ".svg" %}
+      {% assign d_low_f = daily.temperature_2m_min[adj_i] | round %}
+      {% assign d_high_f = daily.temperature_2m_max[adj_i] | round %}
+      {% assign d_low_c = daily.temperature_2m_min[adj_i] | minus: 32 | times: 5 | divided_by: 9 | round %}
+      {% assign d_high_c = daily.temperature_2m_max[adj_i] | minus: 32 | times: 5 | divided_by: 9 | round %}
+      {% assign d_precip = daily.precipitation_probability_max[adj_i] %}
+      {% assign d_date = daily.time[adj_i] %}
+      {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
+      {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
+      <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
+        <div data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
+        <img src="{{ day_icon_url }}" style="width:28px; height:28px; flex-shrink:0;">
+        <div data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
+        <div data-pixel-perfect="true" style="width:60px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}° / {{ d_low_c }}°</div>
+        <div style="flex:1; position:relative; height:8px; background:#ddd; border-radius:4px; min-width:40px;">
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
+        </div>
+        <div data-pixel-perfect="true" style="width:60px; font-size:11px; flex-shrink:0;">{{ d_high_f }}° / {{ d_high_c }}°</div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endtemplate %}
+
+{% comment %}
+  title_bar: Standard bottom bar
+  Params: plugin_name
+{% endcomment %}
+{% template title_bar %}
+<div class="title_bar">
+  <img class="image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Cloud_-_The_Noun_Project.svg/240px-Cloud-The_Noun_Project.svg.png">
+  <span class="title">{{ plugin_name }}</span>
+</div>
+{% endtemplate %}
