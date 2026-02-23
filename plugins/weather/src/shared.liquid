@@ -216,9 +216,9 @@ Highcharts.chart('hourly-chart', {
   Params: daily, num_days
 {% endcomment %}
 {% template weather_daily_bars %}
-{% assign overall_min = daily.temperature_2m_min[0] %}
-{% assign overall_max = daily.temperature_2m_max[0] %}
-{% for i in (0..4) %}
+{% assign overall_min = daily.temperature_2m_min[1] %}
+{% assign overall_max = daily.temperature_2m_max[1] %}
+{% for i in (1..5) %}
   {% assign d_min = daily.temperature_2m_min[i] %}
   {% assign d_max = daily.temperature_2m_max[i] %}
   {% if d_min < overall_min %}{% assign overall_min = d_min %}{% endif %}
