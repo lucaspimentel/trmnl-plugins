@@ -1,0 +1,13 @@
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+.playwright-cli/
+.playwright/
+
+# Generated preview screenshots
+preview-*.png
