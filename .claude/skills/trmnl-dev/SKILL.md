@@ -153,6 +153,12 @@ access it as:
 {% render "my_content", current: data.current, units: data.units, max_height: 410 %}
 ```
 
+**For JSON object responses** (like Open-Meteo), the top-level keys are injected as
+top-level template variables. Access them directly — **not** via `data.*`:
+```liquid
+{% render "my_content", current: current, units: current_units %}
+```
+
 **For JSON:API responses** (like MBTA), the response is an array, so iterate directly:
 
 ```liquid
@@ -239,13 +245,70 @@ variables:
 - `variables`: override template variables for local testing
 - `time_zone`: IANA timezone injected into `trmnl.user`
 
-### trmnlp Project Structure vs Repository Structure
+### trmnlp Project Structure
 
-trmnlp expects templates under `src/` with `.trmnlp.yml` at the project root.
-This repository stores templates directly in each plugin directory (no `src/`).
-When using trmnlp with plugins from this repo, either:
-- Run trmnlp from within the plugin directory after adding a `src/` symlink or copying files
-- Or restructure the plugin to match trmnlp's expected layout
+trmnlp expects the following layout, with `.trmnlp.yml` at the project root and all plugin
+files under `src/`:
+
+```
+my-plugin/
+  .trmnlp.yml
+  src/
+    settings.yml        ← trmnlp reads this (not the root-level one)
+    shared.liquid
+    full.liquid
+    half_horizontal.liquid
+    half_vertical.liquid
+    quadrant.liquid
+```
+
+**Critical**: trmnlp reads `settings.yml` from `src/settings.yml` (not the plugin root).
+If `settings.yml` is in the wrong location, polling will not work — the Poll button will
+appear to succeed but all data will be zero/empty.
+
+Plugins in this repository use this layout: `.trmnlp.yml` at the plugin root,
+all liquid files and `settings.yml` under `src/`.
+
+### Static vs Live Data in .trmnlp.yml
+
+For development with static sample data, add a `data:` block under `variables:`:
+
+```yaml
+variables:
+  trmnl:
+    plugin_settings:
+      instance_name: My Plugin
+  data:
+    some_field: value
+    nested:
+      field: value
+```
+
+To switch to live API data, **remove the `data:` block entirely**. trmnlp will
+automatically poll the `polling_url` from `src/settings.yml` on startup and when
+the Poll button is clicked.
+
+**Note**: When switching from static to live data, restart the trmnlp server so it
+picks up the updated `.trmnlp.yml` and re-polls the API fresh.
+
+### Killing and Restarting the Server (Windows)
+
+Port 4567 must be free before starting. Use this PowerShell snippet:
+
+```powershell
+# kill-port.ps1
+$conns = Get-NetTCPConnection -LocalPort 4567 -ErrorAction SilentlyContinue
+foreach ($c in $conns) {
+    Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+}
+```
+
+Then restart from the plugin directory:
+
+```bash
+cd weather
+trmnlp serve
+```
 
 ## Design System Reference
 
@@ -263,8 +326,12 @@ Key principles:
 
 ## Debugging Tips
 
-- **Blank screen**: Check that `data` is populated — add `{{ data | json }}` temporarily to see raw data
+- **Blank screen / zero values**: Check that `data` is populated — add `{{ data | json }}` temporarily to see raw data. Zero values usually mean the template is receiving empty structs, not actual API data — check that `settings.yml` is in `src/`.
+- **Poll not working / empty data**: Verify `settings.yml` is at `src/settings.yml`. trmnlp reads `src/settings.yml` exclusively — a `settings.yml` at the plugin root will be ignored for polling.
 - **Content overflow**: Adjust `data-list-max-height` or add `data-list-limit="true"`
+- **Layout not full-width**: The `.layout` class does not automatically stretch to fill its container. Add `style="width:100%"` on the layout div, or use a plain `<div style="display:flex; ...">` for custom layouts.
+- **Highcharts not defined**: trmnlp's bundled `plugins.js` does not include Highcharts. Add `<script src="https://code.highcharts.com/highcharts.js"></script>` inside the template block that uses it.
+- **Highcharts axis labels clipped**: Increase the chart margin on the clipped side, e.g. `margin: [10, 44, 28, 36]` for a right axis.
 - **Layout issues**: Ensure `.layout` has direction (`.layout--col` or `.layout--row`) and alignment modifiers
 - **Stale data**: Check `refresh_interval` in settings.yml; minimum is 1 minute
 - **Webhook errors**: Check rate limits (12/hr standard, 30/hr TRMNL+) and payload size (2kb/5kb)
