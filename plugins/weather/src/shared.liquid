@@ -274,14 +274,14 @@ Highcharts.chart('hourly-chart', {
       {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
       {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
       <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
-        <div data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
+        <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
         <img src="{{ day_icon_url }}" style="width:28px; height:28px; flex-shrink:0;">
-        <div data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
-        <div data-pixel-perfect="true" style="width:60px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F / {{ d_low_c }}°C</div>
+        <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
+        <div class="description" data-pixel-perfect="true" style="width:60px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F / {{ d_low_c }}°C</div>
         <div style="flex:1; position:relative; height:8px; background:#ddd; border-radius:4px; min-width:40px;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
         </div>
-        <div data-pixel-perfect="true" style="width:60px; font-size:11px; flex-shrink:0;">{{ d_high_f }}°F / {{ d_high_c }}°C</div>
+        <div class="description" data-pixel-perfect="true" style="width:60px; font-size:11px; flex-shrink:0;">{{ d_high_f }}°F / {{ d_high_c }}°C</div>
       </div>
     {% endif %}
   {% endfor %}
