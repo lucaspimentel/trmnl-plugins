@@ -6,7 +6,7 @@ filtered to subway and light rail routes, sorted by severity.
 ## File Structure
 
 ```
-mbta-alerts/
+plugins/mbta-alerts/
   CLAUDE.md           # this file
   settings.yml        # plugin config (not using trmnlp src/ layout)
   shared.liquid

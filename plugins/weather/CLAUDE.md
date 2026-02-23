@@ -6,7 +6,7 @@ using the [Open-Meteo](https://open-meteo.com/) free API (no key required).
 ## File Structure
 
 ```
-weather/
+plugins/weather/
   .trmnlp.yml         # trmnlp local dev config (static or live data)
   CLAUDE.md           # this file
   fields.txt          # API response field documentation
@@ -22,7 +22,7 @@ weather/
 ## Local Preview
 
 ```bash
-cd weather
+cd plugins/weather
 trmnlp serve          # http://localhost:4567
 ```
 
@@ -32,7 +32,7 @@ to `.trmnlp.yml` (see the git history for a full example).
 
 To kill a stuck server on port 4567:
 ```bash
-pwsh -NoProfile -File ../kill-port.ps1
+pwsh -NoProfile -File ../../kill-port.ps1
 ```
 
 ## API

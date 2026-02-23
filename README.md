@@ -4,7 +4,8 @@ Plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device.
 
 ## Plugins
 
-- **[mbta-alerts](./mbta-alerts)** - Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA)
+- **[mbta-alerts](./plugins/mbta-alerts)** - Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA)
+- **[weather](./plugins/weather)** - Displays current conditions, hourly chart, and 5-day forecast using Open-Meteo
 
 ## Plugin Structure
 
@@ -20,7 +21,7 @@ Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally:
 
 ```bash
 gem install trmnl_preview   # or use Docker
-cd mbta-alerts
+cd plugins/mbta-alerts
 trmnlp serve                # preview at http://localhost:4567
 ```
 

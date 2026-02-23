@@ -10,7 +10,7 @@ For comprehensive TRMNL documentation, see: https://docs.usetrmnl.com/go/llms.tx
 
 ## Plugin Architecture
 
-Each plugin is a directory containing:
+Plugins live under the `plugins/` directory. Each plugin is a directory containing:
 - **settings.yml**: Configuration file defining data source and plugin metadata
   - `strategy`: Data fetching method (e.g., `polling`)
   - `polling_url`: API endpoint to fetch data from
@@ -37,11 +37,18 @@ Layout templates typically render shared templates with size-specific parameters
 
 ## Current Plugins
 
-### mbta-alerts
+Plugins are located under `plugins/`.
+
+### plugins/mbta-alerts
 Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA).
 - API: `https://api-v3.mbta.com/alerts` (filtered for subway/light rail routes)
 - Data fields: `service_effect`, `timeframe`, `header`, `updated_at`
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
+
+### plugins/weather
+Displays current conditions, a 24-hour temperature chart, and a 5-day forecast.
+- API: Open-Meteo free forecast API (no key required)
+- Features: Current temp/feels-like/humidity/wind, Highcharts hourly chart, daily range bars
 
 ## Tools (`./tools/`)
 
