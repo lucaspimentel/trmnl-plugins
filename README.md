@@ -24,6 +24,15 @@ cd mbta-alerts
 trmnlp serve                # preview at http://localhost:4567
 ```
 
+## Tools
+
+Utilities for interacting with the TRMNL API. Fetch the current screen image and display it in Sixel format in the terminal.
+
+- **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - PowerShell script with manual Sixel encoding (black/white output)
+- **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 console app using the [SixPix](https://www.nuget.org/packages/SixPix) library (full color)
+
+Both require `TRMNL_DEVICE_ID` and `TRMNL_DEVICE_API_KEY` environment variables.
+
 ## Resources
 
 - [TRMNL Website](https://usetrmnl.com/)

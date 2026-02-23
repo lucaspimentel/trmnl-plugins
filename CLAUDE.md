@@ -43,6 +43,24 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 - Data fields: `service_effect`, `timeframe`, `header`, `updated_at`
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
 
+## Tools (`./tools/`)
+
+Utilities for interacting with the TRMNL API. Both require environment variables:
+- `TRMNL_DEVICE_ID` - Your TRMNL device identifier
+- `TRMNL_DEVICE_API_KEY` - Your TRMNL API access token
+
+### Get-Trmnl-Image.ps1
+PowerShell script that fetches the current TRMNL screen image and displays it in Sixel format.
+- Manual Sixel encoding with luminance-based black/white conversion (threshold: 127)
+- Saves timestamped PNG files (`yyyy-MM-dd_HH-mm-ss.png`)
+- Run: `.\tools\Get-Trmnl-Image.ps1`
+
+### Trmnl.Cli/
+.NET 9 console application that fetches the current TRMNL screen image and displays it in Sixel format.
+- Uses [SixPix](https://www.nuget.org/packages/SixPix) NuGet package for Sixel encoding
+- Supports full color output
+- Run: `dotnet run --project tools/Trmnl.Cli/Trmnl.Cli.csproj`
+
 ## Development Workflow
 
 When creating or modifying plugins:
