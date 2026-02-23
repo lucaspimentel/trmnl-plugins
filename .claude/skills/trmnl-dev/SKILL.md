@@ -17,10 +17,9 @@ TRMNL is an 800x480 pixel, black-and-white, 2-bit grayscale e-ink display device
 Plugins fetch data from APIs and render it using Liquid templates styled with the
 TRMNL design system. Think of each plugin as a small dashboard widget.
 
-## Repository Layout
+## Plugin Layout
 
-This repository (`trmnl-plugins`) contains one directory per plugin at the root level.
-Each plugin directory holds:
+Each plugin is a directory containing:
 
 | File | Role |
 |------|------|
@@ -32,7 +31,6 @@ Each plugin directory holds:
 | `shared.liquid` | Reusable template blocks shared across layouts |
 | `fields.txt` | Documents the API response fields the plugin uses |
 
-The root `README.md` links to each plugin.
 
 ## Creating a New Plugin
 
@@ -72,8 +70,8 @@ custom_fields:
   name: Display Name
   field_type: author_bio
   description: Short description of the plugin
-  github_url: https://github.com/lucaspimentel/trmnl-plugins
-  learn_more_url: https://github.com/lucaspimentel/trmnl-plugins
+  github_url: https://github.com/your-org/your-repo
+  learn_more_url: https://github.com/your-org/your-repo
 ```
 
 Key settings:
@@ -306,7 +304,7 @@ foreach ($c in $conns) {
 Then restart from the plugin directory:
 
 ```bash
-cd weather
+cd my-plugin
 trmnlp serve
 ```
 
