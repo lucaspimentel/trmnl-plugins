@@ -145,7 +145,7 @@ Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [10, 44, 28, 36],
+    margin: [10, 54, 30, 58],
     spacing: [0, 0, 0, 0]
   },
   title: { text: null },
@@ -159,23 +159,33 @@ Highcharts.chart('hourly-chart', {
   xAxis: {
     categories: [{{ hour_labels }}],
     tickInterval: 3,
-    labels: { style: { fontSize: '10px', color: '#000' } },
+    labels: { style: { fontSize: '16px', color: '#000' } },
+    gridLineDashStyle: 'dot',
     lineColor: '#ccc',
     tickColor: '#ccc'
   },
   yAxis: [
     {
       title: { text: null },
-      labels: { style: { fontSize: '10px', color: '#000' }, format: '{value}°F' },
-      gridLineColor: '#eee'
+      tickAmount: 3,
+      labels: { style: { fontSize: '16px', color: '#000' }, formatter: function() { return Math.round(this.value) + '°F'; } },
+      gridLineDashStyle: 'shortdot',
+      gridLineColor: '#ccc'
     },
     {
       title: { text: null },
       linkedTo: 0,
       opposite: true,
       gridLineWidth: 0,
+      tickPositioner: function() {
+        var ax = this.chart.yAxis[0];
+        var min = ax.min, max = ax.max, mid = (min + max) / 2;
+        var ticks = [min, mid, max];
+        ticks.info = { unitName: 'second', higherRanks: {}, totalRange: max - min };
+        return ticks;
+      },
       labels: {
-        style: { fontSize: '10px', color: '#000' },
+        style: { fontSize: '16px', color: '#000' },
         formatter: function() { return Math.round((this.value - 32) * 5 / 9) + '°C'; }
       }
     },
@@ -202,7 +212,7 @@ Highcharts.chart('hourly-chart', {
       data: [{{ temp_data }}],
       yAxis: 0,
       color: '#000',
-      lineWidth: 2,
+      lineWidth: 4,
       marker: { enabled: false },
       zIndex: 1
     }
@@ -294,7 +304,10 @@ Highcharts.chart('hourly-chart', {
 {% endcomment %}
 {% template title_bar %}
 <div class="title_bar">
-  <img class="image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Cloud_-_The_Noun_Project.svg/240px-Cloud-The_Noun_Project.svg.png">
+  <img class="image" src="https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/partly-cloudy-day.svg">
   <span class="title">{{ plugin_name }}</span>
+  {% if updated_at %}
+  <span class="instance_name" style="margin-left:auto;">Updated {{ updated_at | date: "%-I:%M %p" }}</span>
+  {% endif %}
 </div>
 {% endtemplate %}
