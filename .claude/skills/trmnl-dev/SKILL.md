@@ -45,12 +45,12 @@ trmnlp init <plugin-name>
 This creates the standard directory structure under `<plugin-name>/` with `src/` containing
 the Liquid files and settings.yml, plus `.trmnlp.yml` for local dev config and `bin/dev`.
 
-If building inside this repository (not using trmnlp's project structure), create files
-directly in a new top-level directory — no `src/` subdirectory needed.
+Plugins in this repository use the trmnlp `src/` layout: `.trmnlp.yml` at the plugin root,
+all liquid files and `settings.yml` under `src/`. Always follow this layout when adding new plugins.
 
 ### 2. Manual scaffolding
 
-Create the plugin directory and these files:
+Create the plugin directory with a `src/` subdirectory, then add these files:
 
 **settings.yml** — configure data fetching:
 
@@ -136,36 +136,30 @@ Add a bullet linking to the new plugin directory.
 
 ## Data Access in Templates
 
-For polling plugins, the entire JSON response from `polling_url` is available as the `data` variable.
-Every field from the API must be accessed through `data.*` — there are no other top-level variables
-for API response content.
+How API data is exposed to templates depends on the shape of the JSON response:
 
-**Example**: If the API returns `{"current": {"temperature": 72}, "units": {"temperature": "°F"}}`,
-access it as:
-- `data.current.temperature` (not `current.temperature`)
-- `data.units.temperature` (not `units.temperature`)
+| Response shape | How data is available | Access pattern |
+|---|---|---|
+| **JSON array** (e.g. MBTA `[{...}, {...}]`) | `data` is the array | `{% for item in data %}` |
+| **JSON object** (e.g. Open-Meteo `{"current": {...}}`) | top-level keys injected as top-level variables | `current.temperature_2m` (no `data.` prefix) |
+| **Webhook** (`{"merge_variables": {...}}`) | merge_variables keys become top-level variables | `{{ my_key }}` |
 
-**In layout files**, always pass `data` (or sub-paths of `data`) explicitly to shared templates:
+**Determining which applies**: Check the API response shape. If the root is `[...]`, use `data`. If the root is `{...}`, the top-level keys are top-level variables — do **not** use `data.*` to access them.
 
-```liquid
-{% render "my_content", current: data.current, units: data.units, max_height: 410 %}
-```
-
-**For JSON object responses** (like Open-Meteo), the top-level keys are injected as
-top-level template variables. Access them directly — **not** via `data.*`:
-```liquid
-{% render "my_content", current: current, units: current_units %}
-```
-
-**For JSON:API responses** (like MBTA), the response is an array, so iterate directly:
-
+**JSON array example** (MBTA alerts — root is an array):
 ```liquid
 {% for item in data %}
-  {{ item.attributes.field_name }}
+  {{ item.attributes.service_effect }}
 {% endfor %}
 ```
 
-**Webhook plugins**: Data sent via `{"merge_variables": {...}}` becomes available as top-level variables.
+**JSON object example** (Open-Meteo — root is an object with `current`, `hourly`, etc.):
+```liquid
+{%- comment -%} top-level keys 'current' and 'hourly_units' are injected directly {%- endcomment -%}
+{% render "my_content", current: current, units: hourly_units, max_height: 410 %}
+```
+
+**In layout files**, always pass data explicitly to shared templates rather than relying on implicit variable inheritance.
 
 **Plugin settings**: `trmnl.plugin_settings.instance_name` gives the user-configured instance name.
 
