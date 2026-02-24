@@ -4,48 +4,33 @@
 {% endcomment %}
 {% template weather_current %}
 {% assign wc = current.weather_code %}
-{% assign is_day = current.is_day %}
 {% if wc == 0 %}
   {% assign condition = "Clear" %}
-  {% if is_day == 1 %}{% assign icon = "clear-day" %}{% else %}{% assign icon = "clear-night" %}{% endif %}
 {% elsif wc == 1 %}
   {% assign condition = "Mainly Clear" %}
-  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day" %}{% else %}{% assign icon = "partly-cloudy-night" %}{% endif %}
 {% elsif wc == 2 %}
   {% assign condition = "Partly Cloudy" %}
-  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day" %}{% else %}{% assign icon = "partly-cloudy-night" %}{% endif %}
 {% elsif wc == 3 %}
   {% assign condition = "Overcast" %}
-  {% assign icon = "overcast" %}
 {% elsif wc == 45 or wc == 48 %}
   {% assign condition = "Fog" %}
-  {% assign icon = "fog" %}
 {% elsif wc >= 51 and wc <= 55 %}
   {% assign condition = "Drizzle" %}
-  {% assign icon = "drizzle" %}
 {% elsif wc >= 61 and wc <= 65 %}
   {% assign condition = "Rain" %}
-  {% assign icon = "rain" %}
 {% elsif wc == 66 or wc == 67 %}
   {% assign condition = "Freezing Rain" %}
-  {% assign icon = "sleet" %}
 {% elsif wc >= 71 and wc <= 77 %}
   {% assign condition = "Snow" %}
-  {% assign icon = "snow" %}
 {% elsif wc >= 80 and wc <= 82 %}
   {% assign condition = "Showers" %}
-  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day-rain" %}{% else %}{% assign icon = "partly-cloudy-night-rain" %}{% endif %}
 {% elsif wc == 85 or wc == 86 %}
   {% assign condition = "Snow Showers" %}
-  {% if is_day == 1 %}{% assign icon = "partly-cloudy-day-snow" %}{% else %}{% assign icon = "partly-cloudy-night-snow" %}{% endif %}
 {% elsif wc >= 95 and wc <= 99 %}
   {% assign condition = "Thunderstorm" %}
-  {% assign icon = "thunderstorms" %}
 {% else %}
   {% assign condition = "Unknown" %}
-  {% assign icon = "not-available" %}
 {% endif %}
-{% assign icon_url = "https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/" | append: icon | append: ".svg" %}
 {% assign wd = current.wind_direction_10m %}
 {% if wd >= 338 or wd < 23 %}
   {% assign wind_dir = "N" %}
@@ -77,10 +62,7 @@
     <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity_2m }}%</div>
     <div class="description" data-pixel-perfect="true">Wind {{ wind_int }} mph {{ wind_dir }}</div>
   </div>
-  <div style="display:flex; flex-direction:row; align-items:center; gap:12px;">
-    <img src="{{ icon_url }}" style="width:96px; height:96px;">
-    <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ temp_f }}°F / {{ temp_c }}°C</div>
-  </div>
+  <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ temp_f }}°F / {{ temp_c }}°C</div>
 </div>
 {% endtemplate %}
 
@@ -246,35 +228,6 @@ Highcharts.chart('hourly-chart', {
   {% for i in (0..5) %}
     {% assign adj_i = i | plus: start_day %}
     {% if adj_i <= 5 %}
-      {% assign wc = daily.weather_code[adj_i] %}
-      {% if wc == 0 %}
-        {% assign day_icon = "clear-day" %}
-      {% elsif wc == 1 %}
-        {% assign day_icon = "partly-cloudy-day" %}
-      {% elsif wc == 2 %}
-        {% assign day_icon = "partly-cloudy-day" %}
-      {% elsif wc == 3 %}
-        {% assign day_icon = "overcast" %}
-      {% elsif wc == 45 or wc == 48 %}
-        {% assign day_icon = "fog" %}
-      {% elsif wc >= 51 and wc <= 55 %}
-        {% assign day_icon = "drizzle" %}
-      {% elsif wc >= 61 and wc <= 65 %}
-        {% assign day_icon = "rain" %}
-      {% elsif wc == 66 or wc == 67 %}
-        {% assign day_icon = "sleet" %}
-      {% elsif wc >= 71 and wc <= 77 %}
-        {% assign day_icon = "snow" %}
-      {% elsif wc >= 80 and wc <= 82 %}
-        {% assign day_icon = "partly-cloudy-day-rain" %}
-      {% elsif wc == 85 or wc == 86 %}
-        {% assign day_icon = "partly-cloudy-day-snow" %}
-      {% elsif wc >= 95 and wc <= 99 %}
-        {% assign day_icon = "thunderstorms" %}
-      {% else %}
-        {% assign day_icon = "not-available" %}
-      {% endif %}
-      {% assign day_icon_url = "https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/" | append: day_icon | append: ".svg" %}
       {% assign d_low_f = daily.temperature_2m_min[adj_i] | round %}
       {% assign d_high_f = daily.temperature_2m_max[adj_i] | round %}
       {% assign d_low_c = daily.temperature_2m_min[adj_i] | minus: 32 | times: 5 | divided_by: 9 | round %}
@@ -285,7 +238,6 @@ Highcharts.chart('hourly-chart', {
       {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
       <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
         <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
-        <img src="{{ day_icon_url }}" style="width:28px; height:28px; flex-shrink:0;">
         <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
         <div class="description" data-pixel-perfect="true" style="width:60px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F / {{ d_low_c }}°C</div>
         <div style="flex:1; position:relative; height:8px; background:#ddd; border-radius:4px; min-width:40px;">
@@ -304,7 +256,6 @@ Highcharts.chart('hourly-chart', {
 {% endcomment %}
 {% template title_bar %}
 <div class="title_bar">
-  <img class="image" src="https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/partly-cloudy-day.svg">
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
   <span class="instance_name" style="margin-left:auto;">Updated {{ updated_at | date: "%-I:%M %p" }}</span>
