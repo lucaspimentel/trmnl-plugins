@@ -8,6 +8,9 @@ This repository contains plugins for [TRMNL](https://usetrmnl.com/), an e-ink di
 
 For comprehensive TRMNL documentation, see: https://docs.trmnl.com/go/llms.txt
 
+> **Tip**: Append `.md` to any `https://docs.trmnl.com/go/...` URL to get a leaner Markdown version.
+> Example: `https://docs.trmnl.com/go/private-api/screens` → `https://docs.trmnl.com/go/private-api/screens.md`
+
 ## Plugin Architecture
 
 Plugins live under the `plugins/` directory. Each plugin uses the trmnlp `src/` layout:

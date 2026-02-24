@@ -308,6 +308,11 @@ cd my-plugin
 trmnlp serve
 ```
 
+## TRMNL Documentation
+
+When fetching TRMNL docs, append `.md` to any `https://docs.trmnl.com/go/...` URL for a leaner Markdown response:
+- `https://docs.trmnl.com/go/private-api/screens` → `https://docs.trmnl.com/go/private-api/screens.md`
+
 ## Design System Reference
 
 The TRMNL design system provides CSS classes and data attributes optimized for e-ink rendering.
