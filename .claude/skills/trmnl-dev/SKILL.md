@@ -28,7 +28,7 @@ Each plugin is a directory containing:
 | `half_horizontal.liquid` | Half-screen horizontal (~173px content height) |
 | `half_vertical.liquid` | Half-screen vertical (~360px content height) |
 | `quadrant.liquid` | Quarter-screen (~173px content height) |
-| `shared.liquid` | Reusable template blocks shared across layouts |
+| `shared.liquid` | Reusable template blocks; prepended to every layout before rendering |
 | `fields.txt` | Documents the API response fields the plugin uses |
 
 
@@ -203,7 +203,7 @@ cd my_plugin
 trmnlp serve              # start local preview at http://localhost:4567
 # Edit templates — preview auto-reloads on save
 
-trmnlp login              # authenticate with TRMNL API key
+trmnlp login              # authenticate with TRMNL API key (or set $TRMNL_API_KEY env var)
 trmnlp push               # upload plugin to your TRMNL device
 ```
 
@@ -313,6 +313,11 @@ trmnlp serve
 The TRMNL design system provides CSS classes and data attributes optimized for e-ink rendering.
 For the full component reference with examples, read `references/design-system.md`.
 For live interactive docs, see https://trmnl.com/framework/docs.
+For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc.) across 30+ device models, see https://trmnl.com/framework/examples.
+
+## Plugin Examples
+
+For real-world plugin implementations to use as reference, see the official TRMNL plugins repository: https://github.com/usetrmnl/plugins
 
 Key principles:
 - Everything renders at 800x480px in black, white, and 2-bit grayscale

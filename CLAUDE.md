@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device. TRMNL plugins fetch data from external APIs and render it using Liquid templates for display on the device.
 
-For comprehensive TRMNL documentation, see: https://docs.usetrmnl.com/go/llms.txt
+For comprehensive TRMNL documentation, see: https://docs.trmnl.com/go/llms.txt
 
 ## Plugin Architecture
 
@@ -55,6 +55,13 @@ Displays current conditions, a 24-hour temperature chart, and a 5-day forecast.
 Utilities for interacting with the TRMNL API. Both require environment variables:
 - `TRMNL_DEVICE_ID` - Your TRMNL device identifier
 - `TRMNL_DEVICE_API_KEY` - Your TRMNL API access token
+
+Credentials are stored in the **1Password item "trmnl"** (personal account). It contains:
+- `TRMNL_DEVICE_ID` — device identifier
+- `TRMNL_DEVICE_API_KEY` — device API key
+- `TRMNL_API_KEY` — user API key (for `trmnlp login`)
+
+Retrieve with: `op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal`
 
 ### Get-Trmnl-Image.ps1
 PowerShell script that fetches the current TRMNL screen image and displays it in Sixel format.
