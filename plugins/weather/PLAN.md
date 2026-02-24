@@ -146,10 +146,26 @@ Mapped to condition labels + Meteocons icon names via `if/elsif` chains. Use `cu
 to pick day/night icon variants.
 
 ### Weather Icons
-[Meteocons](https://bas.dev/work/meteocons) via CDN (`line` style for clean e-ink rendering):
-```
-https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/{icon-name}.svg
-```
+
+Currently no icons. Two options to revisit:
+
+**Option A: Meteocons monochrome font** (preferred)
+- Font-based, static (no animation), monochrome — ideal for e-ink
+- Source: https://github.com/basmilius/weather-icons/tree/dev/production/monochrome/font
+- CSS + font files can be loaded via jsDelivr:
+  ```
+  https://cdn.jsdelivr.net/gh/basmilius/weather-icons@dev/production/monochrome/font/Meteocons.css
+  ```
+- Usage: `<i class="m-wi_clear-day"></i>` (class names from Meteocons.css)
+- Need to map WMO weather codes → Meteocons class names
+
+**Option B: Weather Icons (Erik Flowers)**
+- Font-based, has WMO code mappings built in
+- CDN: `https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css`
+- Usage: `<i class="wi wi-wmo4680-{code}"></i>`
+
+Note: Animated SVG Meteocons (`bmcdn.nl`) were removed — animated icons don't work on e-ink
+and the CDN was unreliable on the TRMNL render server.
 
 ### Highcharts
 - Must include CDN script **inside** the template block (trmnlp's `plugins.js` doesn't include it)
