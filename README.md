@@ -9,11 +9,20 @@ Plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device.
 
 ## Plugin Structure
 
-Each plugin directory contains:
-- `settings.yml` - Configuration (API endpoint, refresh interval, metadata)
-- `shared.liquid` - Reusable Liquid templates
-- Layout templates (`full.liquid`, `half_horizontal.liquid`, `half_vertical.liquid`, `quadrant.liquid`)
-- `fields.txt` - Documentation of API data fields
+Each plugin directory uses the trmnlp `src/` layout:
+
+```
+plugins/<name>/
+  .trmnlp.yml                 # local dev config
+  fields.txt                  # API data field docs
+  src/
+    settings.yml              # API endpoint, refresh interval, metadata
+    shared.liquid             # reusable Liquid templates
+    full.liquid               # full screen layout
+    half_horizontal.liquid
+    half_vertical.liquid
+    quadrant.liquid
+```
 
 ## Local Development
 

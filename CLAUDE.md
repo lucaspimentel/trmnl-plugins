@@ -10,20 +10,27 @@ For comprehensive TRMNL documentation, see: https://docs.trmnl.com/go/llms.txt
 
 ## Plugin Architecture
 
-Plugins live under the `plugins/` directory. Each plugin is a directory containing:
-- **settings.yml**: Configuration file defining data source and plugin metadata
-  - `strategy`: Data fetching method (e.g., `polling`)
-  - `polling_url`: API endpoint to fetch data from
-  - `polling_verb`: HTTP method (typically `get`)
-  - `refresh_interval`: How often to fetch data (in minutes)
-  - `custom_fields`: Plugin metadata (name, description, GitHub URL)
-- **Layout templates** (`.liquid` files): Liquid templates for different display sizes
-  - `full.liquid`: Full screen layout
-  - `half_horizontal.liquid`: Half screen horizontal layout
-  - `half_vertical.liquid`: Half screen vertical layout
-  - `quadrant.liquid`: Quarter screen layout
-- **shared.liquid**: Reusable Liquid templates/partials
-- **fields.txt**: Documentation of data fields available from the API
+Plugins live under the `plugins/` directory. Each plugin uses the trmnlp `src/` layout:
+
+```
+plugins/<name>/
+  .trmnlp.yml       # trmnlp local dev config (not uploaded to TRMNL)
+  fields.txt        # Documentation of API data fields
+  src/
+    settings.yml    # Plugin metadata, data strategy, polling URL (must be in src/)
+    shared.liquid   # Reusable Liquid template blocks
+    full.liquid     # Full screen layout
+    half_horizontal.liquid
+    half_vertical.liquid
+    quadrant.liquid
+```
+
+Key `settings.yml` fields:
+- `strategy`: Data fetching method (`polling` or `webhook`)
+- `polling_url`: API endpoint to fetch data from
+- `polling_verb`: HTTP method (typically `get`)
+- `refresh_interval`: How often to fetch data (in minutes)
+- `custom_fields`: Plugin metadata (name, description, GitHub URL)
 
 ## Template System
 

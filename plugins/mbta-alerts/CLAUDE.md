@@ -7,17 +7,24 @@ filtered to subway and light rail routes, sorted by severity.
 
 ```
 plugins/mbta-alerts/
+  .trmnlp.yml         # trmnlp local dev config
   CLAUDE.md           # this file
-  settings.yml        # plugin config (not using trmnlp src/ layout)
-  shared.liquid
-  full.liquid
-  half_horizontal.liquid
-  half_vertical.liquid
-  quadrant.liquid
+  fields.txt          # API response field documentation
+  src/
+    settings.yml      # plugin config and polling URL (must be in src/)
+    shared.liquid     # all reusable templates
+    full.liquid
+    half_horizontal.liquid
+    half_vertical.liquid
+    quadrant.liquid
 ```
 
-Note: This plugin predates the trmnlp `src/` layout convention. Files are at the plugin root.
-If setting up trmnlp local preview, move files into `src/` and add `.trmnlp.yml`.
+## Local Preview
+
+```bash
+cd plugins/mbta-alerts
+trmnlp serve          # http://localhost:4567
+```
 
 ## API
 
