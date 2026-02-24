@@ -14,6 +14,6 @@ custom_fields:
   field_type: author_bio
   description: Shows service alerts from the Massachusetts Bay Transport Authority (MBTA)
   github_url: https://github.com/lucaspimentel/trmnl-plugins
-  learn_more_url: https://github.com/lucaspimentel/trmnl-plugins
+#  learn_more_url: https://github.com/lucaspimentel/trmnl-plugins
 name: MBTA Alerts
 refresh_interval: 30

@@ -14,6 +14,6 @@ custom_fields:
   field_type: author_bio
   description: Display name for the location (e.g. "Boston")
   github_url: https://github.com/lucaspimentel/trmnl-plugins
-  learn_more_url: https://open-meteo.com/
+#  learn_more_url:
 name: Weather
 refresh_interval: 15
