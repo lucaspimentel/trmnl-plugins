@@ -8,11 +8,10 @@
   {% if data and data.size > 0 %}
   {% for alert in data %}
   <div class="item">
-    <div class="meta"></div>
     <div class="content" data-content-limiter="true">
       <div class="flex flex--row">
         <span class="title title--small" data-pixel-perfect="true">{{ alert.attributes.service_effect }}</span>
-        <span class="label label--small label--underline" data-pixel-perfect="true">{{ alert.attributes.timeframe }}</span>
+        {% if alert.attributes.timeframe != blank %}<span class="label label--small label--underline" data-pixel-perfect="true">{{ alert.attributes.timeframe }}</span>{% endif %}
       </div>
       <span class="description clamp--3" data-pixel-perfect="true">{{ alert.attributes.header }} (updated: {{ alert.attributes.updated_at | date: "%b %-d, %-I:%M%P" }}).</span>
     </div>
