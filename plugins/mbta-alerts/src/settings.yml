@@ -6,6 +6,7 @@ static_data: ''
 polling_verb: get
 polling_url: https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&fields[alert]=service_effect,timeframe,header,updated_at
 polling_headers: ''
+polling_body: ''
 id: 93149
 custom_fields:
 - keyname: doesnt_matter
@@ -15,4 +16,4 @@ custom_fields:
   github_url: https://github.com/lucaspimentel/trmnl-plugins
   learn_more_url: https://github.com/lucaspimentel/trmnl-plugins
 name: MBTA Alerts
-refresh_interval: 15
+refresh_interval: 30
