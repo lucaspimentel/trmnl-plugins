@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using WeatherProxy.Models;
 using WeatherProxy.Services;
 
 namespace WeatherProxy.Functions;
@@ -40,10 +41,33 @@ public class WeatherFunction(
             cache.Set(latitude, longitude, weatherResponse);
         }
 
+        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        if (query["fake"] is "true" or "1")
+        {
+            weatherResponse = FakePrecipitation(weatherResponse);
+        }
+
         var ok = req.CreateResponse(HttpStatusCode.OK);
         ok.Headers.Add("Content-Type", "application/json; charset=utf-8");
         await ok.WriteStringAsync(JsonSerializer.Serialize(weatherResponse, JsonOptions), cancellationToken);
         return ok;
+    }
+
+    private static WeatherResponse FakePrecipitation(WeatherResponse response)
+    {
+        var hourly = response.Hourly.Entries
+            .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
+            .ToList();
+
+        var daily = response.Daily.Entries
+            .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
+            .ToList();
+
+        return response with
+        {
+            Hourly = new HourlyForecast(hourly),
+            Daily = new DailyForecast(daily)
+        };
     }
 
     private static bool TryParseCoordinates(HttpRequestData req, out double latitude, out double longitude)
