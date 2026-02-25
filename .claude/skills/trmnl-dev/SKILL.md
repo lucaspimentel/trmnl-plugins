@@ -191,6 +191,7 @@ How API data is exposed to templates depends on the shape of the JSON response:
 
 **Liquid filters**: Standard Shopify Liquid filters work (e.g., `| date: "%b %-d"`, `| upcase`).
 TRMNL also provides custom filters via the trmnl-liquid gem.
+For the full Liquid language reference (all filters, tags, operators, types), see `references/liquid.md`.
 
 ### Liquid Syntax Notes
 
