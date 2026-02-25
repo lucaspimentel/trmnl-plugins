@@ -563,11 +563,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
           <div style="position:relative; flex:1; height:26px; background:#fff; border:1px solid #000; border-radius:8px; min-width:0;">
             <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
           {% if width_pct >= 25 %}
-          <span style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_low_f }}°</span>
-          <span style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_high_f }}°</span>
+          <span class="description" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_low_f }}°</span>
+          <span class="description" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_high_f }}°</span>
           {% else %}
-          <span style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:11px; font-weight:600;">{{ d_low_f }}°</span>
-          <span style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:11px; font-weight:600;">{{ d_high_f }}°</span>
+          <span class="description" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:11px; font-weight:600;">{{ d_low_f }}°</span>
+          <span class="description" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:11px; font-weight:600;">{{ d_high_f }}°</span>
           {% endif %}
           </div>
         </div>
