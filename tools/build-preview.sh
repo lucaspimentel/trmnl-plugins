@@ -11,6 +11,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
 PLUGIN_DIR=""
 SCREENSHOT=false
 
@@ -24,6 +27,11 @@ done
 if [[ -z "$PLUGIN_DIR" ]]; then
   echo "Usage: build-preview.sh <plugin-dir> [--screenshot]" >&2
   exit 1
+fi
+
+# Resolve plugin dir relative to repo root if not absolute
+if [[ "$PLUGIN_DIR" != /* ]]; then
+  PLUGIN_DIR="$REPO_ROOT/$PLUGIN_DIR"
 fi
 
 BUILD_DIR="$PLUGIN_DIR/_build"
