@@ -560,7 +560,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       <div style="margin:6px 0;">
         <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
           <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700;">{{ d_label }}</span>
-          <span class="description" data-pixel-perfect="true" style="font-size:11px; font-weight:700;"><i class="wi wi-raindrop" style="font-size:10px;"></i> {{ d_precip }}%</span>
+          <span style="display:flex; align-items:center; gap:2px;"><i class="wi wi-raindrop" style="font-size:10px;"></i><span class="description" data-pixel-perfect="true" style="font-size:11px; font-weight:700;">{{ d_precip }}%</span></span>
         </div>
         <div style="display:flex; align-items:center; gap:4px;">
           <i class="wi {{ d_icon }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
