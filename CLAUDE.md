@@ -164,6 +164,15 @@ playwright-cli screenshot --filename=plugins/<name>/render.png
 playwright-cli close
 ```
 
+After taking a screenshot, always convert it to 1-bit using Floyd-Steinberg dithering to approximate how it will look on the e-ink display (TRMNL's internal algorithm is unspecified, but their ImageMagick guide recommends Floyd-Steinberg):
+
+```bash
+python3 tools/dither.py plugins/<name>/render.png
+# outputs plugins/<name>/render-1bit.png
+```
+
+Then display both images to compare.
+
 ## Skills
 
 The `.claude/skills/trmnl-dev/` directory contains a Claude Code skill for full-lifecycle plugin development, including scaffolding, template authoring, and local preview with trmnlp.
