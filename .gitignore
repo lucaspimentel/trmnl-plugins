@@ -1,5 +1,8 @@
 # Playright
 .playwright-cli/
 
-# trmnlp build (static html)
+# trmnlp builds (static html)
 plugins/*/_build/
+
+# screenshots
+plugins/*/render.png
