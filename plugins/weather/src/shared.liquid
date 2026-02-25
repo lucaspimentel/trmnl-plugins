@@ -208,22 +208,18 @@
 {% else %}
   {% assign icon_class = "wi-na" %}
 {% endif %}
-<div style="display:flex; flex-direction:row; align-items:center; width:100%; padding:8px 0;">
-  <div style="flex:1; display:flex; justify-content:center;">
-    <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_f }}°F</div>
-  </div>
-  <div style="flex:1; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:10px;">
-    <i class="wi {{ icon_class }}" style="font-size:52px; line-height:1;"></i>
+<div style="display:flex; flex-direction:row; align-items:center; justify-content:center; width:100%; padding:16px 0; gap:48px;">
+  <div class="value" data-pixel-perfect="true" style="font-size:72px; line-height:1;">{{ temp_f }}°F</div>
+  <div style="display:flex; flex-direction:row; align-items:center; gap:14px;">
+    <i class="wi {{ icon_class }}" style="font-size:72px; line-height:1;"></i>
     <div style="text-align:left;">
-      <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ condition }}</div>
-      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Feels like {{ feels_f }}°F</div>
-      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Humidity {{ current.relative_humidity_2m }}%</div>
-      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:600;">{{ condition }}</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px;">Feels like {{ feels_f }}°F</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px;">Humidity {{ current.relative_humidity_2m }}%</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
     </div>
   </div>
-  <div style="flex:1; display:flex; justify-content:center;">
-    <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_c }}°C</div>
-  </div>
+  <div class="value" data-pixel-perfect="true" style="font-size:72px; line-height:1;">{{ temp_c }}°C</div>
 </div>
 {% endtemplate %}
 
@@ -281,14 +277,14 @@
 {% endfor %}
 <div style="margin: 4px 0;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">TODAY</div>
-  <div id="hourly-chart" style="width:100%; height:{{ chart_height }}px;"></div>
+  <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px;"></div>
 </div>
 <script>
 var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [10, 58, 40, 58],
+    margin: [10, 58, 48, 58],
     spacing: [0, 0, 0, 0],
     style: { fontFamily: 'Inter, sans-serif' }
   },
@@ -435,15 +431,14 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">FORECAST</div>
   <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% assign day_limit = num_days | default: 6 %}
-  {% assign start_day = 0 %}
+  {% assign max_index = day_limit | minus: 1 %}
   {% for i in (0..5) %}
-    {% assign adj_i = i | plus: start_day %}
-    {% if adj_i <= 5 %}
-      {% assign d_low_f = daily.temperature_2m_min[adj_i] | round %}
-      {% assign d_high_f = daily.temperature_2m_max[adj_i] | round %}
-      {% assign d_precip = daily.precipitation_probability_max[adj_i] %}
-      {% assign d_date = daily.time[adj_i] %}
-      {% if adj_i == 0 %}
+    {% if i < day_limit %}
+      {% assign d_low_f = daily.temperature_2m_min[i] | round %}
+      {% assign d_high_f = daily.temperature_2m_max[i] | round %}
+      {% assign d_precip = daily.precipitation_probability_max[i] %}
+      {% assign d_date = daily.time[i] %}
+      {% if i == 0 %}
         {% assign d_label = "Today" %}
       {% else %}
         {% assign d_label = d_date | date: "%a" %}
