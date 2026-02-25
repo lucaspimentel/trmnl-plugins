@@ -1,7 +1,7 @@
 <style>
 @font-face {
   font-family: 'weathericons';
-  src: url('https://trmnlplugins.blob.core.windows.net/assets/weather-icons.woff2') format('woff2');
+  src: url('https://cdn.jsdelivr.net/gh/erikflowers/weather-icons@2.0.10/font/weathericons-regular-webfont.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
@@ -14,6 +14,44 @@
   line-height: 1;
   -webkit-font-smoothing: antialiased;
 }
+.wi::before { display: inline-block; }
+.wi-day-sunny:before { content: "\f00d"; }
+.wi-day-sunny-overcast:before { content: "\f00c"; }
+.wi-day-cloudy:before { content: "\f002"; }
+.wi-night-clear:before { content: "\f02e"; }
+.wi-night-partly-cloudy:before { content: "\f083"; }
+.wi-night-cloudy:before { content: "\f031"; }
+.wi-wmo4680-3:before { content: "\f013"; }
+.wi-wmo4680-45:before { content: "\f015"; }
+.wi-wmo4680-48:before { content: "\f01b"; }
+.wi-wmo4680-51:before { content: "\f01c"; }
+.wi-wmo4680-52:before { content: "\f019"; }
+.wi-wmo4680-53:before { content: "\f019"; }
+.wi-wmo4680-54:before { content: "\f076"; }
+.wi-wmo4680-55:before { content: "\f076"; }
+.wi-wmo4680-61:before { content: "\f01c"; }
+.wi-wmo4680-62:before { content: "\f019"; }
+.wi-wmo4680-63:before { content: "\f019"; }
+.wi-wmo4680-64:before { content: "\f015"; }
+.wi-wmo4680-65:before { content: "\f015"; }
+.wi-wmo4680-66:before { content: "\f015"; }
+.wi-wmo4680-67:before { content: "\f017"; }
+.wi-wmo4680-71:before { content: "\f01b"; }
+.wi-wmo4680-72:before { content: "\f01b"; }
+.wi-wmo4680-73:before { content: "\f01b"; }
+.wi-wmo4680-74:before { content: "\f076"; }
+.wi-wmo4680-75:before { content: "\f076"; }
+.wi-wmo4680-76:before { content: "\f076"; }
+.wi-wmo4680-77:before { content: "\f01b"; }
+.wi-wmo4680-80:before { content: "\f019"; }
+.wi-wmo4680-81:before { content: "\f01c"; }
+.wi-wmo4680-82:before { content: "\f019"; }
+.wi-wmo4680-85:before { content: "\f017"; }
+.wi-wmo4680-86:before { content: "\f017"; }
+.wi-wmo4680-95:before { content: "\f01e"; }
+.wi-wmo4680-96:before { content: "\f01e"; }
+.wi-wmo4680-99:before { content: "\f056"; }
+.wi-na:before { content: "\f07b"; }
 </style>
 
 {% comment %}
@@ -137,15 +175,51 @@
 {% assign feels_f = current.apparent_temperature | round %}
 {% assign wind_int = current.wind_speed_10m | round %}
 {% assign temp_c = current.temperature_2m | minus: 32 | times: 5 | divided_by: 9 | round %}
+{% if wc == 0 %}
+  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-sunny" %}{% else %}{% assign icon_class = "wi-night-clear" %}{% endif %}
+{% elsif wc == 1 %}
+  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-sunny-overcast" %}{% else %}{% assign icon_class = "wi-night-partly-cloudy" %}{% endif %}
+{% elsif wc == 2 %}
+  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-cloudy" %}{% else %}{% assign icon_class = "wi-night-cloudy" %}{% endif %}
+{% elsif wc == 3 %}
+  {% assign icon_class = "wi-wmo4680-3" %}
+{% elsif wc == 45 %}
+  {% assign icon_class = "wi-wmo4680-45" %}
+{% elsif wc == 48 %}
+  {% assign icon_class = "wi-wmo4680-48" %}
+{% elsif wc >= 51 and wc <= 55 %}
+  {% assign icon_class = "wi-wmo4680-" | append: wc %}
+{% elsif wc >= 61 and wc <= 65 %}
+  {% assign icon_class = "wi-wmo4680-" | append: wc %}
+{% elsif wc == 66 %}
+  {% assign icon_class = "wi-wmo4680-66" %}
+{% elsif wc == 67 %}
+  {% assign icon_class = "wi-wmo4680-67" %}
+{% elsif wc >= 71 and wc <= 77 %}
+  {% assign icon_class = "wi-wmo4680-" | append: wc %}
+{% elsif wc >= 80 and wc <= 82 %}
+  {% assign icon_class = "wi-wmo4680-" | append: wc %}
+{% elsif wc == 85 %}
+  {% assign icon_class = "wi-wmo4680-85" %}
+{% elsif wc == 86 %}
+  {% assign icon_class = "wi-wmo4680-86" %}
+{% elsif wc >= 95 and wc <= 99 %}
+  {% assign icon_class = "wi-wmo4680-" | append: wc %}
+{% else %}
+  {% assign icon_class = "wi-na" %}
+{% endif %}
 <div style="display:flex; flex-direction:row; align-items:center; width:100%; padding:8px 0;">
   <div style="flex:1; display:flex; justify-content:center;">
     <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_f }}°F</div>
   </div>
-  <div style="flex:1; text-align:center;">
-    <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:12px;">Feels like {{ feels_f }}°F</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:12px;">Humidity {{ current.relative_humidity_2m }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:12px;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+  <div style="flex:1; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:10px;">
+    <i class="wi {{ icon_class }}" style="font-size:52px; line-height:1;"></i>
+    <div style="text-align:left;">
+      <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ condition }}</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Feels like {{ feels_f }}°F</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Humidity {{ current.relative_humidity_2m }}%</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:12px;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+    </div>
   </div>
   <div style="flex:1; display:flex; justify-content:center;">
     <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_c }}°C</div>
