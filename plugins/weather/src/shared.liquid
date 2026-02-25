@@ -245,6 +245,8 @@
 {% assign hour_labels = "" %}
 {% assign temp_data = "" %}
 {% assign precip_data = "" %}
+{% assign icon_codes = "" %}
+{% assign hour_times = "" %}
 {% assign loop_count = 0 %}
 {% for t in hourly.time offset: start_index limit: 25 %}
   {% assign h_str = t | slice: 11, 5 %}
@@ -264,14 +266,19 @@
   {% endif %}
   {% assign temp_val = hourly.temperature_2m[forloop.index0] | round %}
   {% assign precip_val = hourly.precipitation_probability[forloop.index0] %}
+  {% assign hwc = hourly.weather_code[forloop.index0] %}
   {% if loop_count == 0 %}
     {% assign hour_labels = h_label | prepend: '"' | append: '"' %}
     {% assign temp_data = temp_val | append: "" %}
     {% assign precip_data = precip_val | append: "" %}
+    {% assign icon_codes = hwc | append: "" %}
+    {% assign hour_times = t | prepend: '"' | append: '"' %}
   {% else %}
     {% assign hour_labels = hour_labels | append: ',"' | append: h_label | append: '"' %}
     {% assign temp_data = temp_data | append: "," | append: temp_val %}
     {% assign precip_data = precip_data | append: "," | append: precip_val %}
+    {% assign icon_codes = icon_codes | append: "," | append: hwc %}
+    {% assign hour_times = hour_times | append: ',"' | append: t | append: '"' %}
   {% endif %}
   {% assign loop_count = loop_count | plus: 1 %}
 {% endfor %}
@@ -280,11 +287,66 @@
   <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px;"></div>
 </div>
 <script>
+var iconCodes = [{{ icon_codes }}];
+var hourTimes = [{{ hour_times }}];
+var sunEvents = [
+  {% for sr in daily.sunrise %}{% if forloop.first == false %},{% endif %}{ rise: "{{ sr }}", set: "{{ daily.sunset[forloop.index0] }}" }{% endfor %}
+];
+function isNightHour(timeStr) {
+  var date = timeStr.slice(0, 10);
+  for (var i = 0; i < sunEvents.length; i++) {
+    if (sunEvents[i].rise.slice(0, 10) === date) {
+      return timeStr < sunEvents[i].rise || timeStr >= sunEvents[i].set;
+    }
+  }
+  return false;
+}
+function sunPlotLines() {
+  var lines = [];
+  var startTime = hourTimes[0];
+  var endTime = hourTimes[hourTimes.length - 1];
+  for (var i = 0; i < sunEvents.length; i++) {
+    var ev = sunEvents[i];
+    var events = [{ t: ev.rise, label: 'sunrise' }, { t: ev.set, label: 'sunset' }];
+    for (var j = 0; j < events.length; j++) {
+      var t = events[j].t;
+      if (t >= startTime && t <= endTime) {
+        var tHour = t.slice(0, 13);
+        for (var k = 0; k < hourTimes.length; k++) {
+          if (hourTimes[k].slice(0, 13) === tHour) {
+            var mins = parseInt(t.slice(14, 16), 10);
+            var h = parseInt(t.slice(11, 13), 10);
+            var ampm = h < 12 ? 'am' : 'pm';
+            var h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+            var timeStr2 = h12 + ':' + (mins < 10 ? '0' : '') + mins + ampm;
+            lines.push({ value: k + mins / 60, label: events[j].label + ' ' + timeStr2 });
+            break;
+          }
+        }
+      }
+    }
+  }
+  return lines;
+}
+function wmoIcon(code, night) {
+  if (code === 0) return night ? 'wi-night-clear' : 'wi-day-sunny';
+  if (code === 1) return night ? 'wi-night-partly-cloudy' : 'wi-day-sunny-overcast';
+  if (code === 2) return night ? 'wi-night-cloudy' : 'wi-day-cloudy';
+  if (code === 3) return 'wi-wmo4680-3';
+  if (code === 45) return 'wi-wmo4680-45';
+  if (code === 48) return 'wi-wmo4680-48';
+  if (code >= 51 && code <= 55) return 'wi-wmo4680-' + code;
+  if (code >= 61 && code <= 67) return 'wi-wmo4680-' + code;
+  if (code >= 71 && code <= 77) return 'wi-wmo4680-' + code;
+  if (code >= 80 && code <= 86) return 'wi-wmo4680-' + code;
+  if (code >= 95 && code <= 99) return 'wi-wmo4680-' + code;
+  return 'wi-na';
+}
 var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [10, 58, 48, 58],
+    margin: [10, 58, 68, 58],
     spacing: [0, 0, 0, 0],
     style: { fontFamily: 'Inter, sans-serif' }
   },
@@ -299,10 +361,34 @@ var chart = Highcharts.chart('hourly-chart', {
   xAxis: {
     categories: [{{ hour_labels }}],
     tickInterval: 4,
-    labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, rotation: 0, align: 'center' },
+    labels: {
+      useHTML: true,
+      style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
+      rotation: 0,
+      align: 'center',
+      formatter: function() {
+        var night = isNightHour(hourTimes[this.pos]);
+        var cls = wmoIcon(iconCodes[this.pos], night);
+        return '<div style="text-align:center;line-height:1.2;"><i class="wi ' + cls + '" style="font-size:16px;"></i><br>' + this.value + '</div>';
+      }
+    },
     gridLineDashStyle: 'dot',
     lineColor: '#000',
-    tickColor: '#000'
+    tickColor: '#000',
+    plotLines: sunPlotLines().map(function(pl) {
+      return {
+        value: pl.value,
+        color: '#000',
+        width: 2,
+        dashStyle: 'dash',
+        label: {
+          text: pl.label,
+          rotation: 0,
+          style: { fontSize: '12px', color: '#000', fontFamily: 'Inter, sans-serif' },
+          y: -2
+        }
+      };
+    })
   },
   yAxis: [
     {
@@ -438,11 +524,33 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       {% assign d_high_f = daily.temperature_2m_max[i] | round %}
       {% assign d_precip = daily.precipitation_probability_max[i] %}
       {% assign d_date = daily.time[i] %}
-      {% if i == 0 %}
-        {% assign d_label = "Today" %}
+      {% assign dwc = daily.weather_code[i] %}
+      {% if dwc == 0 %}
+        {% assign d_icon = "wi-day-sunny" %}
+      {% elsif dwc == 1 %}
+        {% assign d_icon = "wi-day-sunny-overcast" %}
+      {% elsif dwc == 2 %}
+        {% assign d_icon = "wi-day-cloudy" %}
+      {% elsif dwc == 3 %}
+        {% assign d_icon = "wi-wmo4680-3" %}
+      {% elsif dwc == 45 %}
+        {% assign d_icon = "wi-wmo4680-45" %}
+      {% elsif dwc == 48 %}
+        {% assign d_icon = "wi-wmo4680-48" %}
+      {% elsif dwc >= 51 and dwc <= 55 %}
+        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
+      {% elsif dwc >= 61 and dwc <= 67 %}
+        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
+      {% elsif dwc >= 71 and dwc <= 77 %}
+        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
+      {% elsif dwc >= 80 and dwc <= 86 %}
+        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
+      {% elsif dwc >= 95 and dwc <= 99 %}
+        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
       {% else %}
-        {% assign d_label = d_date | date: "%a" %}
+        {% assign d_icon = "wi-na" %}
       {% endif %}
+      {% assign d_label = d_date | date: "%a" %}
       {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
       {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
       <div style="margin:6px 0;">
@@ -450,8 +558,10 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
           <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ d_label }}</span>
           <span class="description" data-pixel-perfect="true" style="font-size:11px;">{{ d_precip }}%</span>
         </div>
-        <div style="position:relative; width:100%; height:26px; background:#808080; border-radius:4px;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <i class="wi {{ d_icon }}" style="font-size:18px; width:22px; text-align:center; flex-shrink:0;"></i>
+          <div style="position:relative; flex:1; height:26px; background:#808080; border-radius:4px; min-width:0;">
+            <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
           {% if width_pct >= 25 %}
           <span style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_low_f }}°</span>
           <span style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_high_f }}°</span>
@@ -459,6 +569,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
           <span style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:11px; font-weight:600;">{{ d_low_f }}°</span>
           <span style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:11px; font-weight:600;">{{ d_high_f }}°</span>
           {% endif %}
+          </div>
         </div>
       </div>
     {% endif %}
@@ -475,7 +586,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 <div class="title_bar">
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
-  <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%-I:%M %p" }}</span>
+  <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
   {% endif %}
 </div>
 {% endtemplate %}
