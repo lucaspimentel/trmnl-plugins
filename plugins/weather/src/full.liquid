@@ -5,7 +5,7 @@
     <div style="flex:62; min-width:0; display:flex; flex-direction:column;">
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 260 %}
     </div>
-    <div style="flex:38; min-width:0; display:flex; flex-direction:column;">
+    <div style="flex:38; min-width:0; display:flex; flex-direction:column; padding-right:6px; padding-bottom:4px;">
       {% render "weather_daily_bars_vertical", daily: daily, num_days: 5 %}
     </div>
   </div>
