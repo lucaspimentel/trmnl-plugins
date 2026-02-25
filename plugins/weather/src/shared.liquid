@@ -110,7 +110,7 @@
 {% assign wind_int = current.wind_speed_10m | round %}
 <div style="display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; padding: 4px 0;">
   <div>
-    <div class="label label--big" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
+    <div class="label label--medium" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
     <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ condition }}</div>
     <div class="description" data-pixel-perfect="true">Feels like {{ feels_f }}°F</div>
     <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity_2m }}%</div>
@@ -232,7 +232,7 @@
   Params: hourly, current_time, chart_height
 {% endcomment %}
 {% template weather_hourly_chart %}
-<script src="https://trmnlplugins.blob.core.windows.net/assets/highcharts.js"></script>
+<script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
 {% assign current_hour = current_time | slice: 0, 13 %}
 {% assign start_index = 0 %}
 {% assign found_start = false %}
@@ -280,11 +280,11 @@
   {% assign loop_count = loop_count | plus: 1 %}
 {% endfor %}
 <div style="margin: 4px 0;">
-  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">TODAY</div>
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">TODAY</div>
   <div id="hourly-chart" style="width:100%; height:{{ chart_height }}px;"></div>
 </div>
 <script>
-Highcharts.chart('hourly-chart', {
+var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
@@ -305,8 +305,8 @@ Highcharts.chart('hourly-chart', {
     tickInterval: 4,
     labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, rotation: 0, align: 'center' },
     gridLineDashStyle: 'dot',
-    lineColor: '#ccc',
-    tickColor: '#ccc'
+    lineColor: '#000',
+    tickColor: '#000'
   },
   yAxis: [
     {
@@ -314,7 +314,7 @@ Highcharts.chart('hourly-chart', {
       tickAmount: 5,
       labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, formatter: function() { return Math.round(this.value) + '°F'; } },
       gridLineDashStyle: 'shortdot',
-      gridLineColor: '#ccc'
+      gridLineColor: '#000'
     },
     {
       title: { text: null },
@@ -338,7 +338,7 @@ Highcharts.chart('hourly-chart', {
       type: 'column',
       data: [{{ precip_data }}],
       yAxis: 1,
-      color: 'rgba(0,0,0,0.12)',
+      color: 'url(#precip-stripe)',
       zIndex: 0
     },
     {
@@ -353,6 +353,18 @@ Highcharts.chart('hourly-chart', {
     }
   ]
 });
+chart.renderer.definition({
+  tagName: 'pattern',
+  id: 'precip-stripe',
+  patternUnits: 'userSpaceOnUse',
+  width: 4,
+  height: 4,
+  children: [
+    { tagName: 'rect', width: 4, height: 4, fill: '#fff' },
+    { tagName: 'path', d: 'M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2', stroke: '#000', strokeWidth: 1 }
+  ]
+});
+chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 </script>
 {% endtemplate %}
 
@@ -375,7 +387,7 @@ Highcharts.chart('hourly-chart', {
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
 <div style="margin: 4px 0;">
-  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">{{ section_label | default: "FORECAST" }}</div>
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">{{ section_label | default: "FORECAST" }}</div>
   {% assign day_limit = num_days | default: 5 %}
   {% assign start_day = 1 %}
   {% for i in (0..5) %}
@@ -391,7 +403,7 @@ Highcharts.chart('hourly-chart', {
         <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
         <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
         <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F</div>
-        <div style="flex:1; position:relative; height:8px; background:#ddd; border-radius:4px; min-width:40px;">
+        <div style="flex:1; position:relative; height:8px; background:#808080; border-radius:4px; min-width:40px;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
         </div>
         <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ d_high_f }}°F</div>
@@ -420,7 +432,7 @@ Highcharts.chart('hourly-chart', {
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
 <div style="display:flex; flex-direction:column; height:100%;">
-  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">FORECAST</div>
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">FORECAST</div>
   <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% assign day_limit = num_days | default: 6 %}
   {% assign start_day = 0 %}
@@ -443,7 +455,7 @@ Highcharts.chart('hourly-chart', {
           <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ d_label }}</span>
           <span class="description" data-pixel-perfect="true" style="font-size:11px;">{{ d_precip }}%</span>
         </div>
-        <div style="position:relative; width:100%; height:26px; background:#ddd; border-radius:4px;">
+        <div style="position:relative; width:100%; height:26px; background:#808080; border-radius:4px;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
           {% if width_pct >= 25 %}
           <span style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_low_f }}°</span>
@@ -468,7 +480,7 @@ Highcharts.chart('hourly-chart', {
 <div class="title_bar">
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
-  <span class="instance_name" style="margin-left:auto;">Updated {{ updated_at | date: "%-I:%M %p" }}</span>
+  <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%-I:%M %p" }}</span>
   {% endif %}
 </div>
 {% endtemplate %}
