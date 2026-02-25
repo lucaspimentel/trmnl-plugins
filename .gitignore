@@ -11,3 +11,5 @@ node_modules/
 
 # Generated preview screenshots
 preview-*.png
+
+plugins/*/_build/
