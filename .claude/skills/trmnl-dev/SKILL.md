@@ -340,9 +340,11 @@ For a full table of contents of all 29 TRMNL doc pages, see `references/trmnl-do
 | `references/trmnl-docs-toc.md` | Full TOC of all TRMNL docs (29 pages) with links and summaries |
 | `references/design-system.md` | TRMNL CSS framework — all components, utilities, layout classes |
 | `references/template-variables.md` | All Liquid template variables: `trmnl.user`, `trmnl.device`, `trmnl.plugin_settings`, data access patterns |
+| `references/settings-yml.md` | Full `settings.yml` schema — all fields, all `field_type` values, polling URL interpolation, strategies, sandbox transform |
 | `references/private-api.md` | Full TRMNL REST API reference — all endpoints, auth, request/response formats |
 | `references/highcharts.md` | Highcharts config reference for TRMNL — mandatory settings, chart types, axis options, patterns |
 | `references/liquid.md` | Full Liquid language reference — all 50 filters, tags, operators, TRMNL custom filters |
+| `references/strftime.md` | strftime format code cheat sheet — all codes, padding modifiers, common TRMNL patterns |
 
 For live interactive design system docs: https://trmnl.com/framework/docs
 For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc.) across 30+ device models: https://trmnl.com/framework/examples
