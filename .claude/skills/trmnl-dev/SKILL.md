@@ -331,12 +331,21 @@ trmnlp serve
 When fetching TRMNL docs, append `.md` to any `https://docs.trmnl.com/go/...` URL for a leaner Markdown response:
 - `https://docs.trmnl.com/go/private-api/screens` → `https://docs.trmnl.com/go/private-api/screens.md`
 
-## Design System Reference
+For a full table of contents of all 29 TRMNL doc pages, see `references/trmnl-docs-toc.md`.
 
-The TRMNL design system provides CSS classes and data attributes optimized for e-ink rendering.
-For the full component reference with examples, read `references/design-system.md`.
-For live interactive docs, see https://trmnl.com/framework/docs.
-For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc.) across 30+ device models, see https://trmnl.com/framework/examples.
+## References
+
+| File | Contents |
+|------|----------|
+| `references/trmnl-docs-toc.md` | Full TOC of all TRMNL docs (29 pages) with links and summaries |
+| `references/design-system.md` | TRMNL CSS framework — all components, utilities, layout classes |
+| `references/template-variables.md` | All Liquid template variables: `trmnl.user`, `trmnl.device`, `trmnl.plugin_settings`, data access patterns |
+| `references/private-api.md` | Full TRMNL REST API reference — all endpoints, auth, request/response formats |
+| `references/highcharts.md` | Highcharts config reference for TRMNL — mandatory settings, chart types, axis options, patterns |
+| `references/liquid.md` | Full Liquid language reference — all 50 filters, tags, operators, TRMNL custom filters |
+
+For live interactive design system docs: https://trmnl.com/framework/docs
+For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc.) across 30+ device models: https://trmnl.com/framework/examples
 
 ## Plugin Examples
 
