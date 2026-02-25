@@ -59,248 +59,74 @@
 
 {% comment %}
   weather_current: Current conditions block
-  Params: current, current_units, location_name
+  Params: current, location_name
 {% endcomment %}
 {% template weather_current %}
-{% assign wc = current.weather_code %}
-{% if wc == 0 %}
-  {% assign condition = "Clear" %}
-{% elsif wc == 1 %}
-  {% assign condition = "Mainly Clear" %}
-{% elsif wc == 2 %}
-  {% assign condition = "Partly Cloudy" %}
-{% elsif wc == 3 %}
-  {% assign condition = "Overcast" %}
-{% elsif wc == 45 or wc == 48 %}
-  {% assign condition = "Fog" %}
-{% elsif wc >= 51 and wc <= 55 %}
-  {% assign condition = "Drizzle" %}
-{% elsif wc >= 61 and wc <= 65 %}
-  {% assign condition = "Rain" %}
-{% elsif wc == 66 or wc == 67 %}
-  {% assign condition = "Freezing Rain" %}
-{% elsif wc >= 71 and wc <= 77 %}
-  {% assign condition = "Snow" %}
-{% elsif wc >= 80 and wc <= 82 %}
-  {% assign condition = "Showers" %}
-{% elsif wc == 85 or wc == 86 %}
-  {% assign condition = "Snow Showers" %}
-{% elsif wc >= 95 and wc <= 99 %}
-  {% assign condition = "Thunderstorm" %}
-{% else %}
-  {% assign condition = "Unknown" %}
-{% endif %}
-{% assign wd = current.wind_direction_10m %}
-{% if wd >= 338 or wd < 23 %}
-  {% assign wind_dir = "N" %}
-{% elsif wd >= 23 and wd < 68 %}
-  {% assign wind_dir = "NE" %}
-{% elsif wd >= 68 and wd < 113 %}
-  {% assign wind_dir = "E" %}
-{% elsif wd >= 113 and wd < 158 %}
-  {% assign wind_dir = "SE" %}
-{% elsif wd >= 158 and wd < 203 %}
-  {% assign wind_dir = "S" %}
-{% elsif wd >= 203 and wd < 248 %}
-  {% assign wind_dir = "SW" %}
-{% elsif wd >= 248 and wd < 293 %}
-  {% assign wind_dir = "W" %}
-{% else %}
-  {% assign wind_dir = "NW" %}
-{% endif %}
-{% assign temp_f = current.temperature_2m | round %}
-{% assign feels_f = current.apparent_temperature | round %}
-{% assign wind_int = current.wind_speed_10m | round %}
 <div style="display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; padding: 4px 0;">
   <div>
     <div class="label label--medium" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
-    <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ condition }}</div>
-    <div class="description" data-pixel-perfect="true">Feels like {{ feels_f }}°F</div>
-    <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity_2m }}%</div>
-    <div class="description" data-pixel-perfect="true">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+    <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ current.condition }}</div>
+    <div class="description" data-pixel-perfect="true">Feels like {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity }}%</div>
+    <div class="description" data-pixel-perfect="true">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
   </div>
-  <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ temp_f }}°F</div>
+  <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ current.temperature_f }}°F</div>
 </div>
 {% endtemplate %}
 
 {% comment %}
   weather_current_compact: Compact current conditions for two-column layout
-  Params: current, current_units
+  Params: current
 {% endcomment %}
 {% template weather_current_compact %}
-{% assign wc = current.weather_code %}
-{% if wc == 0 %}
-  {% assign condition = "Clear" %}
-{% elsif wc == 1 %}
-  {% assign condition = "Mainly Clear" %}
-{% elsif wc == 2 %}
-  {% assign condition = "Partly Cloudy" %}
-{% elsif wc == 3 %}
-  {% assign condition = "Overcast" %}
-{% elsif wc == 45 or wc == 48 %}
-  {% assign condition = "Fog" %}
-{% elsif wc >= 51 and wc <= 55 %}
-  {% assign condition = "Drizzle" %}
-{% elsif wc >= 61 and wc <= 65 %}
-  {% assign condition = "Rain" %}
-{% elsif wc == 66 or wc == 67 %}
-  {% assign condition = "Freezing Rain" %}
-{% elsif wc >= 71 and wc <= 77 %}
-  {% assign condition = "Snow" %}
-{% elsif wc >= 80 and wc <= 82 %}
-  {% assign condition = "Showers" %}
-{% elsif wc == 85 or wc == 86 %}
-  {% assign condition = "Snow Showers" %}
-{% elsif wc >= 95 and wc <= 99 %}
-  {% assign condition = "Thunderstorm" %}
-{% else %}
-  {% assign condition = "Unknown" %}
-{% endif %}
-{% assign wd = current.wind_direction_10m %}
-{% if wd >= 338 or wd < 23 %}
-  {% assign wind_dir = "N" %}
-{% elsif wd >= 23 and wd < 68 %}
-  {% assign wind_dir = "NE" %}
-{% elsif wd >= 68 and wd < 113 %}
-  {% assign wind_dir = "E" %}
-{% elsif wd >= 113 and wd < 158 %}
-  {% assign wind_dir = "SE" %}
-{% elsif wd >= 158 and wd < 203 %}
-  {% assign wind_dir = "S" %}
-{% elsif wd >= 203 and wd < 248 %}
-  {% assign wind_dir = "SW" %}
-{% elsif wd >= 248 and wd < 293 %}
-  {% assign wind_dir = "W" %}
-{% else %}
-  {% assign wind_dir = "NW" %}
-{% endif %}
-{% assign temp_f = current.temperature_2m | round %}
-{% assign feels_f = current.apparent_temperature | round %}
-{% assign wind_int = current.wind_speed_10m | round %}
-{% assign temp_c = current.temperature_2m | minus: 32 | times: 5 | divided_by: 9 | round %}
-{% if wc == 0 %}
-  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-sunny" %}{% else %}{% assign icon_class = "wi-night-clear" %}{% endif %}
-{% elsif wc == 1 %}
-  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-sunny-overcast" %}{% else %}{% assign icon_class = "wi-night-partly-cloudy" %}{% endif %}
-{% elsif wc == 2 %}
-  {% if current.is_day == 1 %}{% assign icon_class = "wi-day-cloudy" %}{% else %}{% assign icon_class = "wi-night-cloudy" %}{% endif %}
-{% elsif wc == 3 %}
-  {% assign icon_class = "wi-wmo4680-3" %}
-{% elsif wc == 45 %}
-  {% assign icon_class = "wi-wmo4680-45" %}
-{% elsif wc == 48 %}
-  {% assign icon_class = "wi-wmo4680-48" %}
-{% elsif wc >= 51 and wc <= 55 %}
-  {% assign icon_class = "wi-wmo4680-" | append: wc %}
-{% elsif wc >= 61 and wc <= 65 %}
-  {% assign icon_class = "wi-wmo4680-" | append: wc %}
-{% elsif wc == 66 %}
-  {% assign icon_class = "wi-wmo4680-66" %}
-{% elsif wc == 67 %}
-  {% assign icon_class = "wi-wmo4680-67" %}
-{% elsif wc >= 71 and wc <= 77 %}
-  {% assign icon_class = "wi-wmo4680-" | append: wc %}
-{% elsif wc >= 80 and wc <= 82 %}
-  {% assign icon_class = "wi-wmo4680-" | append: wc %}
-{% elsif wc == 85 %}
-  {% assign icon_class = "wi-wmo4680-85" %}
-{% elsif wc == 86 %}
-  {% assign icon_class = "wi-wmo4680-86" %}
-{% elsif wc >= 95 and wc <= 99 %}
-  {% assign icon_class = "wi-wmo4680-" | append: wc %}
-{% else %}
-  {% assign icon_class = "wi-na" %}
-{% endif %}
 <div style="display:flex; flex-direction:row; align-items:center; justify-content:center; width:100%; padding:8px 0; gap:16px;">
-  <div class="value" data-pixel-perfect="true" style="font-size:38px; line-height:1; white-space:nowrap; width:fit-content;">{{ temp_f }}°F / {{ temp_c }}°C</div>
-  <i class="wi {{ icon_class }}" style="font-size:48px; line-height:1;"></i>
+  <div class="value" data-pixel-perfect="true" style="font-size:38px; line-height:1; white-space:nowrap; width:fit-content;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
+  <i class="wi {{ current.icon_class }}" style="font-size:48px; line-height:1;"></i>
   <div style="text-align:left; min-width:0;">
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:600; white-space:nowrap;">{{ condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Feels like {{ feels_f }}°F</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Humidity {{ current.relative_humidity_2m }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:600; white-space:nowrap;">{{ current.condition }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Feels like {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
   </div>
 </div>
 {% endtemplate %}
 
 {% comment %}
   weather_hourly_chart: Highcharts spline for next 24 hours
-  Params: hourly, current_time, chart_height
+  Params: hourly, daily, current_time, chart_height
 {% endcomment %}
 {% template weather_hourly_chart %}
 <script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
-{% assign current_hour = current_time | slice: 0, 13 %}
-{% assign start_index = 0 %}
-{% assign found_start = false %}
-{% for t in hourly.time %}
-  {% unless found_start %}
-    {% assign t_hour = t | slice: 0, 13 %}
-    {% if t_hour == current_hour %}
-      {% assign start_index = forloop.index0 %}
-      {% assign found_start = true %}
-    {% endif %}
-  {% endunless %}
-{% endfor %}
-
 {% assign hour_labels = "" %}
 {% assign temp_data = "" %}
 {% assign precip_data = "" %}
-{% assign icon_codes = "" %}
+{% assign icon_classes = "" %}
 {% assign hour_times = "" %}
-{% assign loop_count = 0 %}
-{% for t in hourly.time offset: start_index limit: 25 %}
-  {% assign h_str = t | slice: 11, 5 %}
-  {% assign h_num = h_str | slice: 0, 2 | plus: 0 %}
-  {% if h_num == 0 %}
-    {% assign h_label = "12am" %}
-  {% elsif h_num < 12 %}
-    {% assign h_label = h_num | append: "am" %}
-  {% elsif h_num == 12 %}
-    {% assign h_label = "12pm" %}
+{% for entry in hourly.entries %}
+  {% if forloop.first %}
+    {% assign hour_labels = entry.label | prepend: '"' | append: '"' %}
+    {% assign temp_data = entry.temperature_f | append: "" %}
+    {% assign precip_data = entry.precipitation_probability | append: "" %}
+    {% assign icon_classes = entry.icon_class | prepend: '"' | append: '"' %}
+    {% assign hour_times = entry.time | prepend: '"' | append: '"' %}
   {% else %}
-    {% assign h_minus = h_num | minus: 12 %}
-    {% assign h_label = h_minus | append: "pm" %}
+    {% assign hour_labels = hour_labels | append: ',"' | append: entry.label | append: '"' %}
+    {% assign temp_data = temp_data | append: "," | append: entry.temperature_f %}
+    {% assign precip_data = precip_data | append: "," | append: entry.precipitation_probability %}
+    {% assign icon_classes = icon_classes | append: ',"' | append: entry.icon_class | append: '"' %}
+    {% assign hour_times = hour_times | append: ',"' | append: entry.time | append: '"' %}
   {% endif %}
-  {% if loop_count == 0 %}
-    {% assign h_label = "Now" %}
-  {% endif %}
-  {% assign temp_val = hourly.temperature_2m[forloop.index0] | round %}
-  {% assign precip_val = hourly.precipitation_probability[forloop.index0] %}
-  {% assign hwc = hourly.weather_code[forloop.index0] %}
-  {% if loop_count == 0 %}
-    {% assign hour_labels = h_label | prepend: '"' | append: '"' %}
-    {% assign temp_data = temp_val | append: "" %}
-    {% assign precip_data = precip_val | append: "" %}
-    {% assign icon_codes = hwc | append: "" %}
-    {% assign hour_times = t | prepend: '"' | append: '"' %}
-  {% else %}
-    {% assign hour_labels = hour_labels | append: ',"' | append: h_label | append: '"' %}
-    {% assign temp_data = temp_data | append: "," | append: temp_val %}
-    {% assign precip_data = precip_data | append: "," | append: precip_val %}
-    {% assign icon_codes = icon_codes | append: "," | append: hwc %}
-    {% assign hour_times = hour_times | append: ',"' | append: t | append: '"' %}
-  {% endif %}
-  {% assign loop_count = loop_count | plus: 1 %}
 {% endfor %}
 <div style="margin: 4px 0;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; margin-left:58px;">TODAY</div>
   <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px;"></div>
 </div>
 <script>
-var iconCodes = [{{ icon_codes }}];
+var iconClasses = [{{ icon_classes }}];
 var hourTimes = [{{ hour_times }}];
 var sunEvents = [
-  {% for sr in daily.sunrise %}{% if forloop.first == false %},{% endif %}{ rise: "{{ sr }}", set: "{{ daily.sunset[forloop.index0] }}" }{% endfor %}
+  {% for entry in daily.entries %}{% if forloop.first == false %},{% endif %}{ rise: "{{ entry.sunrise }}", set: "{{ entry.sunset }}" }{% endfor %}
 ];
-function isNightHour(timeStr) {
-  var date = timeStr.slice(0, 10);
-  for (var i = 0; i < sunEvents.length; i++) {
-    if (sunEvents[i].rise.slice(0, 10) === date) {
-      return timeStr < sunEvents[i].rise || timeStr >= sunEvents[i].set;
-    }
-  }
-  return false;
-}
 function sunPlotLines() {
   var lines = [];
   var startTime = hourTimes[0];
@@ -328,20 +154,6 @@ function sunPlotLines() {
   }
   return lines;
 }
-function wmoIcon(code, night) {
-  if (code === 0) return night ? 'wi-night-clear' : 'wi-day-sunny';
-  if (code === 1) return night ? 'wi-night-partly-cloudy' : 'wi-day-sunny-overcast';
-  if (code === 2) return night ? 'wi-night-cloudy' : 'wi-day-cloudy';
-  if (code === 3) return 'wi-wmo4680-3';
-  if (code === 45) return 'wi-wmo4680-45';
-  if (code === 48) return 'wi-wmo4680-48';
-  if (code >= 51 && code <= 55) return 'wi-wmo4680-' + code;
-  if (code >= 61 && code <= 67) return 'wi-wmo4680-' + code;
-  if (code >= 71 && code <= 77) return 'wi-wmo4680-' + code;
-  if (code >= 80 && code <= 86) return 'wi-wmo4680-' + code;
-  if (code >= 95 && code <= 99) return 'wi-wmo4680-' + code;
-  return 'wi-na';
-}
 var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
@@ -367,8 +179,7 @@ var chart = Highcharts.chart('hourly-chart', {
       rotation: 0,
       align: 'center',
       formatter: function() {
-        var night = isNightHour(hourTimes[this.pos]);
-        var cls = wmoIcon(iconCodes[this.pos], night);
+        var cls = iconClasses[this.pos];
         return '<div style="text-align:center;line-height:1.2;"><i class="wi ' + cls + '" style="font-size:22px;"></i><br>' + this.value + '</div>';
       }
     },
@@ -459,13 +270,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   Params: daily, num_days
 {% endcomment %}
 {% template weather_daily_bars %}
-{% assign overall_min = daily.temperature_2m_min[1] %}
-{% assign overall_max = daily.temperature_2m_max[1] %}
-{% for i in (1..5) %}
-  {% assign d_min = daily.temperature_2m_min[i] %}
-  {% assign d_max = daily.temperature_2m_max[i] %}
-  {% if d_min < overall_min %}{% assign overall_min = d_min %}{% endif %}
-  {% if d_max > overall_max %}{% assign overall_max = d_max %}{% endif %}
+{% assign overall_min = daily.entries[1].low_f %}
+{% assign overall_max = daily.entries[1].high_f %}
+{% for entry in daily.entries offset: 1 %}
+  {% if entry.low_f < overall_min %}{% assign overall_min = entry.low_f %}{% endif %}
+  {% if entry.high_f > overall_max %}{% assign overall_max = entry.high_f %}{% endif %}
 {% endfor %}
 {% assign overall_min_int = overall_min | floor %}
 {% assign overall_max_int = overall_max | ceil %}
@@ -474,43 +283,32 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 
 <div style="margin: 4px 0;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">{{ section_label | default: "FORECAST" }}</div>
-  {% assign day_limit = num_days | default: 5 %}
-  {% assign start_day = 1 %}
-  {% for i in (0..5) %}
-    {% assign adj_i = i | plus: start_day %}
-    {% if adj_i <= 5 %}
-      {% assign d_low_f = daily.temperature_2m_min[adj_i] | round %}
-      {% assign d_high_f = daily.temperature_2m_max[adj_i] | round %}
-      {% assign d_precip = daily.precipitation_probability_max[adj_i] %}
-      {% assign d_date = daily.time[adj_i] %}
-      {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
-      {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
-      <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
-        <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
-        <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
-        <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F</div>
-        <div style="flex:1; position:relative; height:8px; background:#fff; border:1px solid #000; border-radius:8px; min-width:40px;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
-        </div>
-        <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ d_high_f }}°F</div>
+  {% for entry in daily.entries offset: 1 %}
+    {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
+    {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
+    <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
+      <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ entry.date | date: "%a" }}</div>
+      <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ entry.precipitation_probability }}%</div>
+      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low_f }}°F</div>
+      <div style="flex:1; position:relative; height:8px; background:#fff; border:1px solid #000; border-radius:8px; min-width:40px;">
+        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
       </div>
-    {% endif %}
+      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high_f }}°F</div>
+    </div>
   {% endfor %}
 </div>
 {% endtemplate %}
 
 {% comment %}
   weather_daily_bars_vertical: Vertical forecast bars for right column
-  Params: daily, num_days
+  Params: daily_entries, num_days
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
-{% assign overall_min = daily.temperature_2m_min[0] %}
-{% assign overall_max = daily.temperature_2m_max[0] %}
-{% for i in (0..5) %}
-  {% assign d_min = daily.temperature_2m_min[i] %}
-  {% assign d_max = daily.temperature_2m_max[i] %}
-  {% if d_min < overall_min %}{% assign overall_min = d_min %}{% endif %}
-  {% if d_max > overall_max %}{% assign overall_max = d_max %}{% endif %}
+{% assign overall_min = daily_entries[0].low_f %}
+{% assign overall_max = daily_entries[0].high_f %}
+{% for entry in daily_entries %}
+  {% if entry.low_f < overall_min %}{% assign overall_min = entry.low_f %}{% endif %}
+  {% if entry.high_f > overall_max %}{% assign overall_max = entry.high_f %}{% endif %}
 {% endfor %}
 {% assign overall_min_int = overall_min | floor %}
 {% assign overall_max_int = overall_max | ceil %}
@@ -521,62 +319,28 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">FORECAST</div>
   <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% assign day_limit = num_days | default: 6 %}
-  {% assign max_index = day_limit | minus: 1 %}
-  {% for i in (0..5) %}
-    {% if i < day_limit %}
-      {% assign d_low_f = daily.temperature_2m_min[i] | round %}
-      {% assign d_high_f = daily.temperature_2m_max[i] | round %}
-      {% assign d_precip = daily.precipitation_probability_max[i] %}
-      {% assign d_date = daily.time[i] %}
-      {% assign dwc = daily.weather_code[i] %}
-      {% if dwc == 0 %}
-        {% assign d_icon = "wi-day-sunny" %}
-      {% elsif dwc == 1 %}
-        {% assign d_icon = "wi-day-sunny-overcast" %}
-      {% elsif dwc == 2 %}
-        {% assign d_icon = "wi-day-cloudy" %}
-      {% elsif dwc == 3 %}
-        {% assign d_icon = "wi-wmo4680-3" %}
-      {% elsif dwc == 45 %}
-        {% assign d_icon = "wi-wmo4680-45" %}
-      {% elsif dwc == 48 %}
-        {% assign d_icon = "wi-wmo4680-48" %}
-      {% elsif dwc >= 51 and dwc <= 55 %}
-        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
-      {% elsif dwc >= 61 and dwc <= 67 %}
-        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
-      {% elsif dwc >= 71 and dwc <= 77 %}
-        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
-      {% elsif dwc >= 80 and dwc <= 86 %}
-        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
-      {% elsif dwc >= 95 and dwc <= 99 %}
-        {% assign d_icon = "wi-wmo4680-" | append: dwc %}
-      {% else %}
-        {% assign d_icon = "wi-na" %}
-      {% endif %}
-      {% assign d_label = d_date | date: "%a" %}
-      {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
-      {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
-      <div style="margin:6px 0;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-          <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700;">{{ d_label }}</span>
-          <span style="display:flex; align-items:center; gap:2px;"><i class="wi wi-raindrop" style="font-size:10px;"></i><span class="description" data-pixel-perfect="true" style="font-size:11px; font-weight:700;">{{ d_precip }}%</span></span>
-        </div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <i class="wi {{ d_icon }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
-          <div style="position:relative; flex:1; height:26px; background:#fff; border:1px solid #000; border-radius:8px; min-width:0;">
-            <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
-          {% if width_pct >= 25 %}
-          <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ d_low_f }}°</span>
-          <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ d_high_f }}°</span>
-          {% else %}
-          <span class="description description--large text-stroke text-stroke--small text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:11px; font-weight:700; white-space:nowrap;">{{ d_low_f }}°</span>
-          <span class="description description--large text-stroke text-stroke--small text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:11px; font-weight:700; white-space:nowrap;">{{ d_high_f }}°</span>
-          {% endif %}
-          </div>
+  {% for entry in daily_entries limit: day_limit %}
+    {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
+    {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
+    <div style="margin:6px 0;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+        <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700;">{{ entry.date | date: "%a" }}</span>
+        <span style="display:flex; align-items:center; gap:2px;"><i class="wi wi-raindrop" style="font-size:10px;"></i><span class="description" data-pixel-perfect="true" style="font-size:11px; font-weight:700;">{{ entry.precipitation_probability }}%</span></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <i class="wi {{ entry.icon_class }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
+        <div style="position:relative; flex:1; height:26px; background:#fff; border:1px solid #000; border-radius:8px; min-width:0;">
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
+        {% if width_pct >= 25 %}
+        <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.low_f }}°</span>
+        <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.high_f }}°</span>
+        {% else %}
+        <span class="description description--large text-stroke text-stroke--small text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:11px; font-weight:700; white-space:nowrap;">{{ entry.low_f }}°</span>
+        <span class="description description--large text-stroke text-stroke--small text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:11px; font-weight:700; white-space:nowrap;">{{ entry.high_f }}°</span>
+        {% endif %}
         </div>
       </div>
-    {% endif %}
+    </div>
   {% endfor %}
   </div>
 </div>
