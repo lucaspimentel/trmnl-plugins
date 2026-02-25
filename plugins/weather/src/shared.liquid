@@ -136,13 +136,19 @@
 {% assign temp_f = current.temperature_2m | round %}
 {% assign feels_f = current.apparent_temperature | round %}
 {% assign wind_int = current.wind_speed_10m | round %}
-<div style="display:flex; flex-direction:row; align-items:flex-start; gap:12px; padding:4px 0;">
-  <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_f }}°F</div>
-  <div style="padding-top:4px;">
+{% assign temp_c = current.temperature_2m | minus: 32 | times: 5 | divided_by: 9 | round %}
+<div style="display:flex; flex-direction:row; align-items:center; width:100%; padding:8px 0;">
+  <div style="flex:1; display:flex; justify-content:center;">
+    <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_f }}°F</div>
+  </div>
+  <div style="flex:1; text-align:center;">
     <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ condition }}</div>
     <div class="description" data-pixel-perfect="true" style="font-size:12px;">Feels like {{ feels_f }}°F</div>
     <div class="description" data-pixel-perfect="true" style="font-size:12px;">Humidity {{ current.relative_humidity_2m }}%</div>
     <div class="description" data-pixel-perfect="true" style="font-size:12px;">Wind {{ wind_int }} mph {{ wind_dir }}</div>
+  </div>
+  <div style="flex:1; display:flex; justify-content:center;">
+    <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1;">{{ temp_c }}°C</div>
   </div>
 </div>
 {% endtemplate %}
@@ -330,8 +336,9 @@ Highcharts.chart('hourly-chart', {
 {% assign range = overall_max_int | minus: overall_min_int %}
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
-<div>
+<div style="display:flex; flex-direction:column; height:100%;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">FORECAST</div>
+  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% assign day_limit = num_days | default: 6 %}
   {% assign start_day = 0 %}
   {% for i in (0..5) %}
@@ -366,6 +373,7 @@ Highcharts.chart('hourly-chart', {
       </div>
     {% endif %}
   {% endfor %}
+  </div>
 </div>
 {% endtemplate %}
 
