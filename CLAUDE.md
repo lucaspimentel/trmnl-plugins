@@ -115,18 +115,7 @@ trmnlp push --force    # --force skips the interactive confirmation prompt
 
 ## Local Preview
 
-### Option 1: trmnlp serve (live reload)
-
-Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally with live data polling:
-
-```bash
-cd plugins/<name>
-trmnlp serve          # http://localhost:4567
-```
-
-See the trmnl-dev skill (`.claude/skills/trmnl-dev/SKILL.md`) for detailed trmnlp usage and workflow instructions.
-
-### Option 2: Static build preview (no trmnlp server required)
+### Preferred: Static build preview
 
 Use `tools/build-preview.sh` to generate standalone HTML files that can be opened directly in a browser:
 
@@ -144,13 +133,20 @@ python -m http.server 8765
 # Open http://localhost:8765/full.html
 ```
 
-The wrapper replicates exactly what `trmnlp serve` renders at `http://localhost:4567/render/full.html?screen_classes=screen%20screen--1bit%20screen--ogv2%20screen--md%20screen--1x`:
+The wrapper includes:
 - `https://trmnl.com/css/latest/plugins.css`
 - `https://trmnl.com/js/latest/plugins.js`
 - Inter font from Google Fonts
 - `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">` wrapper
 
 **Important**: `plugins.js` runs pixel-perfect font processing that measures element widths. Flex children that should shrink must have `min-width: 0` set, otherwise they expand to full container width before `plugins.js` runs and the layout breaks.
+
+### Alternative: trmnlp serve (live reload)
+
+```bash
+cd plugins/<name>
+trmnlp serve          # http://localhost:4567
+```
 
 ### Taking screenshots with playwright-cli
 
