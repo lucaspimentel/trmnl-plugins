@@ -14,6 +14,7 @@ custom_fields:
   field_type: author_bio
   description: Weather
   github_url: https://github.com/lucaspimentel/trmnl-plugins
+  learn_more_url: https://github.com/lucaspimentel/trmnl-plugins/tree/main/plugins/weather/README.md
 - keyname: latitude
   field_type: string
   name: Latitude
@@ -22,5 +23,5 @@ custom_fields:
   field_type: string
   name: Longitude
   placeholder: "-71.06"
-name: Weather
+name: LP Weather
 refresh_interval: 30
