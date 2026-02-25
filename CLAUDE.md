@@ -107,6 +107,12 @@ When creating or modifying plugins:
 
 Note: There are no build, test, or lint commands — plugins are deployed directly to TRMNL.
 
+To push a plugin to TRMNL:
+```bash
+cd plugins/<name>
+trmnlp push --force    # --force skips the interactive confirmation prompt
+```
+
 ## Local Preview
 
 ### Option 1: trmnlp serve (live reload)

@@ -76,9 +76,35 @@ custom_fields:
 
 Key settings:
 - `strategy`: `polling` (TRMNL fetches your URL) or `webhook` (you POST to TRMNL)
-- `polling_url`: The API endpoint. Use `fields[resource]=field1,field2` to limit response size.
+- `polling_url`: The API endpoint. Use `fields[resource]=field1,field2` to limit response size. Reference custom field values with `##{{ keyname }}` interpolation.
 - `refresh_interval`: Minutes between data refreshes
 - `polling_headers`: Optional HTTP headers (e.g., for auth)
+
+**Custom fields** let users configure plugin inputs (API keys, locations, preferences) via the TRMNL UI. Each field appears as a form input on the plugin settings page. Reference values in `polling_url` with `##{{ keyname }}`, and in templates with `trmnl.plugin_settings.keyname`.
+
+Available `field_type` values: `author_bio`, `string`, `multi_string`, `text`, `number`, `password`, `boolean`, `date`, `time`, `select`, `time_zone`, `url`, `code`, `copyable`, `copyable_webhook_url`, `plugin_instance_select`.
+
+Example — configurable location for a weather plugin:
+```yaml
+custom_fields:
+- keyname: instance_name
+  field_type: author_bio
+  name: My Weather
+  description: Displays current weather
+  github_url: https://github.com/example/plugin
+- keyname: latitude
+  field_type: string
+  name: Latitude
+  placeholder: "42.36"
+- keyname: longitude
+  field_type: string
+  name: Longitude
+  placeholder: "-71.06"
+```
+Then in `polling_url`:
+```
+https://api.example.com/weather?lat=##{{ latitude }}&lon=##{{ longitude }}
+```
 
 **shared.liquid** — define reusable template blocks. Always handle the empty/error state
 where `data` may be nil or empty:
@@ -198,7 +224,7 @@ trmnlp serve              # start local preview at http://localhost:4567
 # Edit templates — preview auto-reloads on save
 
 trmnlp login              # authenticate with TRMNL API key (or set $TRMNL_API_KEY env var)
-trmnlp push               # upload plugin to your TRMNL device
+trmnlp push --force       # upload plugin to your TRMNL device (--force skips confirmation prompt)
 ```
 
 For existing plugins on the TRMNL server:
@@ -208,7 +234,7 @@ trmnlp login
 trmnlp clone my_plugin <id>   # download from server
 cd my_plugin
 trmnlp serve                  # develop locally
-trmnlp push                   # upload changes
+trmnlp push --force           # upload changes
 ```
 
 ### .trmnlp.yml — Local Dev Config
@@ -285,14 +311,11 @@ picks up the updated `.trmnlp.yml` and re-polls the API fresh.
 
 ### Killing and Restarting the Server (Windows)
 
-Port 4567 must be free before starting. Use this PowerShell snippet:
+Port 4567 must be free before starting. To kill a stuck server:
 
 ```powershell
-# kill-port.ps1
 $conns = Get-NetTCPConnection -LocalPort 4567 -ErrorAction SilentlyContinue
-foreach ($c in $conns) {
-    Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
-}
+foreach ($c in $conns) { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue }
 ```
 
 Then restart from the plugin directory:
@@ -332,7 +355,7 @@ Key principles:
 - **Poll not working / empty data**: Verify `settings.yml` is at `src/settings.yml`. trmnlp reads `src/settings.yml` exclusively — a `settings.yml` at the plugin root will be ignored for polling.
 - **Content overflow**: Adjust `data-list-max-height` or add `data-list-limit="true"`
 - **Layout not full-width**: The `.layout` class does not automatically stretch to fill its container. Add `style="width:100%"` on the layout div, or use a plain `<div style="display:flex; ...">` for custom layouts.
-- **Highcharts not defined**: trmnlp's bundled `plugins.js` does not include Highcharts. Add `<script src="https://code.highcharts.com/highcharts.js"></script>` inside the template block that uses it.
+- **Highcharts not defined**: trmnlp's bundled `plugins.js` does not include Highcharts. Add a `<script src="...highcharts.js"></script>` tag inside the template block that uses it. Avoid `code.highcharts.com` — it rate-limits automated/headless requests (429); self-host the file instead.
 - **Highcharts axis labels clipped**: Increase the chart margin on the clipped side, e.g. `margin: [10, 44, 28, 36]` for a right axis.
 - **Layout issues**: Ensure `.layout` has direction (`.layout--col` or `.layout--row`) and alignment modifiers
 - **Stale data**: Check `refresh_interval` in settings.yml; minimum is 1 minute
