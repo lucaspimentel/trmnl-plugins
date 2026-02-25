@@ -288,8 +288,9 @@ Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [10, 10, 30, 58],
-    spacing: [0, 0, 0, 0]
+    margin: [10, 58, 40, 58],
+    spacing: [0, 0, 0, 0],
+    style: { fontFamily: 'Inter, sans-serif' }
   },
   title: { text: null },
   legend: { enabled: false },
@@ -301,8 +302,8 @@ Highcharts.chart('hourly-chart', {
   },
   xAxis: {
     categories: [{{ hour_labels }}],
-    tickInterval: 3,
-    labels: { style: { fontSize: '16px', color: '#000' } },
+    tickInterval: 4,
+    labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, rotation: 0, align: 'center' },
     gridLineDashStyle: 'dot',
     lineColor: '#ccc',
     tickColor: '#ccc'
@@ -310,8 +311,8 @@ Highcharts.chart('hourly-chart', {
   yAxis: [
     {
       title: { text: null },
-      tickAmount: 3,
-      labels: { style: { fontSize: '16px', color: '#000' }, formatter: function() { return Math.round(this.value) + '°F'; } },
+      tickAmount: 5,
+      labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, formatter: function() { return Math.round(this.value) + '°F'; } },
       gridLineDashStyle: 'shortdot',
       gridLineColor: '#ccc'
     },
@@ -320,6 +321,14 @@ Highcharts.chart('hourly-chart', {
       min: 0, max: 100,
       opposite: true,
       labels: { enabled: false },
+      gridLineWidth: 0
+    },
+    {
+      title: { text: null },
+      linkedTo: 0,
+      opposite: true,
+      tickAmount: 5,
+      labels: { style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' }, formatter: function() { return Math.round((this.value - 32) * 5 / 9) + '°C'; } },
       gridLineWidth: 0
     }
   ],
