@@ -152,6 +152,18 @@ The wrapper replicates exactly what `trmnlp serve` renders at `http://localhost:
 
 **Important**: `plugins.js` runs pixel-perfect font processing that measures element widths. Flex children that should shrink must have `min-width: 0` set, otherwise they expand to full container width before `plugins.js` runs and the layout breaks.
 
+### Taking screenshots with playwright-cli
+
+Always resize the viewport to 800×480 before screenshotting to match the TRMNL screen dimensions:
+
+```bash
+playwright-cli open --browser=msedge http://localhost:8765/full.html
+playwright-cli resize 800 480
+# wait ~3 seconds for Highcharts/fonts to render
+playwright-cli screenshot --filename=plugins/<name>/render.png
+playwright-cli close
+```
+
 ## Skills
 
 The `.claude/skills/trmnl-dev/` directory contains a Claude Code skill for full-lifecycle plugin development, including scaffolding, template authoring, and local preview with trmnlp.
