@@ -346,7 +346,7 @@ var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [10, 58, 68, 58],
+    margin: [22, 58, 68, 58],
     spacing: [0, 0, 0, 0],
     style: { fontFamily: 'Inter, sans-serif' }
   },
@@ -485,8 +485,8 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
         <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</div>
         <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ d_precip }}%</div>
         <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ d_low_f }}°F</div>
-        <div style="flex:1; position:relative; height:8px; background:#808080; border-radius:4px; min-width:40px;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
+        <div style="flex:1; position:relative; height:8px; background:#fff; border:1px solid #000; border-radius:8px; min-width:40px;">
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
         </div>
         <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ d_high_f }}°F</div>
       </div>
@@ -560,8 +560,8 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
         </div>
         <div style="display:flex; align-items:center; gap:4px;">
           <i class="wi {{ d_icon }}" style="font-size:18px; width:22px; text-align:center; flex-shrink:0;"></i>
-          <div style="position:relative; flex:1; height:26px; background:#808080; border-radius:4px; min-width:0;">
-            <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:4px;"></div>
+          <div style="position:relative; flex:1; height:26px; background:#fff; border:1px solid #000; border-radius:8px; min-width:0;">
+            <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
           {% if width_pct >= 25 %}
           <span style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_low_f }}°</span>
           <span style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:600; z-index:1;">{{ d_high_f }}°</span>
