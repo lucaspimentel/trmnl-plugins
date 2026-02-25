@@ -45,17 +45,24 @@ trmnlp serve          # preview at http://localhost:4567
 ### Static build preview (no server required)
 
 ```bash
-bash tools/build-preview.sh plugins/<name>
-cd plugins/<name>/_build
-python -m http.server 8765
-# open http://localhost:8765/full.html
+bash tools/build-preview.sh plugins/<name>              # build only
+bash tools/build-preview.sh plugins/<name> --screenshot # build + screenshot to render.png
 ```
 
 `build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then wraps each HTML file with the TRMNL screen shell so it renders correctly in any browser without needing `trmnlp serve` running.
 
+To view the output, start a local HTTP server (required — `file://` URLs are blocked by browsers). Keep it running in the background between rebuilds:
+
+```bash
+cd plugins/<name>/_build && python -m http.server 8765
+# open http://localhost:8765/full.html
+```
+
+The `--screenshot` flag opens `full.html` in Edge at 800×480, waits 3 seconds for Highcharts/fonts to render, saves `plugins/<name>/render.png`, and closes. Requires the HTTP server to be running on port 8765.
+
 ## Tools
 
-- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (wraps `trmnlp build` output with TRMNL screen shell)
+- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (wraps `trmnlp build` output with TRMNL screen shell); `--screenshot` flag also captures `render.png` via playwright-cli
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white)
 - **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 app that fetches and displays the current screen image in Sixel (full color)
 

@@ -78,12 +78,26 @@ Weather conditions are returned as **WMO weather codes** in `current.weather_cod
 
 ## Template Architecture
 
+### `full.liquid` layout structure
+
+The two-column split is at the outermost level so the right column spans full height:
+
+```
+[ left column (62%)               | right column (38%)      ]
+[   weather_current_compact       |                         ]
+[   weather_hourly_chart          | weather_daily_bars_vert |
+[                                 | (full height)           ]
+[           title_bar (full width)                         ]
+```
+
+### Templates in `shared.liquid`
+
 All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 | Template | Purpose |
 |----------|---------|
 | `weather_current` | Current conditions (full-width): location, temp °F, feels like, humidity, wind |
-| `weather_current_compact` | Current conditions (left-column): temp °F/°C + weather icon + details |
+| `weather_current_compact` | Current conditions (left-column, centered): temp °F/°C + weather icon + details |
 | `weather_hourly_chart` | Highcharts spline (temp °F) + column (precip %) for next 24h, weather icons on x-axis, sunrise/sunset vertical lines |
 | `weather_daily_bars` | 5-day CSS range bars (horizontal layout), °F only |
 | `weather_daily_bars_vertical` | 5-day CSS range bars (vertical layout for right column), weather icons next to bars, labels inside bars |

@@ -58,7 +58,7 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 ### plugins/weather
 Displays current conditions, a 24-hour temperature chart, and a 5-day forecast with weather icons throughout.
 - API: Open-Meteo free forecast API (no key required), configurable lat/lon (default Boston 42.36°N, 71.06°W), °F/mph
-- Full layout: two-column — left (compact current with icon + hourly Highcharts chart with icons and sunrise/sunset lines), right (vertical forecast bars with icons)
+- Full layout: two-column at the outermost level — left column (62%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right column (38%): vertical 5-day forecast bars spanning full height
 - Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants via sunrise/sunset data
 
 ## Tools (`./tools/`)
@@ -67,7 +67,8 @@ Displays current conditions, a 24-hour temperature chart, and a 5-day forecast w
 Builds standalone HTML previews for any plugin without needing `trmnlp serve`.
 
 ```bash
-bash tools/build-preview.sh plugins/<name>
+bash tools/build-preview.sh plugins/<name>              # build only
+bash tools/build-preview.sh plugins/<name> --screenshot # build + screenshot
 ```
 
 Runs `trmnlp build` then wraps each `_build/*.html` output with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). Open the results via a local HTTP server — `file://` is blocked by browsers:
@@ -76,6 +77,8 @@ Runs `trmnlp build` then wraps each `_build/*.html` output with the TRMNL screen
 cd plugins/<name>/_build && python -m http.server 8765
 # http://localhost:8765/full.html
 ```
+
+Keep the HTTP server running in the background — no need to restart it between rebuilds. The rebuild only overwrites the HTML files; the server continues serving them.
 
 ### Get-Trmnl-Image.ps1
 Fetches the current TRMNL screen image and displays it in Sixel format (black/white).
@@ -120,18 +123,19 @@ trmnlp push --force    # --force skips the interactive confirmation prompt
 Use `tools/build-preview.sh` to generate standalone HTML files that can be opened directly in a browser:
 
 ```bash
-bash tools/build-preview.sh plugins/<name>
+bash tools/build-preview.sh plugins/<name>              # build only
+bash tools/build-preview.sh plugins/<name> --screenshot # build + screenshot to render.png
 ```
 
 This runs `trmnlp build` (fetches live data and renders all layouts to `_build/`) then wraps each output file with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). The wrapped files are fully self-contained and render correctly in any browser.
 
-To view after building:
+To view after building, start a local HTTP server (required — `file://` is blocked by Edge/Chrome):
 ```bash
-# Start a local HTTP server from the _build directory (required — file:// is blocked by Edge/Chrome)
-cd plugins/<name>/_build
-python -m http.server 8765
+cd plugins/<name>/_build && python -m http.server 8765
 # Open http://localhost:8765/full.html
 ```
+
+Keep the HTTP server running in the background between rebuilds — it does not need to be restarted. The build only overwrites the HTML files; the server continues serving the updated versions on the next page reload.
 
 The wrapper includes:
 - `https://trmnl.com/css/latest/plugins.css`
@@ -150,7 +154,14 @@ trmnlp serve          # http://localhost:4567
 
 ### Taking screenshots with playwright-cli
 
-Always resize the viewport to 800×480 before screenshotting to match the TRMNL screen dimensions:
+Use the `--screenshot` flag on `build-preview.sh` to build and screenshot in one step (requires the HTTP server on port 8765 to be running):
+
+```bash
+bash tools/build-preview.sh plugins/<name> --screenshot
+# saves to plugins/<name>/render.png
+```
+
+To screenshot manually (e.g. after a browser refresh without rebuilding):
 
 ```bash
 playwright-cli open --browser=msedge http://localhost:8765/full.html
