@@ -160,14 +160,12 @@ playwright-cli screenshot --filename=plugins/<name>/render.png
 playwright-cli close
 ```
 
-After taking a screenshot, always convert it to 1-bit using Floyd-Steinberg dithering to approximate how it will look on the e-ink display (TRMNL's internal algorithm is unspecified, but their ImageMagick guide recommends Floyd-Steinberg):
+Optionally, convert to 1-bit using Floyd-Steinberg dithering to check how colors/grays will appear on the e-ink display. Only needed when verifying color rendering, not for layout work:
 
 ```bash
 python3 tools/dither.py plugins/<name>/render.png
 # outputs plugins/<name>/render-1bit.png
 ```
-
-Then display both images to compare.
 
 ## Skills
 
