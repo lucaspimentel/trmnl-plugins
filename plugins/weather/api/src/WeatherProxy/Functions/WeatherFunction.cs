@@ -63,6 +63,14 @@ public class WeatherFunction(
             .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
             .ToList();
 
+        // Last day: identical high/low → zero-width bar, labels outside
+        var last = daily[^1];
+        daily[^1] = last with { HighF = last.LowF };
+
+        // Second-to-last day: high/low 2° apart → narrow bar, labels outside
+        var secondLast = daily[^2];
+        daily[^2] = secondLast with { HighF = secondLast.LowF + 2 };
+
         return response with
         {
             Hourly = new HourlyForecast(hourly),
