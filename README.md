@@ -26,22 +26,31 @@ plugins/<name>/
 
 ## Local Development
 
-Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally:
+### Live preview with trmnlp
 
 ```bash
-gem install trmnl_preview   # or use Docker
-cd plugins/mbta-alerts
-trmnlp serve                # preview at http://localhost:4567
+cd plugins/<name>
+trmnlp serve          # preview at http://localhost:4567
 ```
+
+### Static build preview (no server required)
+
+```bash
+bash tools/build-preview.sh plugins/<name>
+cd plugins/<name>/_build
+python -m http.server 8765
+# open http://localhost:8765/full.html
+```
+
+`build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then wraps each HTML file with the TRMNL screen shell so it renders correctly in any browser without needing `trmnlp serve` running.
 
 ## Tools
 
-Utilities for interacting with the TRMNL API. Fetch the current screen image and display it in Sixel format in the terminal.
+- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (wraps `trmnlp build` output with TRMNL screen shell)
+- **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white)
+- **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 app that fetches and displays the current screen image in Sixel (full color)
 
-- **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - PowerShell script with manual Sixel encoding (black/white output)
-- **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 console app using the [SixPix](https://www.nuget.org/packages/SixPix) library (full color)
-
-Both require `TRMNL_DEVICE_ID` and `TRMNL_DEVICE_API_KEY` environment variables.
+`Get-Trmnl-Image.ps1` and `Trmnl.Cli` require `TRMNL_DEVICE_ID` and `TRMNL_DEVICE_API_KEY` environment variables (stored in 1Password item "trmnl").
 
 ## Resources
 

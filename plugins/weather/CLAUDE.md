@@ -21,19 +21,9 @@ plugins/weather/
 
 ## Local Preview
 
-```bash
-cd plugins/weather
-trmnlp serve          # http://localhost:4567
-```
+See repo root `CLAUDE.md` for preview options (`trmnlp serve` vs static build).
 
-To use live API data, ensure `.trmnlp.yml` has no `data:` block — trmnlp will poll
-Open-Meteo automatically on startup. To use static sample data, add a `data:` block
-to `.trmnlp.yml` (see the git history for a full example).
-
-To kill a stuck server on port 4567:
-```bash
-pwsh -NoProfile -File ../../kill-port.ps1
-```
+To use static sample data instead of live API, add a `data:` block to `.trmnlp.yml` pointing to a cached JSON file (e.g. `data-2026-02-24T18-30.json`). The filename encodes the `current.time` value to use as "now" when testing.
 
 ## External Dependencies
 
@@ -60,27 +50,28 @@ Weather conditions are returned as **WMO weather codes** in `current.weather_cod
 
 ### JS Library: Highcharts
 
-- **CDN**: https://code.highcharts.com/highcharts.js
 - **Docs**: https://api.highcharts.com/highcharts/
 - **License**: Free for non-commercial use
 - **Usage**: Spline chart (temperature) + column chart (precip %) for 24-hour forecast
-- **Note**: CDN applies rate limiting in automated/headless environments (429). Plan to self-host on Azure Blob Storage.
+- **Self-hosted**: `https://trmnlplugins.blob.core.windows.net/assets/highcharts.js`
+- **Note**: The Highcharts CDN (`code.highcharts.com`) rate-limits automated/headless requests (429), so we self-host.
 
 ### Icon Font: Erik Flowers Weather Icons
 
 - **GitHub**: https://github.com/erikflowers/weather-icons
 - **Demo**: https://erikflowers.github.io/weather-icons/
 - **License**: SIL OFL 1.1 (font), MIT (CSS/code)
-- **Font file**: `weather-icons.woff2` (~44 KB)
-- **Usage**: CSS class `wi wi-wmo4680-{wmo_code}` maps directly to WMO weather codes
+- **Self-hosted**: `https://trmnlplugins.blob.core.windows.net/assets/weather-icons.woff2` (~44 KB)
+- **Usage**: CSS class `wi wi-wmo4680-{wmo_code}` maps directly to WMO weather codes (not yet used in templates)
 - **Day/night**: `wi wi-day-*` / `wi wi-night-*` variants available via `current.is_day`
-- **Status**: Plan to self-host on Azure Blob Storage (not yet implemented)
 
-### Static Asset Hosting: Azure Blob Storage (planned)
+### Static Asset Hosting: Azure Blob Storage
 
-- Self-hosted copies of `highcharts.js` and `weather-icons.woff2` to avoid CDN rate limits and external dependencies
-- Public container with anonymous read access
-- URL pattern: `https://<account>.blob.core.windows.net/<container>/<filename>`
+- **Account**: `trmnlplugins` (resource group `trmnl-plugins`, East US)
+- **Container**: `assets` (public read access)
+- **Base URL**: `https://trmnlplugins.blob.core.windows.net/assets/`
+- **Hosted files**: `highcharts.js`, `weather-icons.woff2`, `weather-icons.css`
+- **Upload**: `az storage blob upload --account-name trmnlplugins --container-name assets --file <file> --name <name> --content-type <type> --auth-mode key`
 
 ## Template Architecture
 
@@ -120,7 +111,7 @@ Use `current.is_day` to pick day/night icon variants when icons are added.
 
 **Highcharts**: Script tag must be inside the template block (not in the layout file):
 ```liquid
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://trmnlplugins.blob.core.windows.net/assets/highcharts.js"></script>
 ```
 Chart has two Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (right, labels hidden).
 Right margin is 10px (no right-axis labels): `margin: [10, 10, 30, 58]`.

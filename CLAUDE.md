@@ -57,33 +57,44 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 
 ### plugins/weather
 Displays current conditions, a 24-hour temperature chart, and a 5-day forecast.
-- API: Open-Meteo free forecast API (no key required)
-- Features: Current temp/feels-like/humidity/wind, Highcharts hourly chart, daily range bars
+- API: Open-Meteo free forecast API (no key required), Boston (42.36°N, 71.06°W), °F/mph
+- Full layout: two-column — left (compact current + hourly Highcharts chart), right (vertical 5-day forecast bars)
+- Assets self-hosted on Azure Blob Storage: `highcharts.js`, `weather-icons.woff2`
 
 ## Tools (`./tools/`)
 
-Utilities for interacting with the TRMNL API. Both require environment variables:
-- `TRMNL_DEVICE_ID` - Your TRMNL device identifier
-- `TRMNL_DEVICE_API_KEY` - Your TRMNL API access token
+### build-preview.sh
+Builds standalone HTML previews for any plugin without needing `trmnlp serve`.
 
-Credentials are stored in the **1Password item "trmnl"** (personal account). It contains:
-- `TRMNL_DEVICE_ID` — device identifier
-- `TRMNL_DEVICE_API_KEY` — device API key
-- `TRMNL_API_KEY` — user API key (for `trmnlp login`)
+```bash
+bash tools/build-preview.sh plugins/<name>
+```
 
-Retrieve with: `op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal`
+Runs `trmnlp build` then wraps each `_build/*.html` output with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). Open the results via a local HTTP server — `file://` is blocked by browsers:
+
+```bash
+cd plugins/<name>/_build && python -m http.server 8765
+# http://localhost:8765/full.html
+```
 
 ### Get-Trmnl-Image.ps1
-PowerShell script that fetches the current TRMNL screen image and displays it in Sixel format.
-- Manual Sixel encoding with luminance-based black/white conversion (threshold: 127)
+Fetches the current TRMNL screen image and displays it in Sixel format (black/white).
 - Saves timestamped PNG files (`yyyy-MM-dd_HH-mm-ss.png`)
 - Run: `.\tools\Get-Trmnl-Image.ps1`
 
 ### Trmnl.Cli/
-.NET 9 console application that fetches the current TRMNL screen image and displays it in Sixel format.
-- Uses [SixPix](https://www.nuget.org/packages/SixPix) NuGet package for Sixel encoding
-- Supports full color output
+.NET 9 app that fetches and displays the current TRMNL screen image in Sixel (full color).
+- Uses [SixPix](https://www.nuget.org/packages/SixPix) NuGet package
 - Run: `dotnet run --project tools/Trmnl.Cli/Trmnl.Cli.csproj`
+
+### Credentials
+`Get-Trmnl-Image.ps1` and `Trmnl.Cli` require:
+- `TRMNL_DEVICE_ID` — device identifier
+- `TRMNL_DEVICE_API_KEY` — device API key
+
+Stored in **1Password item "trmnl"** (personal account). Also contains `TRMNL_API_KEY` for `trmnlp login`.
+
+Retrieve with: `op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal`
 
 ## Development Workflow
 
@@ -98,7 +109,42 @@ Note: There are no build, test, or lint commands — plugins are deployed direct
 
 ## Local Preview
 
-Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally. See the trmnl-dev skill (`.claude/skills/trmnl-dev/SKILL.md`) for detailed trmnlp usage and workflow instructions.
+### Option 1: trmnlp serve (live reload)
+
+Use [trmnlp](https://github.com/usetrmnl/trmnlp) to preview plugins locally with live data polling:
+
+```bash
+cd plugins/<name>
+trmnlp serve          # http://localhost:4567
+```
+
+See the trmnl-dev skill (`.claude/skills/trmnl-dev/SKILL.md`) for detailed trmnlp usage and workflow instructions.
+
+### Option 2: Static build preview (no trmnlp server required)
+
+Use `tools/build-preview.sh` to generate standalone HTML files that can be opened directly in a browser:
+
+```bash
+bash tools/build-preview.sh plugins/<name>
+```
+
+This runs `trmnlp build` (fetches live data and renders all layouts to `_build/`) then wraps each output file with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). The wrapped files are fully self-contained and render correctly in any browser.
+
+To view after building:
+```bash
+# Start a local HTTP server from the _build directory (required — file:// is blocked by Edge/Chrome)
+cd plugins/<name>/_build
+python -m http.server 8765
+# Open http://localhost:8765/full.html
+```
+
+The wrapper replicates exactly what `trmnlp serve` renders at `http://localhost:4567/render/full.html?screen_classes=screen%20screen--1bit%20screen--ogv2%20screen--md%20screen--1x`:
+- `https://trmnl.com/css/latest/plugins.css`
+- `https://trmnl.com/js/latest/plugins.js`
+- Inter font from Google Fonts
+- `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">` wrapper
+
+**Important**: `plugins.js` runs pixel-perfect font processing that measures element widths. Flex children that should shrink must have `min-width: 0` set, otherwise they expand to full container width before `plugins.js` runs and the layout breaks.
 
 ## Skills
 
