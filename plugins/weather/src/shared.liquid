@@ -80,13 +80,13 @@
 {% endcomment %}
 {% template weather_current_compact %}
 <div style="display:flex; flex-direction:row; align-items:center; justify-content:center; width:100%; padding:8px 0; gap:16px;">
-  <div class="value" data-pixel-perfect="true" style="font-size:38px; line-height:1; white-space:nowrap; width:fit-content;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
-  <i class="wi {{ current.icon_class }}" style="font-size:48px; line-height:1;"></i>
+  <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1; white-space:nowrap; width:fit-content;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
+  <i class="wi {{ current.icon_class }}" style="font-size:60px; line-height:1;"></i>
   <div style="text-align:left; min-width:0;">
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:600; white-space:nowrap;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Feels like {{ current.apparent_temperature_f }}°F</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:600; white-space:nowrap;">{{ current.condition }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Feels like {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
   </div>
 </div>
 {% endtemplate %}
