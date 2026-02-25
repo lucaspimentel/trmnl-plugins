@@ -1,17 +1,21 @@
-{% if current and current.temperature_2m %}
-<div style="display:flex; flex-direction:row; width:100%; gap:16px;">
-  <div style="flex:62; min-width:0; display:flex; flex-direction:column;">
-    {% render "weather_current_compact", current: current, current_units: current_units %}
-    {% render "weather_hourly_chart", hourly: hourly, current_time: current.time, chart_height: 240 %}
+<div style="display:flex; flex-direction:column; width:100%; height:100%;">
+  {% if current and current.temperature_2m %}
+  <div style="display:flex; flex-direction:row; flex:1; min-height:0; gap:16px;">
+    <div style="flex:62; min-width:0; display:flex; flex-direction:column;">
+      {% render "weather_current_compact", current: current, current_units: current_units %}
+      {% render "weather_hourly_chart", hourly: hourly, current_time: current.time, chart_height: 240 %}
+    </div>
+    <div style="flex:38; min-width:0; display:flex; flex-direction:column;">
+      {% render "weather_daily_bars_vertical", daily: daily, num_days: 6 %}
+    </div>
   </div>
-  <div style="flex:38; min-width:0; display:flex; flex-direction:column;">
-    {% render "weather_daily_bars_vertical", daily: daily, num_days: 5 %}
+  {% else %}
+  <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; flex:1;">
+    <img src="https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/not-available.svg" style="width:96px; height:96px; opacity:0.4;">
+    <div class="title" data-pixel-perfect="true" style="margin-top:16px;">No weather data available.</div>
+  </div>
+  {% endif %}
+  <div style="margin-top:auto;">
+    {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time %}
   </div>
 </div>
-{% else %}
-<div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:410px;">
-  <img src="https://bmcdn.nl/assets/weather-icons/v3.0/line/svg/not-available.svg" style="width:96px; height:96px; opacity:0.4;">
-  <div class="title" data-pixel-perfect="true" style="margin-top:16px;">No weather data available.</div>
-</div>
-{% endif %}
-{% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time %}

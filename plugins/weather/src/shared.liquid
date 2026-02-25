@@ -317,9 +317,9 @@ Highcharts.chart('hourly-chart', {
   Params: daily, num_days
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
-{% assign overall_min = daily.temperature_2m_min[1] %}
-{% assign overall_max = daily.temperature_2m_max[1] %}
-{% for i in (1..5) %}
+{% assign overall_min = daily.temperature_2m_min[0] %}
+{% assign overall_max = daily.temperature_2m_max[0] %}
+{% for i in (0..5) %}
   {% assign d_min = daily.temperature_2m_min[i] %}
   {% assign d_max = daily.temperature_2m_max[i] %}
   {% if d_min < overall_min %}{% assign overall_min = d_min %}{% endif %}
@@ -332,8 +332,8 @@ Highcharts.chart('hourly-chart', {
 
 <div>
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; opacity:0.6;">FORECAST</div>
-  {% assign day_limit = num_days | default: 5 %}
-  {% assign start_day = 1 %}
+  {% assign day_limit = num_days | default: 6 %}
+  {% assign start_day = 0 %}
   {% for i in (0..5) %}
     {% assign adj_i = i | plus: start_day %}
     {% if adj_i <= 5 %}
@@ -341,11 +341,16 @@ Highcharts.chart('hourly-chart', {
       {% assign d_high_f = daily.temperature_2m_max[adj_i] | round %}
       {% assign d_precip = daily.precipitation_probability_max[adj_i] %}
       {% assign d_date = daily.time[adj_i] %}
+      {% if adj_i == 0 %}
+        {% assign d_label = "Today" %}
+      {% else %}
+        {% assign d_label = d_date | date: "%a" %}
+      {% endif %}
       {% assign left_pct = d_low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
       {% assign width_pct = d_high_f | minus: d_low_f | times: 100 | divided_by: range | at_least: 1 %}
       <div style="margin:6px 0;">
         <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-          <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ d_date | date: "%a" }}</span>
+          <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:600;">{{ d_label }}</span>
           <span class="description" data-pixel-perfect="true" style="font-size:11px;">{{ d_precip }}%</span>
         </div>
         <div style="position:relative; width:100%; height:26px; background:#ddd; border-radius:4px;">
