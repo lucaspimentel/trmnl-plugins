@@ -119,7 +119,7 @@
 {% endfor %}
 <div style="margin: 4px 0;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; margin-left:58px;">TODAY</div>
-  <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px;"></div>
+  <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
 </div>
 <script>
 var iconClasses = [{{ icon_classes }}];
@@ -250,17 +250,20 @@ var chart = Highcharts.chart('hourly-chart', {
     }
   ]
 });
-chart.renderer.definition({
-  tagName: 'pattern',
-  id: 'precip-stripe',
-  patternUnits: 'userSpaceOnUse',
-  width: 4,
-  height: 4,
-  children: [
-    { tagName: 'rect', width: 4, height: 4, fill: '#fff' },
-    { tagName: 'path', d: 'M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2', stroke: '#000', 'stroke-width': 1 }
-  ]
-});
+var svgNS = 'http://www.w3.org/2000/svg';
+var defs = document.createElementNS(svgNS, 'defs');
+var pattern = document.createElementNS(svgNS, 'pattern');
+pattern.setAttribute('id', 'precip-stripe');
+pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+pattern.setAttribute('width', '8');
+pattern.setAttribute('height', '8');
+var img = document.createElementNS(svgNS, 'image');
+img.setAttribute('href', 'https://trmnl.com/images/grayscale/gray-5.png');
+img.setAttribute('width', '8');
+img.setAttribute('height', '8');
+pattern.appendChild(img);
+defs.appendChild(pattern);
+chart.renderer.box.appendChild(defs);
 chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 </script>
 {% endtemplate %}
@@ -290,8 +293,8 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ entry.date | date: "%a" }}</div>
       <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ entry.precipitation_probability }}%</div>
       <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low_f }}°F</div>
-      <div style="flex:1; position:relative; height:8px; background:#fff; border:1px solid #000; border-radius:8px; min-width:40px;">
-        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
+      <div style="flex:1; position:relative; height:8px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:40px;">
+        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-4.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
       </div>
       <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high_f }}°F</div>
     </div>
@@ -329,8 +332,8 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       </div>
       <div style="display:flex; align-items:center; gap:4px;">
         <i class="wi {{ entry.icon_class }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
-        <div style="position:relative; flex:1; height:26px; background:#fff; border:1px solid #000; border-radius:8px; min-width:0;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:#000; border-radius:8px;"></div>
+        <div style="position:relative; flex:1; height:26px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:0;">
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-4.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
         {% if width_pct >= 25 %}
         <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.low_f }}°</span>
         <span class="description description--large text-stroke text-stroke--small text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.high_f }}°</span>
