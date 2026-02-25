@@ -7,7 +7,9 @@ watch:
   - src
 
 # values of custom fields (defined in src/settings.yml)
-custom_fields: {}
+custom_fields:
+  latitude: "42.36"
+  longitude: "-71.06"
 
 # override variables
 variables:
