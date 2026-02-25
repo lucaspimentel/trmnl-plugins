@@ -56,10 +56,10 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
 
 ### plugins/weather
-Displays current conditions, a 24-hour temperature chart, and a 5-day forecast.
-- API: Open-Meteo free forecast API (no key required), Boston (42.36°N, 71.06°W), °F/mph
-- Full layout: two-column — left (compact current + hourly Highcharts chart), right (vertical 5-day forecast bars)
-- Assets self-hosted on Azure Blob Storage: `highcharts.js`, `weather-icons.woff2`
+Displays current conditions, a 24-hour temperature chart, and a 5-day forecast with weather icons throughout.
+- API: Open-Meteo free forecast API (no key required), configurable lat/lon (default Boston 42.36°N, 71.06°W), °F/mph
+- Full layout: two-column — left (compact current with icon + hourly Highcharts chart with icons and sunrise/sunset lines), right (vertical forecast bars with icons)
+- Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants via sunrise/sunset data
 
 ## Tools (`./tools/`)
 

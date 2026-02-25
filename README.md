@@ -4,8 +4,17 @@ Plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device.
 
 ## Plugins
 
-- **[mbta-alerts](./plugins/mbta-alerts)** - Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA)
-- **[weather](./plugins/weather)** - Displays current conditions, hourly chart, and 5-day forecast using Open-Meteo
+### [MBTA Alerts](./plugins/mbta-alerts)
+
+Displays service alerts from the Massachusetts Bay Transportation Authority (MBTA), filtered to subway and light rail.
+
+![MBTA Alerts](./plugins/mbta-alerts/screenshot.png)
+
+### [Weather](./plugins/weather)
+
+Displays current conditions, 24-hour temperature/precipitation chart, and multi-day forecast with weather icons.
+
+![Weather](./plugins/weather/screenshot.png)
 
 ## Plugin Structure
 

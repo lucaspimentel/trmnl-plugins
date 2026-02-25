@@ -32,11 +32,13 @@ data.
         weather_code            (array of 144 integers, WMO codes)
         precipitation_probability (array of 144 integers, %)
     daily.
-        time                    (array of 6 date strings, e.g. "2026-02-23")
-        temperature_2m_max      (array of 6 floats, °F)
-        temperature_2m_min      (array of 6 floats, °F)
-        weather_code            (array of 6 integers, WMO codes)
-        precipitation_probability_max (array of 6 integers, %)
+        time                    (array of 5 date strings, e.g. "2026-02-23")
+        temperature_2m_max      (array of 5 floats, °F)
+        temperature_2m_min      (array of 5 floats, °F)
+        weather_code            (array of 5 integers, WMO codes)
+        precipitation_probability_max (array of 5 integers, %)
+        sunrise                 (array of 5 ISO strings, e.g. "2026-02-23T06:25")
+        sunset                  (array of 5 ISO strings, e.g. "2026-02-23T17:28")
 
 WMO Weather Code Groups:
     0          = Clear sky
