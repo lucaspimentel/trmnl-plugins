@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.trmnl.com)",
-      "WebFetch(domain:trmnl.com)"
+      "WebFetch(domain:docs.usetrmnl.com)",
+      "WebFetch(domain:erikflowers.github.io)",
+      "WebFetch(domain:help.usetrmnl.com)",
+      "WebFetch(domain:help.trmnl.com)",
+      "WebFetch(domain:open-meteo.com)",
+      "WebFetch(domain:trmnl.com)",
+      "WebFetch(domain:usetrmnl.com)"
     ]
   }
 }
