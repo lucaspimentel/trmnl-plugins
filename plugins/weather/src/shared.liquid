@@ -330,7 +330,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
     <div style="margin:2px 0;">
       <div style="display:flex; align-items:center; gap:2px;">
         <div style="width:36px; flex-shrink:0;">
-          <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700; line-height:1.2;">{{ entry.date | date: "%a" }}</div>
+          <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700; line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%a" }}{% endif %}</div>
           <div style="display:flex; align-items:center; gap:1px;">
             <i class="wi wi-raindrop" style="font-size:9px;"></i>
             <span class="description" data-pixel-perfect="true" style="font-size:10px;">{{ entry.precipitation_probability }}%</span>
