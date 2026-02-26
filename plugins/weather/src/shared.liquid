@@ -83,12 +83,12 @@
 {% template weather_current_compact %}
 <div style="display:flex; flex-direction:row; align-items:flex-start; gap:12px; width:100%; padding:8px 0 4px 16px;">
   <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
-  <div class="value" data-pixel-perfect="true" style="font-size:84px; line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature_f }}°F</div>
+  <div class="value" data-pixel-perfect="true" style="font-size:86px; line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature_f }}°{% if current.temperature_f < 100 %}F{% endif %}</div>
   <div style="display:flex; flex-direction:column; gap:2px; min-width:0; padding-top:4px;">
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Feels {{ current.apparent_temperature_f }}°F</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">{{ current.condition }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Feels {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
   </div>
 </div>
 {% endtemplate %}
