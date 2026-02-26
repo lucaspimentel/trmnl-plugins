@@ -335,7 +335,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 <div style="display:flex; flex-direction:column; height:100%;">
   {% assign day_limit = num_days | default: 6 %}
   <div class="label" data-pixel-perfect="true" style="font-size:14px; letter-spacing:0.08em; margin-bottom:8px;">NEXT {{ day_limit }} DAYS</div>
-  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
+  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-evenly;">
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
