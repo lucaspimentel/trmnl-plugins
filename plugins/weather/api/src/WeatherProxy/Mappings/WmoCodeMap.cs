@@ -35,7 +35,7 @@ public static class WmoCodeMap
         _ => "wi-na"
     };
 
-    public static string GetWindDirection(int degrees) => degrees switch
+    public static string GetWindDirection(double degrees) => (int)degrees switch
     {
         >= 338 or < 23 => "N",
         >= 23 and < 68 => "NE",

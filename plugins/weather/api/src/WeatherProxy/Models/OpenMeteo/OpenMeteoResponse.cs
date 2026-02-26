@@ -19,7 +19,7 @@ public record OpenMeteoCurrent(
     [property: JsonPropertyName("precipitation")] double Precipitation,
     [property: JsonPropertyName("weather_code")] int WeatherCode,
     [property: JsonPropertyName("wind_speed_10m")] double WindSpeed10m,
-    [property: JsonPropertyName("wind_direction_10m")] int WindDirection10m,
+    [property: JsonPropertyName("wind_direction_10m")] double WindDirection10m,
     [property: JsonPropertyName("is_day")] int IsDay
 );
 

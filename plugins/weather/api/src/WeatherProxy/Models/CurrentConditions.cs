@@ -14,7 +14,7 @@ public record CurrentConditions(
     string Condition,
     [property: JsonPropertyName("icon_class")] string IconClass,
     [property: JsonPropertyName("wind_speed_mph")] int WindSpeedMph,
-    [property: JsonPropertyName("wind_direction_deg")] int WindDirectionDeg,
+    [property: JsonPropertyName("wind_direction_deg")] double WindDirectionDeg,
     [property: JsonPropertyName("wind_direction")] string WindDirection,
     [property: JsonPropertyName("is_day")] bool IsDay
 );
