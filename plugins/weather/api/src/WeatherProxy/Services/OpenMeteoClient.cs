@@ -18,7 +18,7 @@ public class OpenMeteoClient(HttpClient httpClient) : IOpenMeteoClient
                   $"&hourly=temperature_2m,weather_code,precipitation_probability" +
                   $"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset" +
                   $"&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch" +
-                  $"&timezone=auto&forecast_hours=25&forecast_days=5";
+                  $"&timezone=auto&forecast_hours=25&forecast_days=6";
 
         var response = await httpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
