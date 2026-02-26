@@ -296,7 +296,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ entry.precipitation_probability }}%</div>
       <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low_f }}°F</div>
       <div style="flex:1; position:relative; height:8px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:40px;">
-        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-4.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
+        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
       </div>
       <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high_f }}°F</div>
     </div>
@@ -335,7 +335,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
       <div style="display:flex; align-items:center; gap:4px;">
         <i class="wi {{ entry.icon_class }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
         <div style="position:relative; flex:1; height:26px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:0;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-4.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
         {% if width_pct >= 25 %}
         <span class="description description--large text-stroke text-stroke--medium text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 4 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:13px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.low_f }}°</span>
         <span class="description description--large text-stroke text-stroke--medium text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 4 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:13px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.high_f }}°</span>
