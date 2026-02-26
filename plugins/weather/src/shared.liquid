@@ -81,10 +81,10 @@
   Params: current
 {% endcomment %}
 {% template weather_current_compact %}
-<div style="display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:12px; width:100%; padding:8px 0 4px 16px;">
-  <i class="wi {{ current.icon_class }}" style="grid-column:1; grid-row:1 / span 2; font-size:100px; line-height:1; align-self:end;"></i>
-  <div class="value" data-pixel-perfect="true" style="grid-column:2; grid-row:1; font-size:64px; line-height:1; white-space:nowrap; align-self:end;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
-  <div style="grid-column:2; grid-row:2; display:grid; grid-template-columns:auto auto; gap:2px 24px; margin-top:4px; justify-content:start;">
+<div style="display:flex; flex-direction:row; align-items:center; gap:12px; width:100%; padding:8px 0 4px 16px;">
+  <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
+  <div class="value" data-pixel-perfect="true" style="font-size:84px; line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature_f }}°F</div>
+  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
     <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">{{ current.condition }}</div>
     <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Feels {{ current.apparent_temperature_f }}°F</div>
     <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
