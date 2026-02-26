@@ -81,14 +81,18 @@
   Params: current
 {% endcomment %}
 {% template weather_current_compact %}
-<div style="display:flex; flex-direction:row; align-items:center; justify-content:center; width:100%; padding:8px 0; gap:16px;">
-  <div class="value" data-pixel-perfect="true" style="font-size:48px; line-height:1; white-space:nowrap; width:fit-content;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
-  <i class="wi {{ current.icon_class }}" style="font-size:60px; line-height:1;"></i>
-  <div style="text-align:left; min-width:0;">
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:600; white-space:nowrap;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Feels like {{ current.apparent_temperature_f }}°F</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:18px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+<div style="display:flex; flex-direction:row; width:100%; padding:8px 0 4px; gap:12px;">
+  <div style="display:flex; align-items:center; width:112px; flex-shrink:0;">
+    <i class="wi {{ current.icon_class }}" style="font-size:100px; line-height:1;"></i>
+  </div>
+  <div style="display:flex; flex-direction:column; min-width:0;">
+    <div class="value" data-pixel-perfect="true" style="font-size:56px; line-height:1; white-space:nowrap;">{{ current.temperature_f }}°F / {{ current.temperature_c }}°C</div>
+    <div style="display:flex; flex-direction:row; gap:16px; margin-top:4px;">
+      <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">{{ current.condition }}</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Feels {{ current.apparent_temperature_f }}°F</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+      <div class="description" data-pixel-perfect="true" style="font-size:16px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+    </div>
   </div>
 </div>
 {% endtemplate %}
@@ -119,7 +123,7 @@
     {% assign hour_times = hour_times | append: ',"' | append: entry.time | append: '"' %}
   {% endif %}
 {% endfor %}
-<div style="margin: 4px 0;">
+<div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em; margin-left:58px;">NEXT 24 HOURS</div>
   <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
 </div>
@@ -321,31 +325,27 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
 <div style="display:flex; flex-direction:column; height:100%;">
-  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">NEXT 4 DAYS</div>
-  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% assign day_limit = num_days | default: 6 %}
+  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">NEXT {{ day_limit }} DAYS</div>
+  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
-    <div style="margin:6px 0;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-        <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700;">{{ entry.date | date: "%a" }}</span>
-        <span style="display:flex; align-items:center; gap:2px;"><i class="wi wi-raindrop" style="font-size:10px;"></i><span class="description" data-pixel-perfect="true" style="font-size:11px; font-weight:700;">{{ entry.precipitation_probability }}%</span></span>
-      </div>
-      <div style="display:flex; align-items:center; gap:4px;">
-        <i class="wi {{ entry.icon_class }}" style="font-size:24px; width:28px; text-align:center; flex-shrink:0;"></i>
-        <div style="position:relative; flex:1; height:26px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:0;">
-          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
-        {% if width_pct >= 25 %}
-        <span class="description description--large text-stroke text-stroke--medium text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: 4 }}%; top:50%; transform:translateY(-50%); color:#fff; font-size:13px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.low_f }}°</span>
-        <span class="description description--large text-stroke text-stroke--medium text-stroke--black" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | minus: 4 }}%; top:50%; transform:translate(-100%,-50%); color:#fff; font-size:13px; font-weight:700; white-space:nowrap; z-index:1;">{{ entry.high_f }}°</span>
-        {% else %}
-        <span class="description description--large text-stroke text-stroke--medium text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | minus: 1 }}%; top:50%; transform:translate(-100%,-50%); color:#000; font-size:13px; font-weight:700; white-space:nowrap;">{{ entry.low_f }}°</span>
-        {% if entry.high_f != entry.low_f %}
-        <span class="description description--large text-stroke text-stroke--medium text-stroke--white" data-pixel-perfect="true" style="position:absolute; left:{{ left_pct | plus: width_pct | plus: 1 }}%; top:50%; transform:translateY(-50%); color:#000; font-size:13px; font-weight:700; white-space:nowrap;">{{ entry.high_f }}°</span>
-        {% endif %}
-        {% endif %}
+    <div style="margin:3px 0;">
+      <div style="display:flex; align-items:center; gap:2px;">
+        <div style="width:42px; flex-shrink:0;">
+          <div class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700; line-height:1.2;">{{ entry.date | date: "%a" }}</div>
+          <div style="display:flex; align-items:center; gap:1px;">
+            <i class="wi wi-raindrop" style="font-size:9px;"></i>
+            <span class="description" data-pixel-perfect="true" style="font-size:10px;">{{ entry.precipitation_probability }}%</span>
+          </div>
         </div>
+        <i class="wi {{ entry.icon_class }}" style="font-size:20px; width:28px; text-align:center; flex-shrink:0;"></i>
+        <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700; width:28px; text-align:right; flex-shrink:0; white-space:nowrap;">{{ entry.low_f }}°</span>
+        <div style="flex:1; height:20px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
+          <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:10px;"></div>
+        </div>
+        <span class="description" data-pixel-perfect="true" style="font-size:12px; font-weight:700; width:28px; flex-shrink:0; white-space:nowrap;">{{ entry.high_f }}°</span>
       </div>
     </div>
   {% endfor %}
