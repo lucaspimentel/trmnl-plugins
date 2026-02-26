@@ -176,7 +176,7 @@ var chart = Highcharts.chart('hourly-chart', {
     categories: [{{ hour_labels }}],
     tickInterval: 4,
     labels: {
-      style: { fontSize: '14px', color: '#000', fontFamily: 'Inter, sans-serif' },
+      style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
       rotation: 0,
       align: 'center',
       y: 14,
@@ -350,11 +350,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
           </div>
         </div>
         <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:700; white-space:nowrap;">{{ entry.low_f }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.low_f }}°</span></div>
         <div style="flex:1; height:20px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:10px;"></div>
         </div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="description" data-pixel-perfect="true" style="font-size:16px; font-weight:700; white-space:nowrap;">{{ entry.high_f }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.high_f }}°</span></div>
       </div>
     </div>
   {% endfor %}
