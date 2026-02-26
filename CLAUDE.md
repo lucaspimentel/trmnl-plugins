@@ -28,6 +28,8 @@ plugins/<name>/
     quadrant.liquid
 ```
 
+Not all plugins implement every layout. For example, the weather plugin currently only has `full.liquid` and `shared.liquid`; the other layouts are TODOs.
+
 Key `settings.yml` fields:
 - `strategy`: Data fetching method (`polling` or `webhook`)
 - `polling_url`: API endpoint to fetch data from
@@ -56,10 +58,12 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
 
 ### plugins/weather
-Displays current conditions, a 24-hour temperature chart, and a 5-day forecast with weather icons throughout.
-- API: Open-Meteo free forecast API (no key required), configurable lat/lon (default Boston 42.36°N, 71.06°W), °F/mph
-- Full layout: two-column at the outermost level — left column (62%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right column (38%): vertical 5-day forecast bars spanning full height
-- Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants via sunrise/sunset data
+Displays current conditions, a 24-hour temperature chart, and a 6-day forecast with weather icons throughout.
+- API: Custom WeatherProxy Azure Function (`https://trmnl-weather.azurewebsites.net/api/forecast`) that calls Open-Meteo and pre-processes the response; configurable lat/lon (default Boston 42.36°N, 71.06°W)
+- WeatherProxy source: `plugins/weather/api/` — .NET 10 Azure Functions v4 app that fetches Open-Meteo, maps WMO codes to condition labels and icon classes, and returns a simplified JSON response
+- Full layout: two-column at the outermost level — left column (68%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right column (32%): vertical 6-day forecast bars spanning full height
+- Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants; icon class pre-computed by WeatherProxy (not in Liquid templates)
+- Only `full.liquid` is implemented; `half_horizontal`, `half_vertical`, and `quadrant` are TODOs
 
 ## Tools (`./tools/`)
 
@@ -89,6 +93,11 @@ Fetches the current TRMNL screen image and displays it in Sixel format (black/wh
 .NET 9 app that fetches and displays the current TRMNL screen image in Sixel (full color).
 - Uses [SixPix](https://www.nuget.org/packages/SixPix) NuGet package
 - Run: `dotnet run --project tools/Trmnl.Cli/Trmnl.Cli.csproj`
+
+### dither.py
+Converts a screenshot PNG to 1-bit using Floyd-Steinberg dithering, to check how colors/grays will render on the e-ink display.
+- Run: `python3 tools/dither.py plugins/<name>/render.png`
+- Output: `plugins/<name>/render-1bit.png`
 
 ### Credentials
 `Get-Trmnl-Image.ps1` and `Trmnl.Cli` require:
@@ -177,6 +186,10 @@ Optionally, convert to 1-bit using Floyd-Steinberg dithering to check how colors
 python3 tools/dither.py plugins/<name>/render.png
 # outputs plugins/<name>/render-1bit.png
 ```
+
+## Assets (`./assets/`)
+
+- `full-template.pdn` — Paint.NET template file for creating plugin screenshots at the correct 800×480 dimensions
 
 ## Skills
 

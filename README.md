@@ -12,7 +12,7 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 
 ### [Weather](./plugins/weather)
 
-Displays current conditions, 24-hour temperature/precipitation chart, and multi-day forecast with weather icons.
+Displays current conditions, 24-hour temperature/precipitation chart, and 6-day forecast with weather icons.
 
 ![Weather](./plugins/weather/screenshot.png)
 
@@ -63,6 +63,7 @@ The `--screenshot` flag opens `full.html` in Edge at 800×480, waits 3 seconds f
 ## Tools
 
 - **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (wraps `trmnlp build` output with TRMNL screen shell); `--screenshot` flag also captures `render.png` via playwright-cli
+- **[dither.py](./tools/dither.py)** - Convert a screenshot PNG to 1-bit using Floyd-Steinberg dithering (outputs `render-1bit.png`)
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white)
 - **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 app that fetches and displays the current screen image in Sixel (full color)
 
