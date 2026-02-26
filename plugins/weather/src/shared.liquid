@@ -193,12 +193,12 @@ var chart = Highcharts.chart('hourly-chart', {
         width: 2,
         dashStyle: 'dash',
         label: {
-          text: nearEdge ? '' : '<i class="wi ' + pl.icon + '" style="font-size:14px;"></i> ' + pl.label,
+          text: nearEdge ? '' : '<i class="wi ' + pl.icon + '" style="font-size:16px;"></i> ' + pl.label,
           useHTML: true,
-          align: 'center',
-          x: 0,
+          align: 'left',
+          x: -10,
           rotation: 0,
-          style: { fontSize: '12px', color: '#000', fontFamily: 'Inter, sans-serif' },
+          style: { fontSize: '14px', color: '#000', fontFamily: 'Inter, sans-serif' },
           y: -5
         }
       };
@@ -368,6 +368,7 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 {% endcomment %}
 {% template title_bar %}
 <div class="title_bar">
+  {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick" style="font-size:20px; margin-right:6px;"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
   <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
