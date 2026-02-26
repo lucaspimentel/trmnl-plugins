@@ -6,7 +6,7 @@
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
     </div>
     <div style="flex:36; min-width:0; display:flex; flex-direction:column; padding-top:16px; padding-right:6px; padding-bottom:16px;">
-      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6 %}
+      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature_f %}
     </div>
   </div>
   {% else %}

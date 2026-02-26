@@ -337,10 +337,21 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   {% assign day_limit = num_days | default: 6 %}
   <div class="label" data-pixel-perfect="true" style="font-size:14px; letter-spacing:0.08em; margin-bottom:8px;">DAILY FORECAST</div>
   <div style="display:flex; flex-direction:column; flex:1; justify-content:space-evenly;">
+{% if current_temp %}
+  {% assign current_temp_int = current_temp | round %}
+  {% assign current_marker_pct = current_temp_int | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 | at_most: 100 %}
+{% endif %}
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
     <div style="margin:2px 0;">
+      {% if forloop.first and current_temp %}
+      <div style="display:flex; align-items:flex-end; padding-left:116px; padding-right:38px; margin-bottom:1px;">
+        <div style="flex:1; position:relative; height:4px; min-width:0;">
+          <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1;">▼</span>
+        </div>
+      </div>
+      {% endif %}
       <div style="display:flex; align-items:center; gap:2px;">
         <div style="width:44px; flex-shrink:0;">
           <div class="description" data-pixel-perfect="true" style="font-size:14px; font-weight:700; line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
