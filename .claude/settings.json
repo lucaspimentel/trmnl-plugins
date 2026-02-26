@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(bash tools/build-preview.sh:*)",
       "WebFetch(domain:docs.trmnl.com)",
       "WebFetch(domain:docs.usetrmnl.com)",
       "WebFetch(domain:erikflowers.github.io)",
