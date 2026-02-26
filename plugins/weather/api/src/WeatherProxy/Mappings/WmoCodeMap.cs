@@ -27,7 +27,7 @@ public static class WmoCodeMap
         3 => "wi-wmo4680-3",
         45 => "wi-wmo4680-45",
         48 => "wi-wmo4680-48",
-        >= 51 and <= 55 => $"wi-wmo4680-{code}",
+        >= 51 and <= 57 => $"wi-wmo4680-{code}",
         >= 61 and <= 67 => $"wi-wmo4680-{code}",
         >= 71 and <= 77 => $"wi-wmo4680-{code}",
         >= 80 and <= 86 => $"wi-wmo4680-{code}",
