@@ -29,17 +29,37 @@ public class WeatherFunction(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "forecast")] HttpRequestData req,
         CancellationToken cancellationToken)
     {
-        if (!TryParseCoordinates(req, out var latitude, out var longitude))
+        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+
+        if (!RequestValidator.TryParseCoordinates(query["latitude"], query["longitude"], out var latitude, out var longitude))
         {
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
             await bad.WriteStringAsync("latitude and longitude query parameters are required and must be valid numbers.", cancellationToken);
             return bad;
         }
 
-        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        var metric = query["units"] is "metric";
-        var hours = ClampParam(query["hours"], MaxHours);
-        var days = ClampParam(query["days"], MaxDays);
+        var unitsParam = query["units"];
+        if (!RequestValidator.IsValidUnits(unitsParam))
+        {
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync($"units must be 'imperial' or 'metric'.", cancellationToken);
+            return bad;
+        }
+        var metric = unitsParam is "metric";
+
+        if (!RequestValidator.TryParseRangeParam(query["hours"], 1, MaxHours, out var hours))
+        {
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync($"hours must be an integer between 1 and {MaxHours}.", cancellationToken);
+            return bad;
+        }
+
+        if (!RequestValidator.TryParseRangeParam(query["days"], 1, MaxDays, out var days))
+        {
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync($"days must be an integer between 1 and {MaxDays}.", cancellationToken);
+            return bad;
+        }
 
         if (!cache.TryGet(latitude, longitude, metric, out var weatherResponse) || weatherResponse is null)
         {
@@ -70,13 +90,6 @@ public class WeatherFunction(
         return ok;
     }
 
-    private static int ClampParam(string? value, int max)
-    {
-        if (value is null || !int.TryParse(value, out var parsed) || parsed < 1)
-            return max;
-        return Math.Min(parsed, max);
-    }
-
     private static WeatherResponse FakePrecipitation(WeatherResponse response)
     {
         var hourly = response.Hourly.Entries
@@ -102,12 +115,4 @@ public class WeatherFunction(
         };
     }
 
-    private static bool TryParseCoordinates(HttpRequestData req, out double latitude, out double longitude)
-    {
-        latitude = 0;
-        longitude = 0;
-        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        return double.TryParse(query["latitude"], System.Globalization.CultureInfo.InvariantCulture, out latitude)
-            && double.TryParse(query["longitude"], System.Globalization.CultureInfo.InvariantCulture, out longitude);
-    }
 }
