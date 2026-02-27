@@ -5,5 +5,5 @@ namespace WeatherProxy.Services;
 
 public interface IWeatherTransformer
 {
-    WeatherResponse Transform(OpenMeteoResponse raw);
+    WeatherResponse Transform(OpenMeteoResponse raw, int hours = 25, int days = 6);
 }

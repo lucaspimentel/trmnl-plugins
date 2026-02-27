@@ -36,19 +36,13 @@ The plugin polls a custom Azure Function instead of Open-Meteo directly. The pro
 - **Deployed URL**: `https://trmnl-weather.azurewebsites.net/api/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `plugins/weather/api/` — .NET 10 Azure Functions v4 app
 - **Auth**: None (anonymous)
-- **Query params**: `fake=true` or `fake=1` to inject randomized precipitation values (useful for testing chart rendering)
-
-WeatherProxy calls Open-Meteo with:
-```
-https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}
-  &current=temperature_2m,apparent_temperature,relative_humidity_2m,
-           precipitation,weather_code,wind_speed_10m,wind_direction_10m,is_day
-  &hourly=temperature_2m,weather_code,precipitation_probability
-  &daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,
-         sunrise,sunset
-  &temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch
-  &timezone=auto&forecast_hours=25&forecast_days=6
-```
+- **Query params**:
+  - `latitude` (required) — location latitude
+  - `longitude` (required) — location longitude
+  - `units` — `imperial` (default: °F, mph, inches) or `metric` (°C, km/h, mm)
+  - `hours` — number of hourly entries (1–25, default 25)
+  - `days` — number of daily entries (1–6, default 6)
+  - `fake` — `true` or `1` to inject randomized precipitation values (testing)
 
 #### WeatherProxy Response Shape
 
@@ -56,16 +50,14 @@ https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}
 {
   "current": {
     "time": "2026-02-25T14:00",
-    "temperature_f": 35,
-    "temperature_c": 2,
-    "apparent_temperature_f": 28,
-    "apparent_temperature_c": -2,
+    "temperature": 35,
+    "apparent_temperature": 28,
     "relative_humidity": 72,
-    "precipitation_in": 0.0,
+    "precipitation": 0.0,
     "weather_code": 3,
     "condition": "Overcast",
     "icon_class": "wi wi-cloudy",
-    "wind_speed_mph": 12,
+    "wind_speed": 12,
     "wind_direction_deg": 270,
     "wind_direction": "W",
     "is_day": true
@@ -75,21 +67,21 @@ https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}
       {
         "time": "2026-02-25T14:00",
         "label": "Now",
-        "temperature_f": 35,
+        "temperature": 35,
         "precipitation_probability": 10,
         "weather_code": 3,
         "icon_class": "wi wi-cloudy",
         "is_day": true
       }
-      // ... 24 more entries
+      // ... 24 more entries (25 total by default)
     ]
   },
   "daily": {
     "entries": [
       {
         "date": "2026-02-25",
-        "high_f": 38,
-        "low_f": 28,
+        "high": 38,
+        "low": 28,
         "weather_code": 61,
         "condition": "Light rain",
         "icon_class": "wi wi-rain",
@@ -97,11 +89,15 @@ https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}
         "sunrise": "2026-02-25T06:30",
         "sunset": "2026-02-25T17:35"
       }
-      // ... 5 more entries (6 total)
+      // ... 5 more entries (6 total by default)
     ]
   }
 }
 ```
+
+Field names are unit-agnostic. The actual units depend on the `units` query parameter:
+- `imperial` (default): °F, mph, inches
+- `metric`: °C, km/h, mm
 
 ### JS Library: Highcharts
 
@@ -149,7 +145,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 | Template | Purpose |
 |----------|---------|
-| `weather_current_compact` | Current conditions (left-column, centered): temp °F/°C + weather icon + details |
+| `weather_current_compact` | Current conditions (left-column, centered): temp + weather icon + details |
 | `weather_hourly_chart` | Highcharts spline (temp °F) + column (precip %) for next 24h, weather icons on x-axis, sunrise/sunset vertical lines |
 | `weather_daily_bars_vertical` | 6-day CSS range bars (vertical layout for right column), weather icons next to bars, labels inside bars |
 | `title_bar` | Standard bottom bar with day + time |
@@ -169,7 +165,7 @@ Layout files pass these directly to shared templates:
 ```
 
 Key access patterns:
-- `current.temperature_f`, `current.condition`, `current.icon_class`, `current.is_day`
+- `current.temperature`, `current.condition`, `current.icon_class`, `current.is_day`
 - `hourly.entries` — array of 25 hourly entries (current hour + 24h ahead)
 - `daily.entries` — array of 6 daily entries (today + 5 days)
 - Icon classes already include day/night variant (e.g. `wi wi-day-sunny`)

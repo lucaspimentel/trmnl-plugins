@@ -20,20 +20,8 @@ public class WeatherTransformerTests
         var raw = LoadFixture();
         var result = new WeatherTransformer().Transform(raw);
 
-        Assert.Equal(42, result.Current.TemperatureF);       // 41.5 rounded
-        Assert.Equal(38, result.Current.ApparentTemperatureF); // 37.8 rounded
-    }
-
-    [Fact]
-    public void Transform_Current_ConvertsToCelsius()
-    {
-        var raw = LoadFixture();
-        var result = new WeatherTransformer().Transform(raw);
-
-        // 41.5°F → 5.28°C → rounded to 5
-        Assert.Equal(5, result.Current.TemperatureC);
-        // 37.8°F → 3.22°C → rounded to 3
-        Assert.Equal(3, result.Current.ApparentTemperatureC);
+        Assert.Equal(42, result.Current.Temperature);       // 41.5 rounded
+        Assert.Equal(38, result.Current.ApparentTemperature); // 37.8 rounded
     }
 
     [Fact]
@@ -55,7 +43,7 @@ public class WeatherTransformerTests
 
         Assert.Equal(225, result.Current.WindDirectionDeg);
         Assert.Equal("SW", result.Current.WindDirection);
-        Assert.Equal(12, result.Current.WindSpeedMph); // 11.6 rounded
+        Assert.Equal(12, result.Current.WindSpeed); // 11.6 rounded
     }
 
     [Fact]
@@ -101,12 +89,33 @@ public class WeatherTransformerTests
     }
 
     [Fact]
+    public void Transform_Hourly_LimitsEntryCount()
+    {
+        var raw = LoadFixture();
+        var result = new WeatherTransformer().Transform(raw, hours: 12);
+
+        Assert.Equal(12, result.Hourly.Entries.Count);
+        Assert.Equal("Now", result.Hourly.Entries[0].Label);
+    }
+
+    [Fact]
     public void Transform_Daily_HasFiveDays()
     {
         var raw = LoadFixture();
         var result = new WeatherTransformer().Transform(raw);
 
         Assert.Equal(5, result.Daily.Entries.Count);
+    }
+
+    [Fact]
+    public void Transform_Daily_LimitsEntryCount()
+    {
+        var raw = LoadFixture();
+        var result = new WeatherTransformer().Transform(raw, days: 3);
+
+        Assert.Equal(3, result.Daily.Entries.Count);
+        Assert.Equal("2026-02-25", result.Daily.Entries[0].Date);
+        Assert.Equal("2026-02-27", result.Daily.Entries[^1].Date);
     }
 
     [Fact]
@@ -117,8 +126,8 @@ public class WeatherTransformerTests
 
         var today = result.Daily.Entries[0];
         Assert.Equal("2026-02-25", today.Date);
-        Assert.Equal(45, today.HighF);  // 45.2 rounded
-        Assert.Equal(32, today.LowF);   // 31.8 rounded
+        Assert.Equal(45, today.High);  // 45.2 rounded
+        Assert.Equal(32, today.Low);   // 31.8 rounded
         Assert.Equal("Partly Cloudy", today.Condition);
         Assert.Equal("wi-day-cloudy", today.IconClass);
         Assert.Equal(20, today.PrecipitationProbability);

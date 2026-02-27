@@ -68,11 +68,11 @@
   <div>
     <div class="label label--medium" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
     <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true">Feels like {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true">Feels like {{ current.apparent_temperature }}°</div>
     <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+    <div class="description" data-pixel-perfect="true">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
   </div>
-  <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ current.temperature_f }}°F</div>
+  <div class="value" data-pixel-perfect="true" style="font-size:64px; line-height:1;">{{ current.temperature }}°</div>
 </div>
 {% endtemplate %}
 
@@ -83,12 +83,12 @@
 {% template weather_current_compact %}
 <div style="display:flex; flex-direction:row; align-items:flex-start; gap:12px; width:100%; padding:8px 0 4px 16px;">
   <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
-  <div class="value" data-pixel-perfect="true" style="font-size:86px; line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature_f }}°{% if current.temperature_f < 100 %}F{% endif %}</div>
+  <div class="value" data-pixel-perfect="true" style="font-size:86px; line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}°</div>
   <div style="display:flex; flex-direction:column; gap:2px; min-width:0; padding-top:4px;">
     <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Feels {{ current.apparent_temperature_f }}°F</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Feels {{ current.apparent_temperature }}°</div>
     <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Wind {{ current.wind_speed_mph }} mph {{ current.wind_direction }}</div>
+    <div class="description" data-pixel-perfect="true" style="font-size:22px; white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
   </div>
 </div>
 {% endtemplate %}
@@ -107,13 +107,13 @@
 {% for entry in hourly.entries %}
   {% if forloop.first %}
     {% assign hour_labels = entry.label | prepend: '"' | append: '"' %}
-    {% assign temp_data = entry.temperature_f | append: "" %}
+    {% assign temp_data = entry.temperature | append: "" %}
     {% assign precip_data = entry.precipitation_probability | append: "" %}
     {% assign icon_classes = entry.icon_class | prepend: '"' | append: '"' %}
     {% assign hour_times = entry.time | prepend: '"' | append: '"' %}
   {% else %}
     {% assign hour_labels = hour_labels | append: ',"' | append: entry.label | append: '"' %}
-    {% assign temp_data = temp_data | append: "," | append: entry.temperature_f %}
+    {% assign temp_data = temp_data | append: "," | append: entry.temperature %}
     {% assign precip_data = precip_data | append: "," | append: entry.precipitation_probability %}
     {% assign icon_classes = icon_classes | append: ',"' | append: entry.icon_class | append: '"' %}
     {% assign hour_times = hour_times | append: ',"' | append: entry.time | append: '"' %}
@@ -288,11 +288,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   Params: daily, num_days
 {% endcomment %}
 {% template weather_daily_bars %}
-{% assign overall_min = daily.entries[1].low_f %}
-{% assign overall_max = daily.entries[1].high_f %}
+{% assign overall_min = daily.entries[1].low %}
+{% assign overall_max = daily.entries[1].high %}
 {% for entry in daily.entries offset: 1 %}
-  {% if entry.low_f < overall_min %}{% assign overall_min = entry.low_f %}{% endif %}
-  {% if entry.high_f > overall_max %}{% assign overall_max = entry.high_f %}{% endif %}
+  {% if entry.low < overall_min %}{% assign overall_min = entry.low %}{% endif %}
+  {% if entry.high > overall_max %}{% assign overall_max = entry.high %}{% endif %}
 {% endfor %}
 {% assign overall_min_int = overall_min | floor %}
 {% assign overall_max_int = overall_max | ceil %}
@@ -302,16 +302,16 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 <div style="margin: 4px 0;">
   <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">{{ section_label | default: "NEXT 4 DAYS" }}</div>
   {% for entry in daily.entries offset: 1 %}
-    {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
-    {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
+    {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
+    {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
     <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
       <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ entry.date | date: "%a" }}</div>
       <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ entry.precipitation_probability }}%</div>
-      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low_f }}°F</div>
+      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low }}°F</div>
       <div style="flex:1; position:relative; height:8px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:40px;">
         <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
       </div>
-      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high_f }}°F</div>
+      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high }}°F</div>
     </div>
   {% endfor %}
 </div>
@@ -322,11 +322,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   Params: daily_entries, num_days
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
-{% assign overall_min = daily_entries[0].low_f %}
-{% assign overall_max = daily_entries[0].high_f %}
+{% assign overall_min = daily_entries[0].low %}
+{% assign overall_max = daily_entries[0].high %}
 {% for entry in daily_entries %}
-  {% if entry.low_f < overall_min %}{% assign overall_min = entry.low_f %}{% endif %}
-  {% if entry.high_f > overall_max %}{% assign overall_max = entry.high_f %}{% endif %}
+  {% if entry.low < overall_min %}{% assign overall_min = entry.low %}{% endif %}
+  {% if entry.high > overall_max %}{% assign overall_max = entry.high %}{% endif %}
 {% endfor %}
 {% assign overall_min_int = overall_min | floor %}
 {% assign overall_max_int = overall_max | ceil %}
@@ -342,8 +342,8 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
   {% assign current_marker_pct = current_temp_int | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 | at_most: 100 %}
 {% endif %}
   {% for entry in daily_entries limit: day_limit %}
-    {% assign left_pct = entry.low_f | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
-    {% assign width_pct = entry.high_f | minus: entry.low_f | times: 100 | divided_by: range | at_least: 1 %}
+    {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
+    {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
     <div style="margin:2px 0;">
       {% if forloop.first and current_temp %}
       <div style="display:flex; align-items:flex-end; padding-left:116px; padding-right:38px; margin-bottom:1px;">
@@ -361,11 +361,11 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
           </div>
         </div>
         <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.low_f }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.low }}°</span></div>
         <div style="flex:1; height:20px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:10px;"></div>
         </div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.high_f }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="description" data-pixel-perfect="true" style="font-size:18px; font-weight:700; white-space:nowrap;">{{ entry.high }}°</span></div>
       </div>
     </div>
   {% endfor %}

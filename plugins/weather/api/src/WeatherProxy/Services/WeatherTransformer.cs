@@ -6,11 +6,11 @@ namespace WeatherProxy.Services;
 
 public class WeatherTransformer : IWeatherTransformer
 {
-    public WeatherResponse Transform(OpenMeteoResponse raw)
+    public WeatherResponse Transform(OpenMeteoResponse raw, int hours = 25, int days = 6)
     {
         var current = TransformCurrent(raw.Current);
-        var hourly = TransformHourly(raw.Hourly, raw.Current.Time, raw.Daily);
-        var daily = TransformDaily(raw.Daily);
+        var hourly = TransformHourly(raw.Hourly, raw.Current.Time, raw.Daily, hours);
+        var daily = TransformDaily(raw.Daily, days);
 
         return new WeatherResponse(current, hourly, daily);
     }
@@ -20,30 +20,29 @@ public class WeatherTransformer : IWeatherTransformer
         var isDay = c.IsDay == 1;
         return new CurrentConditions(
             Time: c.Time,
-            TemperatureF: (int)Math.Round(c.Temperature2m),
-            TemperatureC: FtoC(c.Temperature2m),
-            ApparentTemperatureF: (int)Math.Round(c.ApparentTemperature),
-            ApparentTemperatureC: FtoC(c.ApparentTemperature),
+            Temperature: (int)Math.Round(c.Temperature2m),
+            ApparentTemperature: (int)Math.Round(c.ApparentTemperature),
             RelativeHumidity: c.RelativeHumidity2m,
-            PrecipitationIn: c.Precipitation,
+            Precipitation: c.Precipitation,
             WeatherCode: c.WeatherCode,
             Condition: WmoCodeMap.GetCondition(c.WeatherCode),
             IconClass: WmoCodeMap.GetIconClass(c.WeatherCode, isDay),
-            WindSpeedMph: (int)Math.Round(c.WindSpeed10m),
+            WindSpeed: (int)Math.Round(c.WindSpeed10m),
             WindDirectionDeg: c.WindDirection10m,
             WindDirection: WmoCodeMap.GetWindDirection(c.WindDirection10m),
             IsDay: isDay
         );
     }
 
-    internal static HourlyForecast TransformHourly(OpenMeteoHourly hourly, string currentTime, OpenMeteoDaily daily)
+    internal static HourlyForecast TransformHourly(OpenMeteoHourly hourly, string currentTime, OpenMeteoDaily daily, int hours)
     {
         var currentHour = currentTime[..13]; // "yyyy-MM-ddTHH"
         var startIndex = hourly.Time.FindIndex(t => t[..13] == currentHour);
         if (startIndex < 0) startIndex = 0;
 
+        var count = Math.Min(hours, hourly.Time.Count - startIndex);
         var entries = new List<HourlyEntry>();
-        for (int i = startIndex; i < Math.Min(startIndex + 25, hourly.Time.Count); i++)
+        for (int i = startIndex; i < startIndex + count; i++)
         {
             var time = hourly.Time[i];
             var isDay = IsNightHour(time, daily) == false;
@@ -55,7 +54,7 @@ public class WeatherTransformer : IWeatherTransformer
             entries.Add(new HourlyEntry(
                 Time: time,
                 Label: label,
-                TemperatureF: (int)Math.Round(hourly.Temperature2m[i]),
+                Temperature: (int)Math.Round(hourly.Temperature2m[i]),
                 PrecipitationProbability: hourly.PrecipitationProbability[i] ?? 0,
                 WeatherCode: wc,
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay),
@@ -66,16 +65,17 @@ public class WeatherTransformer : IWeatherTransformer
         return new HourlyForecast(entries);
     }
 
-    internal static DailyForecast TransformDaily(OpenMeteoDaily daily)
+    internal static DailyForecast TransformDaily(OpenMeteoDaily daily, int days)
     {
+        var count = Math.Min(days, daily.Time.Count);
         var entries = new List<DailyEntry>();
-        for (int i = 0; i < daily.Time.Count; i++)
+        for (int i = 0; i < count; i++)
         {
             var wc = daily.WeatherCode[i];
             entries.Add(new DailyEntry(
                 Date: daily.Time[i],
-                HighF: (int)Math.Round(daily.Temperature2mMax[i]),
-                LowF: (int)Math.Round(daily.Temperature2mMin[i]),
+                High: (int)Math.Round(daily.Temperature2mMax[i]),
+                Low: (int)Math.Round(daily.Temperature2mMin[i]),
                 WeatherCode: wc,
                 Condition: WmoCodeMap.GetCondition(wc),
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay: true),
@@ -115,7 +115,4 @@ public class WeatherTransformer : IWeatherTransformer
             _ => $"{h - 12}pm"
         };
     }
-
-    private static int FtoC(double fahrenheit) =>
-        (int)Math.Round((fahrenheit - 32) * 5.0 / 9.0);
 }
