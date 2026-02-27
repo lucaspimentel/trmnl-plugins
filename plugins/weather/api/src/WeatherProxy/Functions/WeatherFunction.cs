@@ -26,7 +26,7 @@ public class WeatherFunction(
 
     [Function("forecast")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "forecast")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "v1/forecast")] HttpRequestData req,
         CancellationToken cancellationToken)
     {
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);

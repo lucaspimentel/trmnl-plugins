@@ -33,7 +33,7 @@ To use static sample data instead of live API, configure a `data:` block in `.tr
 
 The plugin polls a custom Azure Function instead of Open-Meteo directly. The proxy handles WMO code mapping (condition strings, icon CSS classes, wind direction labels) and returns a pre-processed JSON object.
 
-- **Deployed URL**: `https://trmnl-weather.azurewebsites.net/api/forecast?latitude={lat}&longitude={lon}`
+- **Deployed URL**: `https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `plugins/weather/api/` — .NET 10 Azure Functions v4 app
 - **Auth**: None (anonymous)
 - **Query params**:
