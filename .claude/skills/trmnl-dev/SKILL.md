@@ -331,6 +331,9 @@ trmnlp serve
 When fetching TRMNL docs, append `.md` to any `https://docs.trmnl.com/go/...` URL for a leaner Markdown response:
 - `https://docs.trmnl.com/go/private-api/screens` → `https://docs.trmnl.com/go/private-api/screens.md`
 
+For other web pages (e.g. framework docs at `trmnl.com/framework/docs/*`), use `https://r.jina.ai/<url>` to get a clean Markdown version:
+- `https://r.jina.ai/https://trmnl.com/framework/docs/label`
+
 For a full table of contents of all 29 TRMNL doc pages, see `references/trmnl-docs-toc.md`.
 
 ## References

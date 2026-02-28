@@ -260,6 +260,14 @@ Highcharts.chart('container', {
 
 ---
 
+## SVG vs HTML Text Size Mismatch
+
+Highcharts renders axis labels as SVG `<text>` elements, but `useHTML: true` labels (e.g. plotLine labels with icons) render as HTML. At the same `fontSize`, **SVG text appears ~20-25% smaller than HTML text**. To make them look the same size visually, bump SVG font sizes up. For example, if HTML labels are 16px, use 20px for SVG axis labels.
+
+This affects x-axis labels, y-axis labels, and any other SVG-rendered text compared to `useHTML: true` data labels or plotLine labels.
+
+---
+
 ## Debugging Tips
 
 - **Chart not rendering**: Make sure `animation: false` is set — the screenshot capture may fire before animation completes.

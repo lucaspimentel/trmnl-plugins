@@ -183,13 +183,88 @@ Sibling of `layout` inside a `view`. Auto-compacts in mashup contexts.
 
 ## Typography
 
-- **Titles:** `.title` / `.title--small`
-- **Values:** `.value` / `.value--large` / `.value--small` / `.value--xsmall` / `.value--tnums` (tabular numbers)
-- **Labels:** `.label` / `.label--small` / `.label--medium` / `.label--underline`
-- **Body:** `.description`
-- **Rich text:** `.rich-text`
+> **Important — always prefer built-in CSS classes over custom `font-size` overrides.**
+> Each class uses a font specifically optimized for e-ink at its native size. Overriding `font-size` on these elements — especially `.description` (NicoPups, a bitmap font designed for 16px) — breaks pixel-perfect rendering on the e-ink display. If you need a different size, pick the closest built-in class instead of adding a `font-size` style.
+
+### Value classes (Inter font)
+
+| Class | Size | Weight |
+|-------|------|--------|
+| `.value--xxsmall` | 16px | — |
+| `.value--xsmall` | 20px | 600 |
+| `.value--small` | 26px | 500 |
+| `.value` | 38px | 450 |
+| `.value--large` | 58px | 400 |
+| `.value--xlarge` | 74px | — |
+| `.value--xxlarge` | 96px | — |
+| `.value--xxxlarge` | 128px | 300 |
+
+Use `.value--tnums` for tabular (monospaced) numbers.
+
+### Label classes (NicoClean font)
+
+Docs: https://trmnl.com/framework/docs/label
+
+**Size variants:** `.label--small` | `.label` (base) | `.label--large` | `.label--xlarge` | `.label--xxlarge`
+
+**Style variants:** `.label` (plain) | `.label--outline` (bordered) | `.label--underline` | `.label--gray` (muted) | `.label--inverted` (high contrast)
+
+Size and style can be combined: `class="label label--large label--outline"`.
+
+Supports `data-clamp="N"` for truncation. Responsive prefixes: `sm:`, `md:`, `lg:`, `portrait:`, bit-depth.
+
+Legacy: `.label--gray-out` still works but is deprecated — use `.label--gray`.
+
+### Description classes (NicoPups font — bitmap, designed for 16px)
+
+Docs: https://trmnl.com/framework/docs/description
+
+**Size variants:** `.description` (base, 16px) | `.description--large` | `.description--xlarge` | `.description--xxlarge`
+
+> **NicoPups is a bitmap font.** It only renders correctly at its native 16px size. Do not apply `font-size` overrides to `.description` elements — use a `.value--*` class (Inter) instead if you need a different size. The larger description variants (large/xlarge/xxlarge) are designed to work at their respective sizes.
+
+Supports `data-clamp="N"` for truncation. Responsive prefixes: `sm:`, `md:`, `lg:`, `portrait:`.
+
+### Title classes
+
+- `.title` / `.title--small` / `.title--large` / `.title--xlarge` / `.title--xxlarge`
+
+### Rich text
+
+- `.rich-text` — formatted paragraph container
 
 > **v2 note:** `title`, `label`, and `description` are unclamped by default. Apply `data-clamp="N"` explicitly if needed.
+
+### Fit Value
+
+Docs: https://trmnl.com/framework/docs/fit_value
+
+Automatically adjusts font size, weight, and line height so value elements fit their containers. Useful for large dynamic numbers (e.g. temperatures, prices) that may vary in digit count.
+
+```html
+<!-- Numeric values: auto-fits within container width -->
+<span class="value value--xxxlarge" data-value-fit="true">1,234</span>
+
+<!-- Text content: needs explicit max-height constraint -->
+<span class="value value--large" data-value-fit="true" data-value-fit-max-height="80">Long text</span>
+```
+
+| Attribute | Purpose |
+|-----------|---------|
+| `data-value-fit="true"` | Enable auto-sizing |
+| `data-value-fit-max-height="N"` | Max height in px (required for non-numeric text) |
+
+---
+
+## Text Utilities
+
+Docs: https://trmnl.com/framework/docs/text
+
+**Color:** `text--black`, `text--gray-10` through `text--gray-75`, `text--white` — uses dither patterns to simulate grayscale on 1-bit displays.
+
+**Alignment:** `text--left` | `text--center` | `text--right` | `text--justify`
+
+Responsive prefixes supported: `sm:`, `md:`, `lg:`, `portrait:`, bit-depth (`1bit:`, `2bit:`, `4bit:`).
 
 ---
 
@@ -253,11 +328,17 @@ Adds `content--small` class and applies Clamp on the first overflowing block.
 
 ## Pixel Perfect
 
-Aligns text to the pixel grid for crisp 1-bit rendering.
+Docs: https://trmnl.com/framework/docs/pixel_perfect
+
+Aligns text to the pixel grid for crisp 1-bit rendering. Without this, anti-aliased gray pixels at character edges get forced to black or white on the e-ink display, causing text to appear randomly bold or distorted.
+
+Works by measuring the parent element's width, breaking text into individual lines, wrapping each in a span, and adjusting widths to align to the pixel grid. Also normalizes cross-platform browser rendering differences.
 
 ```html
 <span class="title" data-pixel-perfect="true">Crisp Title</span>
 ```
+
+**Constraints:** Only works on text elements. Depends on pixel fonts rendered at their designed sizes — another reason not to override `font-size` on `.description` or `.label` elements.
 
 ---
 
