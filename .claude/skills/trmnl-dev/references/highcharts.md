@@ -164,7 +164,7 @@ Requires `pattern-fill.js`:
 ```javascript
 color: {
   pattern: {
-    image: 'https://trmnl.com/images/patterns/gray-5.png',
+    image: 'https://trmnl.com/images/grayscale/gray-5.png',
     width: 12,
     height: 12
   }
