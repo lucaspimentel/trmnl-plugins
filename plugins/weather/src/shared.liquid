@@ -284,40 +284,6 @@ chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 {% endtemplate %}
 
 {% comment %}
-  weather_daily_bars: N-day forecast with CSS range bars
-  Params: daily, num_days
-{% endcomment %}
-{% template weather_daily_bars %}
-{% assign overall_min = daily.entries[1].low %}
-{% assign overall_max = daily.entries[1].high %}
-{% for entry in daily.entries offset: 1 %}
-  {% if entry.low < overall_min %}{% assign overall_min = entry.low %}{% endif %}
-  {% if entry.high > overall_max %}{% assign overall_max = entry.high %}{% endif %}
-{% endfor %}
-{% assign overall_min_int = overall_min | floor %}
-{% assign overall_max_int = overall_max | ceil %}
-{% assign range = overall_max_int | minus: overall_min_int %}
-{% if range < 1 %}{% assign range = 1 %}{% endif %}
-
-<div style="margin: 4px 0;">
-  <div class="label" data-pixel-perfect="true" style="font-size:11px; letter-spacing:0.08em;">{{ section_label | default: "NEXT 4 DAYS" }}</div>
-  {% for entry in daily.entries offset: 1 %}
-    {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
-    {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
-    <div class="flex flex--row flex--middle" style="width:100%; margin: 2px 0; gap: 8px;">
-      <div class="description" data-pixel-perfect="true" style="width:32px; font-size:12px; font-weight:600;">{{ entry.date | date: "%a" }}</div>
-      <div class="description" data-pixel-perfect="true" style="width:28px; font-size:11px; text-align:right;">{{ entry.precipitation_probability }}%</div>
-      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; text-align:right; flex-shrink:0;">{{ entry.low }}°F</div>
-      <div style="flex:1; position:relative; height:8px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:8px; min-width:40px;">
-        <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:8px;"></div>
-      </div>
-      <div class="description" data-pixel-perfect="true" style="width:40px; font-size:11px; flex-shrink:0;">{{ entry.high }}°F</div>
-    </div>
-  {% endfor %}
-</div>
-{% endtemplate %}
-
-{% comment %}
   weather_daily_bars_vertical: Vertical forecast bars for right column
   Params: daily_entries, num_days
 {% endcomment %}
