@@ -6,3 +6,7 @@ plugins/*/_build/
 
 # screenshots
 plugins/*/render.png
+
+# Claude
+.claude/*.local.*
+CLAUDE.local.md
