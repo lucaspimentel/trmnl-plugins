@@ -99,6 +99,7 @@
 {% endcomment %}
 {% template weather_hourly_chart %}
 <script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
+<script src="https://trmnl.com/js/highcharts/12.3.0/pattern-fill.js"></script>
 {% assign hour_labels = "" %}
 {% assign temp_data = "" %}
 {% assign precip_data = "" %}
@@ -156,6 +157,69 @@ function sunPlotLines() {
   }
   return lines;
 }
+function sunPlotBands() {
+  var bands = [];
+  var startTime = hourTimes[0];
+  var endTime = hourTimes[hourTimes.length - 1];
+  var maxX = hourTimes.length - 1;
+  // Collect all sunrise/sunset times within or near the chart range
+  var rises = [];
+  var sets = [];
+  for (var i = 0; i < sunEvents.length; i++) {
+    var ev = sunEvents[i];
+    if (ev.rise >= startTime && ev.rise <= endTime) rises.push(ev.rise);
+    if (ev.set >= startTime && ev.set <= endTime) sets.push(ev.set);
+  }
+  // Helper: convert an ISO time string to an x-axis position
+  function timeToX(t) {
+    var tHour = t.slice(0, 13);
+    for (var k = 0; k < hourTimes.length; k++) {
+      if (hourTimes[k].slice(0, 13) === tHour) {
+        var mins = parseInt(t.slice(14, 16), 10);
+        return k + mins / 60;
+      }
+    }
+    return null;
+  }
+  // Build a sorted list of sun transitions within the chart
+  var transitions = [];
+  for (var i = 0; i < rises.length; i++) transitions.push({ t: rises[i], type: 'rise' });
+  for (var i = 0; i < sets.length; i++) transitions.push({ t: sets[i], type: 'set' });
+  transitions.sort(function(a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : 0; });
+  if (transitions.length === 0) {
+    // No sun events in range — check if chart is entirely nighttime
+    // If the first hourly entry is before any sunrise, it's night
+    for (var i = 0; i < sunEvents.length; i++) {
+      if (sunEvents[i].rise > startTime) {
+        bands.push({ from: 0, to: maxX });
+        break;
+      }
+      if (sunEvents[i].set > startTime) break;
+    }
+    return bands;
+  }
+  // If the first transition is sunrise, there's night before it
+  var pos = 0;
+  if (transitions[0].type === 'rise') {
+    var x = timeToX(transitions[0].t);
+    if (x !== null && x > 0) bands.push({ from: 0, to: x });
+    pos = 1;
+  }
+  // Pair sunsets with following sunrises
+  for (var i = pos; i < transitions.length; i++) {
+    if (transitions[i].type === 'set') {
+      var fromX = timeToX(transitions[i].t);
+      var toX = maxX;
+      // Look for the next sunrise
+      if (i + 1 < transitions.length && transitions[i + 1].type === 'rise') {
+        toX = timeToX(transitions[i + 1].t);
+        i++; // skip the paired sunrise
+      }
+      if (fromX !== null && toX !== null) bands.push({ from: fromX, to: toX });
+    }
+  }
+  return bands;
+}
 var chart = Highcharts.chart('hourly-chart', {
   chart: {
     animation: false,
@@ -189,9 +253,9 @@ var chart = Highcharts.chart('hourly-chart', {
       var nearEdge = pl.value < 1.5 || pl.value > hourTimes.length - 2.5;
       return {
         value: pl.value,
-        color: '#000',
-        width: 2,
-        dashStyle: 'dash',
+        color: 'rgba(0, 0, 0, 0.3)',
+        width: 1,
+        dashStyle: 'shortdot',
         label: {
           text: nearEdge ? '' : '<i class="wi ' + pl.icon + '" style="font-size:16px;"></i> ' + pl.label,
           useHTML: true,
@@ -202,6 +266,9 @@ var chart = Highcharts.chart('hourly-chart', {
           y: -5
         }
       };
+    }),
+    plotBands: sunPlotBands().map(function(band) {
+      return { from: band.from, to: band.to, color: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-7.png', width: 12, height: 12 } } };
     })
   },
   yAxis: [
@@ -235,7 +302,7 @@ var chart = Highcharts.chart('hourly-chart', {
       type: 'column',
       data: [{{ precip_data }}],
       yAxis: 1,
-      color: 'url(#precip-stripe)',
+      color: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-5.png', width: 12, height: 12 } },
       zIndex: 0
     },
     {
@@ -265,21 +332,6 @@ var chart = Highcharts.chart('hourly-chart', {
     }
   ]
 });
-var svgNS = 'http://www.w3.org/2000/svg';
-var defs = document.createElementNS(svgNS, 'defs');
-var pattern = document.createElementNS(svgNS, 'pattern');
-pattern.setAttribute('id', 'precip-stripe');
-pattern.setAttribute('patternUnits', 'userSpaceOnUse');
-pattern.setAttribute('width', '8');
-pattern.setAttribute('height', '8');
-var img = document.createElementNS(svgNS, 'image');
-img.setAttribute('href', 'https://trmnl.com/images/grayscale/gray-5.png');
-img.setAttribute('width', '8');
-img.setAttribute('height', '8');
-pattern.appendChild(img);
-defs.appendChild(pattern);
-chart.renderer.box.appendChild(defs);
-chart.series[0].update({ color: 'url(#precip-stripe)' }, true);
 </script>
 {% endtemplate %}
 
