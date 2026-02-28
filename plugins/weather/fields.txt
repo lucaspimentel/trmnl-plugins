@@ -1,44 +1,51 @@
+WeatherProxy API response — https://trmnl-weather.azurewebsites.net/api/v1/forecast
+
+Field names are unit-agnostic. Actual units depend on the `units` query parameter:
+    imperial (default): °F, mph, inches
+    metric:             °C, km/h, mm
+
+Query parameters:
+    latitude    (required) — location latitude
+    longitude   (required) — location longitude
+    units       — "imperial" (default) or "metric"
+    hours       — number of hourly entries (1–25, default 25)
+    days        — number of daily entries (1–6, default 6)
+    fake        — "true" or "1" to inject randomized precipitation (testing)
+
 data.
-    latitude
-    longitude
-    timezone
-    timezone_abbreviation
-    elevation
-    current_units.
-        time
-        interval
-        temperature_2m          (e.g. "°F")
-        apparent_temperature    (e.g. "°F")
-        relative_humidity_2m    (e.g. "%")
-        precipitation           (e.g. "inch")
-        weather_code            (e.g. "wmo code")
-        wind_speed_10m          (e.g. "mph")
-        wind_direction_10m      (e.g. "°")
-        is_day                  (e.g. "")
     current.
-        time                    (ISO 8601, e.g. "2026-02-23T14:00")
-        interval                (seconds, e.g. 900)
-        temperature_2m          (°F)
-        apparent_temperature    (°F, "feels like")
-        relative_humidity_2m    (%, 0-100)
-        precipitation           (inch)
+        time                    (ISO 8601, e.g. "2026-02-28T14:00")
+        temperature             (integer, °F or °C)
+        apparent_temperature    (integer, "feels like", °F or °C)
+        relative_humidity       (%, 0-100)
+        precipitation           (inch or mm)
         weather_code            (WMO code, integer)
-        wind_speed_10m          (mph)
-        wind_direction_10m      (degrees, 0-360)
-        is_day                  (1 = day, 0 = night)
+        condition               (string, e.g. "Clear", "Overcast", "Rain")
+        icon_class              (CSS class, e.g. "wi-day-sunny", "wi-night-clear")
+        wind_speed              (integer, mph or km/h)
+        wind_direction_deg      (degrees, 0–360)
+        wind_direction          (cardinal string, e.g. "N", "SW")
+        is_day                  (boolean)
     hourly.
-        time                    (array of 144 ISO strings, hourly for 6 days)
-        temperature_2m          (array of 144 floats, °F)
-        weather_code            (array of 144 integers, WMO codes)
-        precipitation_probability (array of 144 integers, %)
+        entries                 (array of up to 25 objects, current hour + next 24h)
+            time                (ISO 8601)
+            label               (string, e.g. "Now", "3pm")
+            temperature         (integer)
+            precipitation_probability (%, 0–100)
+            weather_code        (WMO code, integer)
+            icon_class          (CSS class, day/night variant pre-computed)
+            is_day              (boolean)
     daily.
-        time                    (array of 5 date strings, e.g. "2026-02-23")
-        temperature_2m_max      (array of 5 floats, °F)
-        temperature_2m_min      (array of 5 floats, °F)
-        weather_code            (array of 5 integers, WMO codes)
-        precipitation_probability_max (array of 5 integers, %)
-        sunrise                 (array of 5 ISO strings, e.g. "2026-02-23T06:25")
-        sunset                  (array of 5 ISO strings, e.g. "2026-02-23T17:28")
+        entries                 (array of up to 6 objects, today + next 5 days)
+            date                (date string, e.g. "2026-02-28")
+            high                (integer, daily high temperature)
+            low                 (integer, daily low temperature)
+            weather_code        (WMO code, integer)
+            condition           (string, e.g. "Clear", "Snow")
+            icon_class          (CSS class, no day/night variant for daily)
+            precipitation_probability (%, 0–100)
+            sunrise             (ISO 8601, e.g. "2026-02-28T06:20")
+            sunset              (ISO 8601, e.g. "2026-02-28T17:32")
 
 WMO Weather Code Groups:
     0          = Clear sky
