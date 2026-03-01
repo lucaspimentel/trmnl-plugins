@@ -251,7 +251,7 @@ var chart = Highcharts.chart('hourly-chart', {
     lineColor: '#000',
     tickColor: '#000',
     plotLines: sunPlotLines().map(function(pl) {
-      var nearEdge = pl.value < 1.5 || pl.value > hourTimes.length - 2.5;
+      var nearEdge = pl.value > hourTimes.length - 2.5;
       return {
         value: pl.value,
         color: 'rgba(0, 0, 0, 0.3)',
