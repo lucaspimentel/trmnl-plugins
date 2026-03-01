@@ -71,9 +71,16 @@ Displays current conditions, a 24-hour temperature chart, and a 6-day forecast w
 Builds standalone HTML previews for any plugin without needing `trmnlp serve`.
 
 ```bash
-bash tools/build-preview.sh plugins/<name>              # build only
-bash tools/build-preview.sh plugins/<name> --screenshot # build + screenshot
+bash tools/build-preview.sh plugins/<name>                                        # build only
+bash tools/build-preview.sh plugins/<name> --screenshot                           # build + screenshot → render.png
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit                    # build + screenshot + 1-bit conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --output my-shot.png      # custom output filename
 ```
+
+Flags:
+- `--screenshot`: captures `full.html` at 800×480 via playwright-cli (requires HTTP server on port 8765)
+- `--1bit`: converts the screenshot to 1-bit black/white (no dithering) using ImageMagick (`magick`)
+- `--output <filename>`: output filename (default: `render.png`); relative paths resolve under `<plugin-dir>`
 
 Runs `trmnlp build` then wraps each `_build/*.html` output with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). Open the results via a local HTTP server — `file://` is blocked by browsers:
 
@@ -127,8 +134,10 @@ trmnlp push --force    # --force skips the interactive confirmation prompt
 Use `tools/build-preview.sh` to generate standalone HTML files that can be opened directly in a browser:
 
 ```bash
-bash tools/build-preview.sh plugins/<name>              # build only
-bash tools/build-preview.sh plugins/<name> --screenshot # build + screenshot to render.png
+bash tools/build-preview.sh plugins/<name>                                   # build only
+bash tools/build-preview.sh plugins/<name> --screenshot                      # build + screenshot → render.png
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit               # build + screenshot + 1-bit conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --output my-shot.png # custom output filename
 ```
 
 This runs `trmnlp build` (fetches live data and renders all layouts to `_build/`) then wraps each output file with the TRMNL screen shell (`plugins.css`, `plugins.js`, Inter font). The wrapped files are fully self-contained and render correctly in any browser.
@@ -161,8 +170,9 @@ trmnlp serve          # http://localhost:4567
 Use the `--screenshot` flag on `build-preview.sh` to build and screenshot in one step (requires the HTTP server on port 8765 to be running):
 
 ```bash
-bash tools/build-preview.sh plugins/<name> --screenshot
-# saves to plugins/<name>/render.png
+bash tools/build-preview.sh plugins/<name> --screenshot                      # saves to plugins/<name>/render.png
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit               # also convert to 1-bit (no dithering)
+bash tools/build-preview.sh plugins/<name> --screenshot --output my-shot.png # custom output filename
 ```
 
 To screenshot manually (e.g. after a browser refresh without rebuilding):

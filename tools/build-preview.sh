@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # build-preview.sh — run trmnlp build and wrap outputs with the TRMNL screen shell
-# Usage: ./tools/build-preview.sh plugins/weather [--screenshot]
+# Usage: ./tools/build-preview.sh plugins/weather [--screenshot] [--1bit] [--output <filename>]
 # Output: plugins/weather/_build/*.html (wrapped, ready to open in a browser)
 #         plugins/weather/render.png (if --screenshot is passed)
 #
-# --screenshot: open full.html in Edge at 800x480, wait 3s for Highcharts/fonts,
-#               save screenshot to <plugin-dir>/render.png, then close.
-#               Requires playwright-cli and a running HTTP server on port 8765
-#               serving <plugin-dir>/_build/.
+# --screenshot:        open full.html in Edge at 800x480, wait 3s for Highcharts/fonts,
+#                      save screenshot to <plugin-dir>/render.png, then close.
+#                      Requires playwright-cli and a running HTTP server on port 8765
+#                      serving <plugin-dir>/_build/.
+# --1bit:              convert screenshot to 1-bit black/white (no dithering) using ImageMagick.
+#                      Only applies when --screenshot is also passed.
+# --output <filename>: output filename for the screenshot (default: render.png).
+#                      Relative paths are resolved relative to <plugin-dir>.
 
 set -e
 
@@ -16,12 +20,17 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PLUGIN_DIR=""
 SCREENSHOT=false
+ONEBIT=false
+OUTPUT_FILE="render.png"
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --screenshot) SCREENSHOT=true ;;
-    *) PLUGIN_DIR="$arg" ;;
+    --1bit) ONEBIT=true ;;
+    --output) OUTPUT_FILE="$2"; shift ;;
+    *) PLUGIN_DIR="$1" ;;
   esac
+  shift
 done
 
 if [[ -z "$PLUGIN_DIR" ]]; then
@@ -76,7 +85,12 @@ done
 echo "Done. Open _build/full.html in a browser."
 
 if $SCREENSHOT; then
-  RENDER_PNG="$PLUGIN_DIR/render.png"
+  # Resolve output path: absolute as-is, relative resolved under plugin dir
+  if [[ "$OUTPUT_FILE" == /* ]]; then
+    RENDER_PNG="$OUTPUT_FILE"
+  else
+    RENDER_PNG="$PLUGIN_DIR/$OUTPUT_FILE"
+  fi
   echo "Taking screenshot → $RENDER_PNG"
   playwright-cli open --browser=msedge http://localhost:8765/full.html
   playwright-cli resize 800 480
@@ -84,4 +98,12 @@ if $SCREENSHOT; then
   playwright-cli screenshot --filename="$RENDER_PNG"
   playwright-cli close
   echo "Screenshot saved: $RENDER_PNG"
+  if $ONEBIT; then
+    if command -v magick &>/dev/null; then
+      magick "$RENDER_PNG" -colorspace Gray -threshold 60% -type Bilevel "$RENDER_PNG"
+      echo "Converted to 1-bit (no dithering): $RENDER_PNG"
+    else
+      echo "ImageMagick not found — skipping 1-bit conversion"
+    fi
+  fi
 fi
