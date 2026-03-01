@@ -38,18 +38,23 @@ plugins/<name>/
 ### Static build preview
 
 ```bash
-bash tools/build-preview.sh plugins/<name>                                        # build only
-bash tools/build-preview.sh plugins/<name> --screenshot                           # build + screenshot → render.png
-bash tools/build-preview.sh plugins/<name> --screenshot --1bit                    # build + screenshot + 1-bit conversion
-bash tools/build-preview.sh plugins/<name> --screenshot --output my-shot.png      # custom output filename
+bash tools/build-preview.sh plugins/<name>                                          # build only
+bash tools/build-preview.sh plugins/<name> --screenshot                             # build + screenshot full layout → render-full.png
+bash tools/build-preview.sh plugins/<name> --screenshot --layout half_horizontal    # screenshot a specific layout
+bash tools/build-preview.sh plugins/<name> --screenshot --layout all                # screenshot all layouts
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit                      # build + screenshot + 1-bit conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --output /tmp/shots         # custom output directory
 ```
 
-`build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then wraps each HTML file with the TRMNL screen shell so it renders correctly in any browser.
+`build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then injects the TRMNL screen classes into each built HTML file so it renders correctly in any browser.
 
 Flags:
-- `--screenshot`: captures `full.html` at 800×480 via playwright-cli (requires HTTP server on port 8765)
+- `--screenshot`: captures the specified layout via playwright-cli (requires HTTP server on port 8765); output saved as `render-<layout>.png`
+- `--layout <name>`: layout to screenshot — `full`, `half_horizontal`, `half_vertical`, `quadrant`, or `all` (default: `full`)
 - `--1bit`: converts the screenshot to 1-bit black/white (no dithering) using ImageMagick (`magick`)
-- `--output <filename>`: output filename (default: `render.png`); relative paths resolve under `<plugin-dir>`
+- `--output <dir>`: output directory for screenshots (default: `<plugin-dir>`); created if it doesn't exist
+
+Viewport dimensions per layout: `full` 800×480 · `half_horizontal` 800×240 · `half_vertical` 400×480 · `quadrant` 400×240
 
 To view the output, start a local HTTP server (required — `file://` URLs are blocked by browsers). Keep it running in the background between rebuilds:
 
@@ -71,13 +76,13 @@ trmnlp serve          # preview at http://localhost:4567
 playwright-cli open --browser=msedge http://localhost:8765/full.html
 playwright-cli resize 800 480
 # wait ~3 seconds for Highcharts/fonts to render
-playwright-cli screenshot --filename=plugins/<name>/render.png
+playwright-cli screenshot --filename=plugins/<name>/render-full.png
 playwright-cli close
 ```
 
 ## Tools
 
-- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (wraps `trmnlp build` output with TRMNL screen shell); `--screenshot` flag also captures `render.png` via playwright-cli
+- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (injects screen classes into `trmnlp build` output); `--screenshot` captures `render-<layout>.png` via playwright-cli; `--layout all` screenshots every layout
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white); saves timestamped PNG files
 - **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 app that fetches and displays the current screen image in Sixel (full color)
 

@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# build-preview.sh — run trmnlp build and wrap outputs with the TRMNL screen shell
-# Usage: ./tools/build-preview.sh plugins/weather [--screenshot] [--1bit] [--output <filename>]
-# Output: plugins/weather/_build/*.html (wrapped, ready to open in a browser)
-#         plugins/weather/render.png (if --screenshot is passed)
+# build-preview.sh — run trmnlp build and inject screen classes into built HTML
+# Usage: ./tools/build-preview.sh plugins/weather [--screenshot] [--1bit] [--layout <name>] [--output <dir>]
+# Output: plugins/weather/_build/*.html (screen classes injected, ready to open in a browser)
 #
-# --screenshot:        open full.html in Edge at 800x480, wait 3s for Highcharts/fonts,
-#                      save screenshot to <plugin-dir>/render.png, then close.
+# --screenshot:        take a screenshot of the specified layout (default: full).
 #                      Requires playwright-cli and a running HTTP server on port 8765
 #                      serving <plugin-dir>/_build/.
 # --1bit:              convert screenshot to 1-bit black/white (no dithering) using ImageMagick.
 #                      Only applies when --screenshot is also passed.
-# --output <filename>: output filename for the screenshot (default: render.png).
-#                      Relative paths are resolved relative to <plugin-dir>.
+# --layout <name>:     layout to screenshot: full, half_horizontal, half_vertical, quadrant, or all.
+#                      Default: full. Only applies when --screenshot is also passed.
+# --output <dir>:      output directory for screenshots (default: <plugin-dir>).
+#                      Directory is created if it doesn't exist.
+#                      Screenshot filenames are auto-generated as render-<layout>.png.
 
 set -e
 
@@ -21,20 +22,22 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 PLUGIN_DIR=""
 SCREENSHOT=false
 ONEBIT=false
-OUTPUT_FILE="render.png"
+LAYOUT="full"
+OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --screenshot) SCREENSHOT=true ;;
     --1bit) ONEBIT=true ;;
-    --output) OUTPUT_FILE="$2"; shift ;;
+    --layout) LAYOUT="$2"; shift ;;
+    --output) OUTPUT_DIR="$2"; shift ;;
     *) PLUGIN_DIR="$1" ;;
   esac
   shift
 done
 
 if [[ -z "$PLUGIN_DIR" ]]; then
-  echo "Usage: build-preview.sh <plugin-dir> [--screenshot]" >&2
+  echo "Usage: build-preview.sh <plugin-dir> [--screenshot] [--1bit] [--layout <name>] [--output <dir>]" >&2
   exit 1
 fi
 
@@ -51,59 +54,73 @@ cd - > /dev/null
 
 SCREEN_CLASSES="screen screen--1bit screen--ogv2 screen--md screen--1x"
 
+built_files=()
 for file in "$BUILD_DIR"/*.html; do
-  layout_content=$(cat "$file")
-
-  cat > "$file" <<EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <link rel="stylesheet" href="https://trmnl.com/css/latest/plugins.css">
-  <script src="https://trmnl.com/js/latest/plugins.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-  <style>
-    body { margin: 0; background: white; }
-    .screen { width: 800px; height: 480px; overflow: hidden; }
-  </style>
-</head>
-<body class="environment trmnl">
-  <div class="${SCREEN_CLASSES}">
-    <div class="view view--$(basename "$file" .html)">
-${layout_content}
-    </div>
-  </div>
-</body>
-</html>
-EOF
-
+  # Inject screen classes into the outer empty <div class=""> that trmnlp generates
+  sed -i "s|<div class=\"\">|<div class=\"${SCREEN_CLASSES}\">|" "$file"
   echo "Wrapped: $file"
+  built_files+=("$(basename "$file")")
 done
 
-echo "Done. Open _build/full.html in a browser."
+echo "Done. Built: ${built_files[*]}"
 
 if $SCREENSHOT; then
-  # Resolve output path: absolute as-is, relative resolved under plugin dir
-  if [[ "$OUTPUT_FILE" == /* ]]; then
-    RENDER_PNG="$OUTPUT_FILE"
+  # Resolve output directory
+  if [[ -z "$OUTPUT_DIR" ]]; then
+    SCREENSHOT_DIR="$PLUGIN_DIR"
+  elif [[ "$OUTPUT_DIR" == /* ]]; then
+    SCREENSHOT_DIR="$OUTPUT_DIR"
   else
-    RENDER_PNG="$PLUGIN_DIR/$OUTPUT_FILE"
+    SCREENSHOT_DIR="$PLUGIN_DIR/$OUTPUT_DIR"
   fi
-  echo "Taking screenshot → $RENDER_PNG"
-  playwright-cli open --browser=msedge http://localhost:8765/full.html
-  playwright-cli resize 800 480
-  sleep 3
-  playwright-cli screenshot --filename="$RENDER_PNG"
-  playwright-cli close
-  echo "Screenshot saved: $RENDER_PNG"
-  if $ONEBIT; then
-    if command -v magick &>/dev/null; then
-      magick "$RENDER_PNG" -colorspace Gray -threshold 60% -type Bilevel "$RENDER_PNG"
-      echo "Converted to 1-bit (no dithering): $RENDER_PNG"
-    else
-      echo "ImageMagick not found — skipping 1-bit conversion"
+  mkdir -p "$SCREENSHOT_DIR"
+
+  # Viewport dimensions per layout
+  viewport_for_layout() {
+    case "$1" in
+      full)             echo "800 480" ;;
+      half_horizontal)  echo "800 240" ;;
+      half_vertical)    echo "400 480" ;;
+      quadrant)         echo "400 240" ;;
+      *) echo "Unknown layout: $1" >&2; exit 1 ;;
+    esac
+  }
+
+  screenshot_layout() {
+    local layout="$1"
+    local dims viewport_w viewport_h
+    dims=$(viewport_for_layout "$layout")
+    viewport_w="${dims%% *}"
+    viewport_h="${dims##* }"
+    local render_png="$SCREENSHOT_DIR/render-${layout}.png"
+
+    echo "Taking screenshot of ${layout} (${viewport_w}x${viewport_h}) → $render_png"
+    playwright-cli open --browser=msedge "http://localhost:8765/${layout}.html"
+    playwright-cli resize "$viewport_w" "$viewport_h"
+    sleep 3
+    playwright-cli screenshot --filename="$render_png"
+    playwright-cli close
+    echo "Screenshot saved: $render_png"
+
+    if $ONEBIT; then
+      if command -v magick &>/dev/null; then
+        magick "$render_png" -colorspace Gray -threshold 60% -type Bilevel "$render_png"
+        echo "Converted to 1-bit (no dithering): $render_png"
+      else
+        echo "ImageMagick not found — skipping 1-bit conversion"
+      fi
     fi
+  }
+
+  if [[ "$LAYOUT" == "all" ]]; then
+    for l in full half_horizontal half_vertical quadrant; do
+      if [[ -f "$BUILD_DIR/${l}.html" ]]; then
+        screenshot_layout "$l"
+      else
+        echo "Skipping ${l} (no ${l}.html found)"
+      fi
+    done
+  else
+    screenshot_layout "$LAYOUT"
   fi
 fi
