@@ -60,27 +60,10 @@
 </style>
 
 {% comment %}
-  weather_current: Current conditions block
-  Params: current, location_name
-{% endcomment %}
-{% template weather_current %}
-<div style="display:flex; flex-direction:row; justify-content:space-between; align-items:center; width:100%; padding: 4px 0;">
-  <div>
-    <div class="label" data-pixel-perfect="true" style="letter-spacing:0.05em;">{{ location_name | upcase }}</div>
-    <div class="description" data-pixel-perfect="true" style="margin-top:4px;">{{ current.condition }}</div>
-    <div class="description" data-pixel-perfect="true">Feels like {{ current.apparent_temperature }}°</div>
-    <div class="description" data-pixel-perfect="true">Humidity {{ current.relative_humidity }}%</div>
-    <div class="description" data-pixel-perfect="true">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
-  </div>
-  <div class="value--large" data-pixel-perfect="true" style="line-height:1;">{{ current.temperature }}°</div>
-</div>
-{% endtemplate %}
-
-{% comment %}
-  weather_current_compact: Compact current conditions for two-column layout
+  weather_current: Current conditions for two-column layout
   Params: current
 {% endcomment %}
-{% template weather_current_compact %}
+{% template weather_current %}
 <div style="display:flex; flex-direction:row; align-items:center; justify-content:center; gap:12px; width:100%; padding:8px 0 4px 0;">
   <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
   <div class="value--xxlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}°</div>

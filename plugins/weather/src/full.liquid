@@ -2,7 +2,7 @@
   {% if current and current.temperature %}
   <div style="display:flex; flex-direction:row; flex:1; min-height:0; gap:16px;">
     <div style="flex:64; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding-top:30px;">
-      {% render "weather_current_compact", current: current %}
+      {% render "weather_current", current: current %}
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
     </div>
     <div style="flex:36; min-width:0; display:flex; flex-direction:column; padding-top:16px; padding-right:6px; padding-bottom:16px;">

@@ -133,7 +133,7 @@ The two-column split is at the outermost level so the right column spans full he
 
 ```
 [ left column (68%)               | right column (32%)      ]
-[   weather_current_compact       |                         ]
+[   weather_current               |                         ]
 [   weather_hourly_chart          | weather_daily_bars_vert |
 [                                 | (full height, 6 days)   ]
 [           title_bar (full width)                         ]
@@ -145,7 +145,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 | Template | Purpose |
 |----------|---------|
-| `weather_current_compact` | Current conditions (left-column, centered): temp + weather icon + details |
+| `weather_current` | Current conditions (left-column, centered): temp + weather icon + details |
 | `weather_hourly_chart` | Highcharts spline (temp °F) + column (precip %) for next 24h, weather icons on x-axis, sunrise/sunset vertical lines |
 | `weather_daily_bars_vertical` | 6-day CSS range bars (vertical layout for right column), weather icons next to bars, labels inside bars |
 | `title_bar` | Standard bottom bar with day + time |
@@ -159,7 +159,7 @@ This is different from JSON:API array responses (like MBTA) where the array beco
 
 Layout files pass these directly to shared templates:
 ```liquid
-{% render "weather_current_compact", current: current %}
+{% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
 {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6 %}
 ```
