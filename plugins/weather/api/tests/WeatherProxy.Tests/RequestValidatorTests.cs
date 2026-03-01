@@ -27,7 +27,7 @@ public class RequestValidatorTests
     [InlineData(null, true)]          // null → allowed (uses default)
     [InlineData("imperial", true)]    // valid
     [InlineData("metric", true)]      // valid
-    [InlineData("", false)]           // empty string → invalid
+    [InlineData("", true)]            // empty string → allowed (uses default)
     [InlineData("Imperial", false)]   // case-sensitive
     [InlineData("Metric", false)]     // case-sensitive
     [InlineData("celsius", false)]    // unrecognized value
@@ -56,8 +56,8 @@ public class RequestValidatorTests
     [InlineData("7", 1, 6, false, 7)]
     // non-numeric
     [InlineData("abc", 1, 25, false, 0)]
-    // empty string
-    [InlineData("", 1, 25, false, 0)]
+    // empty string → defaults to max, returns true
+    [InlineData("", 1, 25, true, 25)]
     // decimal (not an integer)
     [InlineData("1.5", 1, 25, false, 0)]
     public void TryParseRangeParam_ReturnsExpected(string? value, int min, int max, bool expectedResult, int expectedValue)

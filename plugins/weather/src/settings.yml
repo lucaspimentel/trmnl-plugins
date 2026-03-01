@@ -4,7 +4,7 @@ no_screen_padding: 'no'
 dark_mode: 'no'
 static_data: ''
 polling_verb: get
-polling_url: https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}
+polling_url: https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude=##{{ latitude }}&longitude=##{{ longitude }}&units=##{{ units }}&hours=##{{ hours }}&days=##{{ days }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -23,5 +23,20 @@ custom_fields:
   field_type: string
   name: Longitude
   placeholder: "-71.06"
+- keyname: units
+  field_type: select
+  name: Units
+  description: imperial (°F, mph) or metric (°C, km/h)
+  options:
+  - imperial
+  - metric
+- keyname: hours
+  field_type: number
+  name: Hourly forecast hours
+  placeholder: '25'
+- keyname: days
+  field_type: number
+  name: Daily forecast days, including today
+  placeholder: '6'
 name: LP Weather
 refresh_interval: 30
