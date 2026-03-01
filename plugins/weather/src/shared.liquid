@@ -66,12 +66,31 @@
 {% template weather_current %}
 <div style="display:flex; flex-direction:row; align-items:center; justify-content:center; gap:12px; width:100%; padding:8px 0 4px 0;">
   <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
-  <div class="value--xxlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}°</div>
+  <div class="value--xxlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}&deg;</div>
   <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}°</div>
+    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
+  </div>
+</div>
+{% endtemplate %}
+
+{% comment %}
+  weather_current_compact: Compact current conditions for smaller layouts
+  Params: current, icon_size (default 64), show_extra (default true — shows humidity + wind)
+{% endcomment %}
+{% template weather_current_compact %}
+<div style="display:flex; flex-direction:row; align-items:center; justify-content:center; gap:10px; width:100%; padding:6px 0 4px 0;">
+  <i class="wi {{ current.icon_class }}" style="font-size:{{ icon_size | default: 64 }}px; line-height:1; flex-shrink:0;"></i>
+  <div class="value--xlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}&deg;</div>
+  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
+    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
+    {% if show_extra != false %}
+    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
+    {% endif %}
   </div>
 </div>
 {% endtemplate %}
@@ -303,7 +322,7 @@ var chart = Highcharts.chart('hourly-chart', {
         formatter: function() {
           if (this.point.index % 4 !== 0) return null;
           var cls = iconClasses[this.point.index];
-          return '<div style="text-align:center;line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium" style="font-size:20px;"></i><br><span class="text-stroke text-stroke--medium" style="font-size:16px;font-weight:700;">' + Math.round(this.y) + '°</span></div>';
+          return '<div style="text-align:center;line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium" style="font-size:20px;"></i><br><span class="text-stroke text-stroke--medium" style="font-size:16px;font-weight:700;">' + Math.round(this.y) + '&deg;</span></div>';
         },
         y: -2,
         padding: 0,
@@ -320,7 +339,7 @@ var chart = Highcharts.chart('hourly-chart', {
 
 {% comment %}
   weather_daily_bars_vertical: Vertical forecast bars for right column
-  Params: daily_entries, num_days
+  Params: daily_entries, num_days, padding_top (default 20)
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
 {% assign overall_min = daily_entries[0].low %}
@@ -334,9 +353,9 @@ var chart = Highcharts.chart('hourly-chart', {
 {% assign range = overall_max_int | minus: overall_min_int %}
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
-<div style="display:flex; flex-direction:column; height:100%; padding-top:20px;">
+<div style="display:flex; flex-direction:column; height:100%; padding-top:{{ padding_top | default: 20 }}px;">
   {% assign day_limit = num_days | default: 6 %}
-  <div class="label" data-pixel-perfect="true" style="letter-spacing:0.08em; margin-bottom:8px;">DAILY FORECAST</div>
+  {% if day_limit > 1 %}<div class="label" data-pixel-perfect="true" style="letter-spacing:0.08em; margin-bottom:8px;">DAILY FORECAST</div>{% endif %}
   <div style="display:flex; flex-direction:column; flex:1; justify-content:space-evenly;">
 {% if current_temp %}
   {% assign current_temp_int = current_temp | round %}
@@ -347,9 +366,9 @@ var chart = Highcharts.chart('hourly-chart', {
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
     <div style="margin:2px 0;">
       {% if forloop.first and current_temp %}
-      <div style="display:flex; align-items:flex-end; padding-left:116px; padding-right:38px; margin-bottom:1px;">
-        <div style="flex:1; position:relative; height:4px; min-width:0;">
-          <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1;">▼</span>
+      <div style="display:flex; align-items:flex-end; padding-left:116px; padding-right:38px; margin-bottom:0;">
+        <div style="flex:1; position:relative; height:2px; min-width:0;">
+          <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1;">&#9660;</span>
         </div>
       </div>
       {% endif %}
@@ -362,11 +381,11 @@ var chart = Highcharts.chart('hourly-chart', {
           </div>
         </div>
         <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
         <div style="flex:1; height:20px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:10px;"></div>
         </div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}°</span></div>
+        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>
     </div>
   {% endfor %}
