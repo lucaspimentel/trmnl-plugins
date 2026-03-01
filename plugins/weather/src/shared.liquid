@@ -161,7 +161,7 @@ function sunPlotBands() {
   var bands = [];
   var startTime = hourTimes[0];
   var endTime = hourTimes[hourTimes.length - 1];
-  var maxX = hourTimes.length - 1;
+  var maxX = hourTimes.length - 0.5;
   // Collect all sunrise/sunset times within or near the chart range
   var rises = [];
   var sets = [];
@@ -191,7 +191,7 @@ function sunPlotBands() {
     // If the first hourly entry is before any sunrise, it's night
     for (var i = 0; i < sunEvents.length; i++) {
       if (sunEvents[i].rise > startTime) {
-        bands.push({ from: 0, to: maxX });
+        bands.push({ from: -0.5, to: maxX });
         break;
       }
       if (sunEvents[i].set > startTime) break;
@@ -202,7 +202,7 @@ function sunPlotBands() {
   var pos = 0;
   if (transitions[0].type === 'rise') {
     var x = timeToX(transitions[0].t);
-    if (x !== null && x > 0) bands.push({ from: 0, to: x });
+    if (x !== null && x > 0) bands.push({ from: -0.5, to: x });
     pos = 1;
   }
   // Pair sunsets with following sunrises
