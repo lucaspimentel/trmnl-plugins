@@ -20,7 +20,7 @@ dark_mode: 'no'             # 'yes' inverts the display
 
 # Polling strategy fields (used when strategy: polling)
 polling_verb: get           # get | post
-polling_url: ''             # API endpoint URL; supports ##{{ }} interpolation and Liquid
+polling_url: ''             # API endpoint URL; supports {{ keyname }} interpolation and Liquid
 polling_headers: ''         # HTTP headers, e.g. 'Authorization: Bearer token'
 polling_body: ''            # Request body for POST requests
 
@@ -56,7 +56,7 @@ custom_fields:
 | `no_screen_padding` | `'yes'`/`'no'` | no | Remove outer screen padding. Quotes required. Default: `'no'` |
 | `dark_mode` | `'yes'`/`'no'` | no | Invert display colors. Quotes required. Default: `'no'` |
 | `id` | integer | no | Assigned by TRMNL — do not set manually |
-| `polling_url` | string | polling | API endpoint. Supports `##{{ keyname }}` and full Liquid templating |
+| `polling_url` | string | polling | API endpoint. Supports `{{ keyname }}` and full Liquid templating |
 | `polling_verb` | string | polling | HTTP method: `get` or `post` |
 | `polling_headers` | string | no | HTTP headers string, e.g. `'X-API-Key: abc123'` |
 | `polling_body` | string | no | Request body for POST requests |
@@ -120,20 +120,20 @@ custom_fields:
 
 ## `polling_url` Interpolation
 
-### `##{{ keyname }}` — custom field values
+### `{{ keyname }}` — custom field values
 
-Reference any custom field value using double-hash Liquid syntax:
+Reference any custom field value using standard Liquid syntax (no `##` prefix):
 
 ```
-https://api.example.com/data?lat=##{{ latitude }}&lon=##{{ longitude }}&key=##{{ api_key }}
+https://api.example.com/data?lat={{ latitude }}&lon={{ longitude }}&key={{ api_key }}
 ```
 
 ### Liquid filters in `polling_url`
 
-Full Liquid is supported inside `##{{ }}`:
+Full Liquid is supported:
 
 ```
-https://api.example.com/posts.json?since=##{{ "now" | date: "%Y-%m-%d" }}
+https://api.example.com/posts.json?since={{ "now" | date: "%Y-%m-%d" }}
 ```
 
 ### Multiple URLs (multi-endpoint polling)

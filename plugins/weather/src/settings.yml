@@ -4,7 +4,7 @@ no_screen_padding: 'no'
 dark_mode: 'no'
 static_data: ''
 polling_verb: get
-polling_url: https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude=##{{ latitude }}&longitude=##{{ longitude }}&units=##{{ units }}&hours=##{{ hours }}&days=##{{ days }}
+polling_url: https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}
 polling_headers: ''
 polling_body: ''
 id: 249564
