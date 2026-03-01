@@ -36,13 +36,7 @@ The plugin polls a custom Azure Function instead of Open-Meteo directly. The pro
 - **Deployed URL**: `https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `plugins/weather/api/` — .NET 10 Azure Functions v4 app
 - **Auth**: None (anonymous)
-- **Query params**:
-  - `latitude` (required) — location latitude
-  - `longitude` (required) — location longitude
-  - `units` — `imperial` (default: °F, mph, inches) or `metric` (°C, km/h, mm)
-  - `hours` — number of hourly entries (1–25, default 25)
-  - `days` — number of daily entries (1–6, default 6)
-  - `fake` — `true` or `1` to inject randomized precipitation values (testing)
+- **Query params**: see README.md for the full list; additionally `fake=true` or `fake=1` injects randomized precipitation values for testing
 
 #### WeatherProxy Response Shape
 

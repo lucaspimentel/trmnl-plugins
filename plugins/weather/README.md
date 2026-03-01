@@ -15,7 +15,17 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Data Source
 
-[Open-Meteo API](https://open-meteo.com/) — free, no API key required.
+Weather data comes from [Open-Meteo](https://open-meteo.com/) via a custom Azure Functions proxy that pre-processes WMO weather codes into condition labels and icon classes.
+
+**Proxy URL**: `https://trmnl-weather.azurewebsites.net/api/v1/forecast`
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `latitude` | yes | — | Location latitude |
+| `longitude` | yes | — | Location longitude |
+| `units` | no | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
+| `hours` | no | `25` | Number of hourly forecast entries (1–25) |
+| `days` | no | `6` | Number of daily forecast entries (1–6) |
 
 ## Setup
 
