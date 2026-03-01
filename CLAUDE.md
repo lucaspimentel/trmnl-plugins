@@ -94,11 +94,6 @@ Fetches the current TRMNL screen image and displays it in Sixel format (black/wh
 - Uses [SixPix](https://www.nuget.org/packages/SixPix) NuGet package
 - Run: `dotnet run --project tools/Trmnl.Cli/Trmnl.Cli.csproj`
 
-### dither.py
-Converts a screenshot PNG to 1-bit using Floyd-Steinberg dithering, to check how colors/grays will render on the e-ink display.
-- Run: `python3 tools/dither.py plugins/<name>/render.png`
-- Output: `plugins/<name>/render-1bit.png`
-
 ### Credentials
 `Get-Trmnl-Image.ps1` and `Trmnl.Cli` require:
 - `TRMNL_DEVICE_ID` — device identifier
@@ -178,13 +173,6 @@ playwright-cli resize 800 480
 # wait ~3 seconds for Highcharts/fonts to render
 playwright-cli screenshot --filename=plugins/<name>/render.png
 playwright-cli close
-```
-
-Optionally, convert to 1-bit using Floyd-Steinberg dithering to check how colors/grays will appear on the e-ink display. Only needed when verifying color rendering, not for layout work:
-
-```bash
-python3 tools/dither.py plugins/<name>/render.png
-# outputs plugins/<name>/render-1bit.png
 ```
 
 ## Assets (`./assets/`)
