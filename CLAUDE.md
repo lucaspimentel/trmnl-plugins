@@ -59,7 +59,7 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 
 ### plugins/weather
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast with weather icons throughout.
-- API: Custom WeatherProxy Azure Function (`https://trmnl-weather.azurewebsites.net/api/forecast`) that calls Open-Meteo and pre-processes the response; configurable lat/lon (default Boston 42.36°N, 71.06°W)
+- API: Custom WeatherProxy Azure Function (`https://trmnl-weather.azurewebsites.net/api/v1/forecast`) that calls Open-Meteo and pre-processes the response; configurable lat/lon (default Boston 42.36°N, 71.06°W)
 - WeatherProxy source: `plugins/weather/api/` — .NET 10 Azure Functions v4 app that fetches Open-Meteo, maps WMO codes to condition labels and icon classes, and returns a simplified JSON response
 - Full layout: two-column at the outermost level — left column (68%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right column (32%): vertical 6-day forecast bars spanning full height
 - Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants; icon class pre-computed by WeatherProxy (not in Liquid templates)

@@ -72,6 +72,6 @@ The `--screenshot` flag opens `full.html` in Edge at 800×480, waits 3 seconds f
 ## Resources
 
 - [TRMNL Website](https://usetrmnl.com/)
-- [TRMNL Documentation](https://docs.usetrmnl.com/)
+- [TRMNL Documentation](https://docs.trmnl.com/)
 - [trmnlp - Local Preview Tool](https://github.com/usetrmnl/trmnlp)
 - [TRMNL Design System](https://trmnl.com/framework/docs)
