@@ -349,6 +349,21 @@ For a full table of contents of all 29 TRMNL doc pages, see `references/trmnl-do
 | `references/liquid.md` | Full Liquid language reference — all 50 filters, tags, operators, TRMNL custom filters |
 | `references/strftime.md` | strftime format code cheat sheet — all codes, padding modifiers, common TRMNL patterns |
 
+### Framework Reference (detailed)
+
+When you need specific class names, attributes, or code examples beyond what `design-system.md` covers, read the relevant framework reference file:
+
+| File | Contents | Read when... |
+|------|----------|--------------|
+| `references/framework/foundation.md` | Screen, View, Layout, Title Bar, Columns, Mashup — hierarchy and structure | Setting up page structure, mashup layouts, or debugging layout hierarchy |
+| `references/framework/arrangement.md` | Flex, Grid, Size, Spacing, Gap, Aspect Ratio — layout utilities | Arranging content with flex/grid, sizing elements, spacing |
+| `references/framework/styling.md` | Background, Text, Border, Rounded, Outline, Image, Strokes, Scale | Styling colors, borders, images, text readability on e-ink |
+| `references/framework/components.md` | Chart, Item, Progress, Rich Text, Table — reusable UI components | Building charts, list items, progress indicators, tables |
+| `references/framework/elements.md` | Title, Value, Label, Description, Divider — basic building blocks | Typography choices, text element sizing, dividers |
+| `references/framework/modulations.md` | Clamp, Overflow, Fit Value, Format Value, Content Limiter, Pixel Perfect, Table Overflow | Handling text overflow, auto-sizing, number formatting, crisp rendering |
+| `references/framework/responsive.md` | Size breakpoints, orientation, bit-depth, visibility/display utilities | Making layouts adapt to different TRMNL devices |
+| `references/framework/guides.md` | v2 overview, upgrade guide, enhancement guide, troubleshooting, TRMNL X | Understanding v2 changes, migrating from v1, TRMNL X features |
+
 For live interactive design system docs: https://trmnl.com/framework/docs
 For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc.) across 30+ device models: https://trmnl.com/framework/examples
 
