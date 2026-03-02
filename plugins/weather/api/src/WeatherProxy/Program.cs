@@ -15,6 +15,7 @@ builder.Services
 
 builder.Services.AddMemoryCache(options => options.SizeLimit = 100);
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>();
+builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 builder.Services.AddSingleton<WeatherCache>();
 
