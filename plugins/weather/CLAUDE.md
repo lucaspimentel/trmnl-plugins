@@ -8,7 +8,7 @@ See `README.md` for contributor setup and external dependency details.
 ## API: TrmnlApi
 
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
-- **Source**: `api/` (repo root) — see `api/CLAUDE.md`
+- **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
 - **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6); `fake=true` injects random precipitation for testing
 
@@ -72,7 +72,7 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 ```liquid
 {% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
-{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6 %}
+{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
 ```
 
 Key access patterns:
@@ -87,15 +87,16 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 | Template | Purpose |
 |----------|---------|
-| `weather_current` | Current conditions: temp, icon, details |
+| `weather_current` | Current conditions: temp, icon, details (full layout) |
+| `weather_current_compact` | Compact current conditions (half/quadrant layouts) |
 | `weather_hourly_chart` | Highcharts spline (temp) + column (precip %) with icons on x-axis, sunrise/sunset lines |
-| `weather_daily_bars_vertical` | 6-day CSS range bars, weather icons, labels inside/outside bar |
+| `weather_daily_bars_vertical` | CSS range bars, weather icons, labels inside/outside bar |
 | `title_bar` | Bottom bar with day + time |
 
 `full.liquid` layout structure:
 
 ```
-[ left (68%)                      | right (32%)             ]
+[ left (64%)                      | right (36%)             ]
 [   weather_current               |                         ]
 [   weather_hourly_chart          | weather_daily_bars_vert ]
 [           title_bar (full width)                          ]
