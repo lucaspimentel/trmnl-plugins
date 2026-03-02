@@ -94,3 +94,7 @@ playwright-cli close
 - [TRMNL Documentation](https://docs.trmnl.com/)
 - [trmnlp - Local Preview Tool](https://github.com/usetrmnl/trmnlp)
 - [TRMNL Design System](https://trmnl.com/framework/docs)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
