@@ -15,10 +15,10 @@ plugins/weather/
   src/
     settings.yml      # plugin config and polling URL (must be in src/)
     shared.liquid     # all reusable templates
-    full.liquid       # full screen layout (only layout implemented)
-    # half_horizontal.liquid  TODO
-    # half_vertical.liquid    TODO
-    # quadrant.liquid         TODO
+    full.liquid
+    half_horizontal.liquid
+    half_vertical.liquid
+    quadrant.liquid
 ```
 
 ## Local Preview
