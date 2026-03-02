@@ -1,93 +1,40 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+TRMNL e-ink display plugins. Plugins live under `plugins/`, shared API backend under `api/`.
 
-## Repository Overview
+For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.trmnl.com/go/...` URL for leaner Markdown).
 
-This repository contains plugins for [TRMNL](https://usetrmnl.com/), an e-ink display device. TRMNL plugins fetch data from external APIs and render it using Liquid templates for display on the device.
+## Critical Gotchas
 
-For comprehensive TRMNL documentation, see: https://docs.trmnl.com/go/llms.txt
+- `settings.yml` must be at `src/settings.yml` — trmnlp ignores one at the plugin root
+- `polling_url` interpolation: use `{{ keyname }}` (plain Liquid), not `##{{ keyname }}`
+- Flex children that should shrink need `min-width: 0` — `plugins.js` measures widths before layout, so without it they expand to full container width
 
-> **Tip**: Append `.md` to any `https://docs.trmnl.com/go/...` URL to get a leaner Markdown version.
-> Example: `https://docs.trmnl.com/go/private-api/screens` → `https://docs.trmnl.com/go/private-api/screens.md`
+## Deploy a Plugin
 
-## Plugin Architecture
-
-Plugins live under the `plugins/` directory using the trmnlp `src/` layout (see README for structure).
-
-Key `settings.yml` fields:
-- `strategy`: Data fetching method (`polling` or `webhook`)
-- `polling_url`: API endpoint to fetch data from
-- `polling_verb`: HTTP method (typically `get`)
-- `refresh_interval`: How often to fetch data (in minutes)
-- `custom_fields`: Plugin metadata (name, description, GitHub URL)
-
-**Critical**: `settings.yml` must be at `src/settings.yml` — trmnlp ignores a `settings.yml` at the plugin root.
-
-## Template System
-
-Templates use Liquid syntax with TRMNL-specific conventions:
-- `{% template name %}...{% endtemplate %}`: Define reusable templates
-- `{% render "template_name", param: value %}`: Include templates with parameters
-- `data`: Variable containing API response data (when root is a JSON array)
-- For JSON object responses, top-level keys are injected directly as variables (no `data.` prefix)
-- `trmnl.plugin_settings.instance_name`: Access plugin configuration
-
-Layout templates typically render shared templates with size-specific parameters (e.g., `max_height`).
-
-**Important**: `plugins.js` runs pixel-perfect font processing that measures element widths. Flex children that should shrink must have `min-width: 0` set, otherwise they expand to full container width before `plugins.js` runs and the layout breaks.
-
-## Current Plugins
-
-### plugins/mbta-alerts
-- API: `https://api-v3.mbta.com/alerts` (filtered for subway/light rail routes)
-- Data fields: `service_effect`, `timeframe`, `header`, `updated_at`
-- Features: Displays alerts sorted by severity, shows "No current alerts" when empty
-
-### plugins/weather
-- API: Custom TrmnlApi Azure Function (`https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`) that calls Open-Meteo; configurable lat/lon (default Boston 42.36°N, 71.06°W)
-- TrmnlApi source: `api/` — .NET 10 Azure Functions v4 app that fetches Open-Meteo, maps WMO codes to condition labels and icon classes, and returns a simplified JSON response
-- Full layout: two-column — left (68%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right (32%): vertical 6-day forecast bars
-- Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants; icon class pre-computed by TrmnlApi
-- All four layouts implemented: `full`, `half_horizontal`, `half_vertical`, `quadrant`
-
-## Development Workflow
-
-When creating or modifying plugins:
-1. Update `settings.yml` with API endpoint and configuration
-2. Define reusable templates in `shared.liquid`
-3. Create layout templates that render shared templates with appropriate parameters
-4. Document API data fields in `fields.txt`
-5. Test with different data scenarios (empty data, multiple items, long text)
-
-Note: There are no build, test, or lint commands — plugins are deployed directly to TRMNL.
-
-To push a plugin to TRMNL:
 ```bash
 cd plugins/<name>
-trmnlp push --force    # --force skips the interactive confirmation prompt
+trmnlp push --force    # --force skips confirmation prompt
 ```
 
-## Tools (`./tools/`)
+## Build Preview
 
-See README for tool descriptions. Additional detail:
+```bash
+bash tools/build-preview.sh plugins/<name>                        # build only
+bash tools/build-preview.sh plugins/<name> --screenshot           # + screenshot full layout
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit    # + 1-bit B&W conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --layout all  # all layouts
+```
 
-### Credentials for Get-Trmnl-Image.ps1 and Trmnl.Cli
-- `TRMNL_DEVICE_ID` and `TRMNL_DEVICE_API_KEY` stored in **1Password item "trmnl"** (personal account)
-- Also contains `TRMNL_API_KEY` for `trmnlp login`
-- Retrieve with: `op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal`
+The wrapper injected into each `_build/*.html` file:
+- `https://trmnl.com/css/latest/plugins.css` + `https://trmnl.com/js/latest/plugins.js`
+- Inter font (Google Fonts)
+- `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">`
 
-### build-preview.sh wrapper details
-The wrapper added to each `_build/*.html` file includes:
-- `https://trmnl.com/css/latest/plugins.css`
-- `https://trmnl.com/js/latest/plugins.js`
-- Inter font from Google Fonts
-- `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">` wrapper
+## Credentials
 
-## Assets (`./assets/`)
+`TRMNL_DEVICE_ID`, `TRMNL_DEVICE_API_KEY`, and `TRMNL_API_KEY` (for `trmnlp login`) are in **1Password item "trmnl"**:
 
-- `full-template.pdn` — Paint.NET template file for creating plugin screenshots at the correct 800×480 dimensions
-
-## Skills
-
-The `.claude/skills/trmnl-dev/` directory contains a Claude Code skill for full-lifecycle plugin development, including scaffolding, template authoring, and local preview with trmnlp.
+```bash
+op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal
+```

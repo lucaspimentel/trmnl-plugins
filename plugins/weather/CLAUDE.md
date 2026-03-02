@@ -3,42 +3,16 @@
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
 using a custom TrmnlApi Azure Function that fetches and pre-processes Open-Meteo data.
 
-## File Structure
+See `README.md` for contributor setup and external dependency details.
 
-```
-plugins/weather/
-  .trmnlp.yml         # trmnlp local dev config (static or live data)
-  CLAUDE.md           # this file
-  fields.txt          # API response field documentation (raw Open-Meteo format, for reference)
-  # api/ moved to repo root api/ (TrmnlApi Azure Function source)
-  assets/             # local copies of self-hosted files + sample API response JSON
-  src/
-    settings.yml      # plugin config and polling URL (must be in src/)
-    shared.liquid     # all reusable templates
-    full.liquid
-    half_horizontal.liquid
-    half_vertical.liquid
-    quadrant.liquid
-```
-
-## Local Preview
-
-See repo root `CLAUDE.md` for preview options (`trmnlp serve` vs static build).
-
-To use static sample data instead of live API, configure a `data:` block in `.trmnlp.yml` pointing to a cached JSON file (e.g. `assets/data-2026-02-24T18-30.json`). The filename encodes the `current.time` value to use as "now" when testing.
-
-## External Dependencies
-
-### API: TrmnlApi (Azure Functions)
-
-The plugin polls a custom Azure Function instead of Open-Meteo directly. The proxy handles WMO code mapping (condition strings, icon CSS classes, wind direction labels) and returns a pre-processed JSON object.
+## API: TrmnlApi
 
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
-- **Source**: `api/` (repo root) — .NET 10 Azure Functions v4 app
+- **Source**: `api/` (repo root) — see `api/CLAUDE.md`
 - **Auth**: None (anonymous)
-- **Query params**: see README.md for the full list; additionally `fake=true` or `fake=1` injects randomized precipitation values for testing
+- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6); `fake=true` injects random precipitation for testing
 
-#### TrmnlApi Response Shape
+### Response Shape
 
 ```json
 {
@@ -67,7 +41,7 @@ The plugin polls a custom Azure Function instead of Open-Meteo directly. The pro
         "icon_class": "wi wi-cloudy",
         "is_day": true
       }
-      // ... 24 more entries (25 total by default)
+      // ... up to 25 entries
     ]
   },
   "daily": {
@@ -83,75 +57,18 @@ The plugin polls a custom Azure Function instead of Open-Meteo directly. The pro
         "sunrise": "2026-02-25T06:30",
         "sunset": "2026-02-25T17:35"
       }
-      // ... 5 more entries (6 total by default)
+      // ... up to 6 entries
     ]
   }
 }
 ```
 
-Field names are unit-agnostic. The actual units depend on the `units` query parameter:
-- `imperial` (default): °F, mph, inches
-- `metric`: °C, km/h, mm
+Field names are unit-agnostic; actual units depend on the `units` param (`imperial`: °F, mph / `metric`: °C, km/h).
 
-### JS Library: Highcharts
+## Data Access in Templates
 
-- **Docs**: https://api.highcharts.com/highcharts/
-- **License**: Free for non-commercial use
-- **Usage**: Spline chart (temperature) + column chart (precip %) for 24-hour forecast
-- **Self-hosted**: `https://trmnlplugins.blob.core.windows.net/assets/highcharts.js`
-- **Note**: The Highcharts CDN (`code.highcharts.com`) rate-limits automated/headless requests (429), so we self-host.
+TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-level variables (not under `data`):
 
-### Icon Font: Erik Flowers Weather Icons
-
-- **GitHub**: https://github.com/erikflowers/weather-icons
-- **Demo**: https://erikflowers.github.io/weather-icons/
-- **License**: SIL OFL 1.1 (font), MIT (CSS/code)
-- **Self-hosted**: `https://trmnlplugins.blob.core.windows.net/assets/weather-icons.woff2` (~44 KB)
-- **Usage**: CSS class from `icon_class` field (e.g. `wi wi-day-sunny`, `wi wi-night-clear`, `wi wi-rain`)
-- **Day/night variants** for WMO codes 0–2 are pre-computed by TrmnlApi using sunrise/sunset data
-- **Where used**: Current conditions icon, hourly chart x-axis labels (from `hourly.entries[].icon_class`), daily forecast bars (from `daily.entries[].icon_class`)
-
-### Static Asset Hosting: Azure Blob Storage
-
-- **Account**: `trmnlplugins` (resource group `trmnl-plugins`, East US)
-- **Container**: `assets` (public read access)
-- **Base URL**: `https://trmnlplugins.blob.core.windows.net/assets/`
-- **Hosted files**: `highcharts.js`, `weather-icons.woff2`, `weather-icons.css`
-- **Upload**: `az storage blob upload --account-name trmnlplugins --container-name assets --file <file> --name <name> --content-type <type> --auth-mode key`
-
-## Template Architecture
-
-### `full.liquid` layout structure
-
-The two-column split is at the outermost level so the right column spans full height:
-
-```
-[ left column (68%)               | right column (32%)      ]
-[   weather_current               |                         ]
-[   weather_hourly_chart          | weather_daily_bars_vert |
-[                                 | (full height, 6 days)   ]
-[           title_bar (full width)                         ]
-```
-
-### Templates in `shared.liquid`
-
-All logic lives in `shared.liquid` as `{% template %}` blocks:
-
-| Template | Purpose |
-|----------|---------|
-| `weather_current` | Current conditions (left-column, centered): temp + weather icon + details |
-| `weather_hourly_chart` | Highcharts spline (temp °F) + column (precip %) for next 24h, weather icons on x-axis, sunrise/sunset vertical lines |
-| `weather_daily_bars_vertical` | 6-day CSS range bars (vertical layout for right column), weather icons next to bars, labels inside bars |
-| `title_bar` | Standard bottom bar with day + time |
-
-## Data Access
-
-The TrmnlApi returns a JSON object. trmnlp injects object keys as **top-level variables**,
-not under `data`. Templates use `current`, `hourly`, `daily` directly — not `data.current` etc.
-
-This is different from JSON:API array responses (like MBTA) where the array becomes `data`.
-
-Layout files pass these directly to shared templates:
 ```liquid
 {% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
@@ -160,33 +77,50 @@ Layout files pass these directly to shared templates:
 
 Key access patterns:
 - `current.temperature`, `current.condition`, `current.icon_class`, `current.is_day`
-- `hourly.entries` — array of 25 hourly entries (current hour + 24h ahead)
-- `daily.entries` — array of 6 daily entries (today + 5 days)
-- Icon classes already include day/night variant (e.g. `wi wi-day-sunny`)
+- `hourly.entries` — array of up to 25 entries (current hour + next 24h)
+- `daily.entries` — array of up to 6 entries (today + next 5 days)
+- `icon_class` already includes day/night variant (e.g. `wi wi-day-sunny`) — pre-computed by TrmnlApi
+
+## Template Architecture
+
+All logic lives in `shared.liquid` as `{% template %}` blocks:
+
+| Template | Purpose |
+|----------|---------|
+| `weather_current` | Current conditions: temp, icon, details |
+| `weather_hourly_chart` | Highcharts spline (temp) + column (precip %) with icons on x-axis, sunrise/sunset lines |
+| `weather_daily_bars_vertical` | 6-day CSS range bars, weather icons, labels inside/outside bar |
+| `title_bar` | Bottom bar with day + time |
+
+`full.liquid` layout structure:
+
+```
+[ left (68%)                      | right (32%)             ]
+[   weather_current               |                         ]
+[   weather_hourly_chart          | weather_daily_bars_vert ]
+[           title_bar (full width)                          ]
+```
 
 ## Key Implementation Notes
 
-**Icon classes** are pre-computed by TrmnlApi (`WmoCodeMap.GetIconClass`), so Liquid templates
-use `entry.icon_class` directly — no WMO-to-icon mapping needed in templates.
+**Highcharts**: Script tag must be inside the template block (not the layout file).
+Three Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = °C (right, linked to yAxis[0]).
+Margin: `[10, 58, 68, 58]` (extra bottom for icon+text x-axis labels).
 
-**Condition labels** (`current.condition`, `daily.entries[].condition`) are also pre-computed
-by TrmnlApi.
+**Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
 
-**Highcharts**: Script tag must be inside the template block (not in the layout file).
-Chart has three Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = °C (right, linked to yAxis[0]).
-Chart margin: `margin: [10, 58, 68, 58]` (extra bottom space for icon+text x-axis labels).
-
-**Hourly chart features**:
-- Weather icons on x-axis labels (every 4 hours) using `entry.icon_class`
-- Sunrise/sunset dashed vertical plotLines from `daily.entries[0].sunrise`/`.sunset`
-- Day/night already resolved in `entry.is_day`
-
-**Vertical forecast bars** (`weather_daily_bars_vertical`): Shows all 6 days from `daily.entries`.
-Bar widths computed from overall min/max across all days:
+**Vertical forecast bars**: Bar widths from overall min/max across all days:
 ```liquid
 {% assign left_pct = d_low | minus: overall_min | times: 100 | divided_by: range %}
 {% assign width_pct = d_high | minus: d_low | times: 100 | divided_by: range | at_least: 1 %}
 ```
+Labels render inside bar (white) when `width_pct >= 25`, outside (black) otherwise.
 
-**Vertical bar labels**: Labels render inside the bar (white text)
-when `width_pct >= 25`, otherwise outside (black text) to avoid overflow on narrow ranges.
+## Local Preview
+
+```bash
+cd plugins/weather
+trmnlp serve    # http://localhost:4567
+```
+
+To use cached data: configure a `data:` block in `.trmnlp.yml` pointing to a file in `assets/` (e.g. `assets/data-2026-02-24T18-30.json`). The filename encodes the `current.time` value used as "now".
