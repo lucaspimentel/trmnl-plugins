@@ -364,7 +364,7 @@ var chart = Highcharts.chart('hourly-chart', {
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
     <div style="margin:2px 0;">
       {% if forloop.first and current_temp %}
-      <div style="display:flex; align-items:flex-end; padding-left:116px; padding-right:38px; margin-bottom:0;">
+      <div style="display:flex; align-items:flex-end; padding-left:146px; padding-right:38px; margin-bottom:0;">
         <div style="flex:1; position:relative; height:2px; min-width:0;">
           <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1;">&#9660;</span>
         </div>
