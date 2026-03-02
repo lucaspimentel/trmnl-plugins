@@ -17,7 +17,7 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 Weather data comes from [Open-Meteo](https://open-meteo.com/) via a custom Azure Functions proxy that pre-processes WMO weather codes into condition labels and icon classes.
 
-**Proxy URL**: `https://trmnl-weather.azurewebsites.net/api/v1/forecast`
+**Proxy URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|

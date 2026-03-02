@@ -1,7 +1,7 @@
 # Weather Plugin
 
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
-using a custom WeatherProxy Azure Function that fetches and pre-processes Open-Meteo data.
+using a custom TrmnlApi Azure Function that fetches and pre-processes Open-Meteo data.
 
 ## File Structure
 
@@ -10,7 +10,7 @@ plugins/weather/
   .trmnlp.yml         # trmnlp local dev config (static or live data)
   CLAUDE.md           # this file
   fields.txt          # API response field documentation (raw Open-Meteo format, for reference)
-  api/                # WeatherProxy Azure Function source (.NET 10)
+  # api/ moved to repo root api/ (TrmnlApi Azure Function source)
   assets/             # local copies of self-hosted files + sample API response JSON
   src/
     settings.yml      # plugin config and polling URL (must be in src/)
@@ -29,16 +29,16 @@ To use static sample data instead of live API, configure a `data:` block in `.tr
 
 ## External Dependencies
 
-### API: WeatherProxy (Azure Functions)
+### API: TrmnlApi (Azure Functions)
 
 The plugin polls a custom Azure Function instead of Open-Meteo directly. The proxy handles WMO code mapping (condition strings, icon CSS classes, wind direction labels) and returns a pre-processed JSON object.
 
-- **Deployed URL**: `https://trmnl-weather.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
-- **Source**: `plugins/weather/api/` — .NET 10 Azure Functions v4 app
+- **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
+- **Source**: `api/` (repo root) — .NET 10 Azure Functions v4 app
 - **Auth**: None (anonymous)
 - **Query params**: see README.md for the full list; additionally `fake=true` or `fake=1` injects randomized precipitation values for testing
 
-#### WeatherProxy Response Shape
+#### TrmnlApi Response Shape
 
 ```json
 {
@@ -108,7 +108,7 @@ Field names are unit-agnostic. The actual units depend on the `units` query para
 - **License**: SIL OFL 1.1 (font), MIT (CSS/code)
 - **Self-hosted**: `https://trmnlplugins.blob.core.windows.net/assets/weather-icons.woff2` (~44 KB)
 - **Usage**: CSS class from `icon_class` field (e.g. `wi wi-day-sunny`, `wi wi-night-clear`, `wi wi-rain`)
-- **Day/night variants** for WMO codes 0–2 are pre-computed by WeatherProxy using sunrise/sunset data
+- **Day/night variants** for WMO codes 0–2 are pre-computed by TrmnlApi using sunrise/sunset data
 - **Where used**: Current conditions icon, hourly chart x-axis labels (from `hourly.entries[].icon_class`), daily forecast bars (from `daily.entries[].icon_class`)
 
 ### Static Asset Hosting: Azure Blob Storage
@@ -146,7 +146,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 ## Data Access
 
-The WeatherProxy returns a JSON object. trmnlp injects object keys as **top-level variables**,
+The TrmnlApi returns a JSON object. trmnlp injects object keys as **top-level variables**,
 not under `data`. Templates use `current`, `hourly`, `daily` directly — not `data.current` etc.
 
 This is different from JSON:API array responses (like MBTA) where the array becomes `data`.
@@ -166,11 +166,11 @@ Key access patterns:
 
 ## Key Implementation Notes
 
-**Icon classes** are pre-computed by WeatherProxy (`WmoCodeMap.GetIconClass`), so Liquid templates
+**Icon classes** are pre-computed by TrmnlApi (`WmoCodeMap.GetIconClass`), so Liquid templates
 use `entry.icon_class` directly — no WMO-to-icon mapping needed in templates.
 
 **Condition labels** (`current.condition`, `daily.entries[].condition`) are also pre-computed
-by WeatherProxy.
+by TrmnlApi.
 
 **Highcharts**: Script tag must be inside the template block (not in the layout file).
 Chart has three Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = °C (right, linked to yAxis[0]).

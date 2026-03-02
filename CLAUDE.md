@@ -45,8 +45,8 @@ Layout templates typically render shared templates with size-specific parameters
 - Features: Displays alerts sorted by severity, shows "No current alerts" when empty
 
 ### plugins/weather
-- API: Custom WeatherProxy Azure Function (`https://trmnl-weather.azurewebsites.net/api/v1/forecast`) that calls Open-Meteo; configurable lat/lon (default Boston 42.36°N, 71.06°W)
-- WeatherProxy source: `plugins/weather/api/` — .NET 10 Azure Functions v4 app that fetches Open-Meteo, maps WMO codes to condition labels and icon classes, and returns a simplified JSON response
+- API: Custom TrmnlApi Azure Function (`https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`) that calls Open-Meteo; configurable lat/lon (default Boston 42.36°N, 71.06°W)
+- TrmnlApi source: `api/` — .NET 10 Azure Functions v4 app that fetches Open-Meteo, maps WMO codes to condition labels and icon classes, and returns a simplified JSON response
 - Full layout: two-column — left (68%): compact current conditions + hourly Highcharts chart with icons and sunrise/sunset lines; right (32%): vertical 6-day forecast bars
 - Icons: Erik Flowers Weather Icons font, WMO code mapping with day/night variants; icon class pre-computed by WeatherProxy
 - Only `full.liquid` is implemented; `half_horizontal`, `half_vertical`, and `quadrant` are TODOs

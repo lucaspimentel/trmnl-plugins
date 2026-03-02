@@ -11,8 +11,8 @@ action: block
 Deploy Azure Functions with `func`:
 
 ```bash
-cd plugins/weather/api/src/WeatherProxy
-func azure functionapp publish trmnl-weather
+cd api/src/TrmnlApi
+func azure functionapp publish trmnl-plugins-api
 ```
 
 Do not manually zip the publish folder and upload it. The `func` tooling handles build, packaging, and deployment in one step.

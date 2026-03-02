@@ -1,4 +1,4 @@
-WeatherProxy API response — https://trmnl-weather.azurewebsites.net/api/v1/forecast
+TrmnlApi response — https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast
 
 Field names are unit-agnostic. Actual units depend on the `units` query parameter:
     imperial (default): °F, mph, inches
