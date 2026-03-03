@@ -240,7 +240,7 @@ var chart = Highcharts.chart('hourly-chart', {
     categories: [{{ hour_labels }}],
     tickInterval: 4,
     labels: {
-      style: { fontSize: '20px', color: '#000', fontFamily: 'Inter, sans-serif' },
+      style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
       rotation: 0,
       align: 'center',
       y: 16,
@@ -336,6 +336,13 @@ var chart = Highcharts.chart('hourly-chart', {
     }
   ]
 });
+function fixChartFonts() {
+  document.querySelectorAll('#hourly-chart .highcharts-axis-labels text').forEach(function(el) {
+    el.style.setProperty('font-family', 'Inter, sans-serif', 'important');
+  });
+}
+fixChartFonts();
+new MutationObserver(fixChartFonts).observe(document.getElementById('hourly-chart'), { childList: true, subtree: true });
 </script>
 {% endtemplate %}
 
