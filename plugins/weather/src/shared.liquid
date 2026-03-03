@@ -162,7 +162,7 @@ function sunPlotBands() {
   var bands = [];
   var startTime = hourTimes[0];
   var endTime = hourTimes[hourTimes.length - 1];
-  var maxX = hourTimes.length - 0.5;
+  var maxX = hourTimes.length - 1;
   // Collect all sunrise/sunset times within or near the chart range
   var rises = [];
   var sets = [];
@@ -192,7 +192,7 @@ function sunPlotBands() {
     // If the first hourly entry is before any sunrise, it's night
     for (var i = 0; i < sunEvents.length; i++) {
       if (sunEvents[i].rise > startTime) {
-        bands.push({ from: -0.5, to: maxX });
+        bands.push({ from: 0, to: maxX });
         break;
       }
       if (sunEvents[i].set > startTime) break;
@@ -203,7 +203,7 @@ function sunPlotBands() {
   var pos = 0;
   if (transitions[0].type === 'rise') {
     var x = timeToX(transitions[0].t);
-    if (x !== null && x > 0) bands.push({ from: -0.5, to: x });
+    if (x !== null && x > 0) bands.push({ from: 0, to: x });
     pos = 1;
   }
   // Pair sunsets with following sunrises
@@ -235,7 +235,6 @@ var chart = Highcharts.chart('hourly-chart', {
   credits: { enabled: false },
   plotOptions: {
     series: { enableMouseTracking: false, animation: false },
-    column: { groupPadding: 0, pointPadding: 0, borderWidth: 0 }
   },
   xAxis: {
     categories: [{{ hour_labels }}],
@@ -300,10 +299,14 @@ var chart = Highcharts.chart('hourly-chart', {
   series: [
     {
       name: 'Precip %',
-      type: 'column',
+      type: 'areaspline',
       data: [{{ precip_data }}],
       yAxis: 1,
       color: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-4.png', width: 12, height: 12 } },
+      fillColor: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-4.png', width: 12, height: 12 } },
+      lineWidth: 1,
+      lineColor: '#000',
+      marker: { enabled: false },
       zIndex: 0
     },
     {
