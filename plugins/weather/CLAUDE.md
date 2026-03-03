@@ -89,7 +89,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 |----------|---------|
 | `weather_current` | Current conditions: temp, icon, details (full layout) |
 | `weather_current_compact` | Compact current conditions (half/quadrant layouts) |
-| `weather_hourly_chart` | Highcharts spline (temp) + column (precip %) with icons on x-axis, sunrise/sunset lines |
+| `weather_hourly_chart` | Highcharts spline (temp) + areaspline (precip %) with icons on x-axis, sunrise/sunset lines |
 | `weather_daily_bars_vertical` | CSS range bars, weather icons, labels inside/outside bar |
 | `title_bar` | Bottom bar with day + time |
 
@@ -106,7 +106,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 
 **Highcharts**: Script tag must be inside the template block (not the layout file).
 Three Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = °C (right, linked to yAxis[0]).
-Margin: `[10, 58, 68, 58]` (extra bottom for icon+text x-axis labels).
+Margin: `[22, 8, 44, 8]`.
 
 **Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
 
