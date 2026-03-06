@@ -4,8 +4,8 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "echo 'Invoke the trmnl-dev skill now to load the TRMNL plugin development context.'"
+            "command": "echo 'Invoke the trmnl-dev skill now to load the TRMNL plugin development context.'",
+            "type": "command"
           }
         ]
       }
@@ -13,7 +13,12 @@
   },
   "permissions": {
     "allow": [
+      "Bash(curl:*)",
+      "Bash(sleep:*)",
+      "Bash(playwright-cli:*)",
+      "Bash(tail:*)",
       "Bash(bash tools/build-preview.sh:*)",
+      "Skill(playwright-cli)",
       "WebFetch(domain:docs.trmnl.com)",
       "WebFetch(domain:docs.usetrmnl.com)",
       "WebFetch(domain:erikflowers.github.io)",
@@ -21,7 +26,8 @@
       "WebFetch(domain:help.trmnl.com)",
       "WebFetch(domain:open-meteo.com)",
       "WebFetch(domain:trmnl.com)",
-      "WebFetch(domain:usetrmnl.com)"
+      "WebFetch(domain:usetrmnl.com)",
+      "WebFetch(domain:127.0.0.1)"
     ]
   }
 }
