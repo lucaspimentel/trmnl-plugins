@@ -385,15 +385,18 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('hourly-char
         <div style="width:68px; flex-shrink:0;">
           <div class="description" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
-          <div style="display:flex; align-items:center; gap:3px;">
-            <i class="wi wi-raindrop" style="font-size:10px;"></i>
-            <span class="description" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
+          <div style="position:relative; border-radius:3px; overflow:hidden; border:1px solid #000;">
+            <div style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated;"></div>
+            <div style="position:relative; display:flex; align-items:center; gap:3px;">
+              <i class="wi wi-raindrop text-stroke text-stroke--medium" style="font-size:10px;"></i>
+              <span class="description text-stroke text-stroke--medium" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
+            </div>
           </div>
           {% endif %}
         </div>
         <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
         <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
-        <div style="flex:1; height:20px; background:url('https://trmnl.com/images/grayscale/gray-7.png') repeat; image-rendering:pixelated; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
+        <div style="flex:1; height:20px; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
           <div style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated; border-radius:10px;"></div>
         </div>
         <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
