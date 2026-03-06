@@ -384,10 +384,12 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('hourly-char
       <div style="display:flex; align-items:center; gap:2px;">
         <div style="width:68px; flex-shrink:0;">
           <div class="description" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
+          {% if entry.precipitation_probability >= 10 %}
           <div style="display:flex; align-items:center; gap:3px;">
             <i class="wi wi-raindrop" style="font-size:10px;"></i>
             <span class="description" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
           </div>
+          {% endif %}
         </div>
         <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
         <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
