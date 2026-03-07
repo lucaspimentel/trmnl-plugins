@@ -49,7 +49,7 @@ To test with cached data instead of hitting the live API, set a `data:` block in
 Used for the hourly temperature spline + precipitation bar chart.
 
 - License: free for non-commercial use
-- Self-hosted at `https://trmnlplugins.blob.core.windows.net/assets/highcharts.js` (avoids CDN rate limits in headless preview)
+- Loaded from `https://trmnl.com/js/highcharts/12.3.0/highcharts.js`
 
 #### Erik Flowers Weather Icons
 
@@ -57,18 +57,5 @@ CSS icon font used for current conditions and chart labels.
 
 - GitHub: https://github.com/erikflowers/weather-icons
 - License: SIL OFL 1.1 (font), MIT (CSS)
-- Self-hosted: `https://trmnlplugins.blob.core.windows.net/assets/weather-icons.woff2`
+- Loaded from jsDelivr CDN (`cdn.jsdelivr.net`)
 - Icon class (e.g. `wi wi-day-sunny`) is pre-computed by the API proxy, including day/night variants
-
-#### Static Assets (Azure Blob Storage)
-
-Self-hosted files live in the `trmnlplugins` storage account (resource group `trmnl-plugins`):
-
-```bash
-az storage blob upload \
-  --account-name trmnlplugins \
-  --container-name assets \
-  --file <file> --name <name> \
-  --content-type <type> \
-  --auth-mode key
-```

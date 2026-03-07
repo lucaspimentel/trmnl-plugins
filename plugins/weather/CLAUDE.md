@@ -83,7 +83,7 @@ Key access patterns:
 
 ## Template Architecture
 
-All logic lives in `shared.liquid` as `{% template %}` blocks:
+All logic lives in `shared.liquid`, rendered via `{% render %}` from layout files:
 
 | Template | Purpose |
 |----------|---------|
@@ -105,7 +105,7 @@ All logic lives in `shared.liquid` as `{% template %}` blocks:
 ## Key Implementation Notes
 
 **Highcharts**: Script tag must be inside the template block (not the layout file).
-Three Y-axes: `yAxis[0]` = °F (left), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = °C (right, linked to yAxis[0]).
+Three Y-axes: `yAxis[0]` = temp (labels hidden), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = linked to yAxis[0] (opposite side, labels hidden).
 Margin: `[22, 8, 44, 8]`.
 
 **Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
@@ -115,7 +115,8 @@ Margin: `[22, 8, 44, 8]`.
 {% assign left_pct = d_low | minus: overall_min | times: 100 | divided_by: range %}
 {% assign width_pct = d_high | minus: d_low | times: 100 | divided_by: range | at_least: 1 %}
 ```
-Labels render inside bar (white) when `width_pct >= 25`, outside (black) otherwise.
+Precip bars hidden when chance < 10%; background gray scales with probability (`bg--gray-75` lightest → `bg--gray-10` darkest).
+Temp range bars use `bg--gray-30`.
 
 ## Local Preview
 

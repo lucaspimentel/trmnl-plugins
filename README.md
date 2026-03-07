@@ -69,22 +69,11 @@ cd plugins/<name>/_build && python -m http.server 8765
 cd plugins/<name>
 trmnlp serve          # preview at http://localhost:4567
 ```
-
-### Manual screenshots with playwright-cli
-
-```bash
-playwright-cli open --browser=msedge http://localhost:8765/full.html
-playwright-cli resize 800 480
-# wait ~3 seconds for Highcharts/fonts to render
-playwright-cli screenshot --filename=plugins/<name>/render-full.png
-playwright-cli close
-```
-
 ## Tools
 
 - **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (injects screen classes into `trmnlp build` output); `--screenshot` captures `render-<layout>.png` via playwright-cli; `--layout all` screenshots every layout
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white); saves timestamped PNG files
-- **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 9 app that fetches and displays the current screen image in Sixel (full color)
+- **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 10 app that fetches and displays the current screen image in Sixel (full color)
 
 `Get-Trmnl-Image.ps1` and `Trmnl.Cli` require `TRMNL_DEVICE_ID` and `TRMNL_DEVICE_API_KEY` environment variables (stored in 1Password item "trmnl").
 
