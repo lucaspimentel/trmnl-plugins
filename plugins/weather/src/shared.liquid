@@ -385,8 +385,10 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('hourly-char
         <div style="width:68px; flex-shrink:0;">
           <div class="description" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
+          {% assign precip_gray_step = entry.precipitation_probability | minus: 10 | times: 13 | divided_by: 90 | times: 5 %}
+          {% assign precip_gray = 75 | minus: precip_gray_step | at_least: 10 %}
           <div style="position:relative; border-radius:3px; overflow:hidden; border:1px solid #000;">
-            <div style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%; background:url('https://trmnl.com/images/grayscale/gray-3.png') repeat; image-rendering:pixelated;"></div>
+            <div class="bg--gray-{{ precip_gray }}" style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%;"></div>
             <div style="position:relative; display:flex; align-items:center; justify-content:center; gap:6px;">
               <i class="wi wi-raindrop text-stroke text-stroke--medium" style="font-size:10px;"></i>
               <span class="description text-stroke text-stroke--medium" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
