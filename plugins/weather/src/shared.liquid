@@ -64,10 +64,10 @@
   Params: current
 {% endcomment %}
 {% template weather_current %}
-<div style="display:flex; flex-direction:row; align-items:center; justify-content:center; gap:12px; width:100%; padding:8px 0 4px 0;">
-  <i class="wi {{ current.icon_class }}" style="font-size:110px; line-height:1; flex-shrink:0;"></i>
-  <div class="value--xxlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}&deg;</div>
-  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+<div class="flex flex--row flex--center-x w--full pt--2 pb--1 gap--[12px]">
+  <i class="wi {{ current.icon_class }} shrink-0" style="font-size:110px; line-height:1;"></i>
+  <div class="value--xxlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
+  <div class="flex flex--col flex--stretch-x gap--[2px]">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
@@ -81,10 +81,10 @@
   Params: current, icon_size (default 64), show_extra (default true — shows humidity + wind)
 {% endcomment %}
 {% template weather_current_compact %}
-<div style="display:flex; flex-direction:row; align-items:center; justify-content:center; gap:10px; width:100%; padding:6px 0 4px 0;">
-  <i class="wi {{ current.icon_class }}" style="font-size:{{ icon_size | default: 64 }}px; line-height:1; flex-shrink:0;"></i>
-  <div class="value--xlarge" data-pixel-perfect="true" style="line-height:1; white-space:nowrap; flex-shrink:0;">{{ current.temperature }}&deg;</div>
-  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+<div class="flex flex--row flex--center-x w--full pt--1.5 pb--1">
+  <i class="wi {{ current.icon_class }} shrink-0" style="font-size:{{ icon_size | default: 64 }}px; line-height:1;"></i>
+  <div class="value--xlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
+  <div class="flex flex--col flex--stretch-x gap--[2px]">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
     {% if show_extra != false %}
@@ -123,8 +123,8 @@
     {% assign hour_times = hour_times | append: ',"' | append: entry.time | append: '"' %}
   {% endif %}
 {% endfor %}
-<div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end;">
-  <div id="{{ chart_id }}" style="width:100%; height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
+<div class="flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1;">
+  <div id="{{ chart_id }}" class="w--full" style="height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
 </div>
 <script>
 var iconClasses = [{{ icon_classes }}];
@@ -364,9 +364,9 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 {% assign range = overall_max_int | minus: overall_min_int %}
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
-<div style="display:flex; flex-direction:column; height:100%; padding-top:{{ padding_top | default: 20 }}px;">
+<div class="flex flex--col flex--stretch-x h--full gap--none" style="padding-top:{{ padding_top | default: 20 }}px;">
   {% assign day_limit = num_days | default: 6 %}
-  <div style="display:flex; flex-direction:column; flex:1; justify-content:space-evenly;">
+  <div class="flex flex--col flex--stretch-x flex--evenly gap--none" style="flex:1;">
 {% if current_temp %}
   {% assign current_temp_int = current_temp | round %}
   {% assign current_marker_pct = current_temp_int | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 | at_most: 100 %}
@@ -374,35 +374,35 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
-    <div style="margin:2px 0;">
+    <div class="my--0.5">
       {% if forloop.first and current_temp %}
       <div style="padding-left:148px; padding-right:40px;">
-        <div style="position:relative; height:12px; min-width:0;">
+        <div class="h--3" style="position:relative; min-width:0;">
           <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1; bottom:-2px;">&#9660;</span>
         </div>
       </div>
       {% endif %}
-      <div style="display:flex; align-items:center; gap:2px;">
-        <div style="width:68px; flex-shrink:0;">
+      <div class="flex flex--row gap--[2px]">
+        <div class="w--[68px] shrink-0">
           <div class="description" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
           {% assign precip_gray_step = entry.precipitation_probability | minus: 10 | times: 13 | divided_by: 90 | times: 5 %}
           {% assign precip_gray = 75 | minus: precip_gray_step | at_least: 10 %}
-          <div style="position:relative; border-radius:3px; overflow:hidden; border:1px solid #000;">
+          <div class="rounded--[3px]" style="position:relative; overflow:hidden; border:1px solid #000;">
             <div class="bg--gray-{{ precip_gray }}" style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%;"></div>
-            <div style="position:relative; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <div class="flex flex--row flex--center-x gap--[6px]" style="position:relative;">
               <i class="wi wi-raindrop text-stroke text-stroke--medium" style="font-size:10px;"></i>
               <span class="description text-stroke text-stroke--medium" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
             </div>
           </div>
           {% endif %}
         </div>
-        <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-end; margin-right:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
-        <div style="flex:1; height:20px; border:1px solid #000; border-radius:10px; min-width:0; position:relative;">
-          <div class="bg--gray-30" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%; height:100%; border-radius:10px;"></div>
+        <div class="flex flex--center-x w--9 shrink-0 gap--none"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
+        <div class="flex w--[34px] shrink-0 mr--1 gap--none" style="justify-content:flex-end;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
+        <div class="h--5 rounded" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
+          <div class="bg--gray-30 h--full rounded" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
-        <div style="width:34px; flex-shrink:0; display:flex; justify-content:flex-start; margin-left:4px;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
+        <div class="flex w--[34px] shrink-0 ml--1 gap--none" style="justify-content:flex-start;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>
     </div>
   {% endfor %}
@@ -416,7 +416,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 {% endcomment %}
 {% template title_bar %}
 <div class="title_bar">
-  {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick" style="font-size:20px; margin-right:6px;"></i>{% endif %}
+  {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5" style="font-size:20px;"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
   <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
