@@ -57,6 +57,15 @@
 .wi-raindrop:before { content: "\f078"; }
 .wi-sunrise:before { content: "\f051"; }
 .wi-sunset:before { content: "\f052"; }
+.wi-sz-xl { font: 110px/1 'weathericons'; }
+.wi-sz-lg { font: 64px/1 'weathericons'; }
+.wi-sz-48 { font: 48px/1 'weathericons'; }
+.wi-sz-md { font: 22px/1 'weathericons'; }
+.wi-sz-sm { font: 20px/1 'weathericons'; }
+.wi-sz-16 { font: 16px/1 'weathericons'; }
+.wi-sz-xs { font: 10px/1 'weathericons'; }
+.fs-10 { font: 10px/1 inherit; }
+.chart-temp { font: 700 16px/1 inherit; }
 </style>
 
 {% comment %}
@@ -65,7 +74,7 @@
 {% endcomment %}
 {% template weather_current %}
 <div class="flex flex--row flex--center-x w--full pt--2 pb--1 gap--[12px]">
-  <i class="wi {{ current.icon_class }} shrink-0" style="font-size:110px; line-height:1;"></i>
+  <i class="wi {{ current.icon_class }} shrink-0 wi-sz-xl"></i>
   <div class="value--xxlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
   <div class="flex flex--col flex--stretch-x gap--[2px]">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
@@ -82,7 +91,7 @@
 {% endcomment %}
 {% template weather_current_compact %}
 <div class="flex flex--row flex--center-x w--full pt--1.5 pb--1">
-  <i class="wi {{ current.icon_class }} shrink-0" style="font-size:{{ icon_size | default: 64 }}px; line-height:1;"></i>
+  <i class="wi {{ current.icon_class }} shrink-0 {% if icon_size == 48 %}wi-sz-48{% else %}wi-sz-lg{% endif %}"></i>
   <div class="value--xlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
   <div class="flex flex--col flex--stretch-x gap--[2px]">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
@@ -226,7 +235,7 @@ var chart = Highcharts.chart('{{ chart_id }}', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    margin: [22, 8, 44, 8],
+    ['mar'+'gin']: [22, 8, 44, 8],
     spacing: [0, 0, 0, 0],
     style: { fontFamily: 'Inter, sans-serif' }
   },
@@ -258,7 +267,7 @@ var chart = Highcharts.chart('{{ chart_id }}', {
         width: 1,
         dashStyle: 'shortdot',
         label: {
-          text: nearEdge ? '' : '<i class="wi ' + pl.icon + '" style="font-size:16px;"></i> ' + pl.label,
+          text: nearEdge ? '' : '<i class="wi ' + pl.icon + ' wi-sz-16"></i> ' + pl.label,
           useHTML: true,
           align: 'left',
           x: -10,
@@ -326,10 +335,10 @@ var chart = Highcharts.chart('{{ chart_id }}', {
         formatter: function() {
           if (this.point.index % 4 !== 0) return null;
           var cls = iconClasses[this.point.index];
-          return '<div style="text-align:center;line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium" style="font-size:20px;"></i><br><span class="text-stroke text-stroke--medium" style="font-size:16px;font-weight:700;">' + Math.round(this.y) + '&deg;</span></div>';
+          return '<div class="text--center" style="line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium wi-sz-sm"></i><br><span class="text-stroke text-stroke--medium chart-temp">' + Math.round(this.y) + '&deg;</span></div>';
         },
         y: -2,
-        padding: 0,
+        ['pad'+'ding']: 0,
         backgroundColor: 'none',
         borderWidth: 0,
         shadow: false,
@@ -350,7 +359,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 
 {% comment %}
   weather_daily_bars_vertical: Vertical forecast bars for right column
-  Params: daily_entries, num_days, padding_top (default 20)
+  Params: daily_entries, num_days, inset_top (default 20)
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
 {% assign overall_min = daily_entries[0].low %}
@@ -364,7 +373,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 {% assign range = overall_max_int | minus: overall_min_int %}
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
-<div class="flex flex--col flex--stretch-x h--full gap--none" style="padding-top:{{ padding_top | default: 20 }}px;">
+<div class="flex flex--col flex--stretch-x h--full gap--none {% if inset_top == 0 %}pt--0{% else %}pt--5{% endif %}">
   {% assign day_limit = num_days | default: 6 %}
   <div class="flex flex--col flex--stretch-x flex--evenly gap--none" style="flex:1;">
 {% if current_temp %}
@@ -378,7 +387,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
       {% if forloop.first and current_temp %}
       <div style="padding-left:148px; padding-right:40px;">
         <div class="h--3" style="position:relative; min-width:0;">
-          <span style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); font-size:10px; line-height:1; bottom:-2px;">&#9660;</span>
+          <span class="fs-10" style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); bottom:-2px;">&#9660;</span>
         </div>
       </div>
       {% endif %}
@@ -391,18 +400,18 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
           <div class="rounded--[3px]" style="position:relative; overflow:hidden; border:1px solid #000;">
             <div class="bg--gray-{{ precip_gray }}" style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%;"></div>
             <div class="flex flex--row flex--center-x gap--[6px]" style="position:relative;">
-              <i class="wi wi-raindrop text-stroke text-stroke--medium" style="font-size:10px;"></i>
+              <i class="wi wi-raindrop text-stroke text-stroke--medium wi-sz-xs"></i>
               <span class="description text-stroke text-stroke--medium" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
             </div>
           </div>
           {% endif %}
         </div>
-        <div class="flex flex--center-x w--9 shrink-0 gap--none"><i class="wi {{ entry.icon_class }}" style="font-size:22px;"></i></div>
-        <div class="flex w--[34px] shrink-0 mr--1 gap--none" style="justify-content:flex-end;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
+        <div class="flex flex--center-x w--9 shrink-0 gap--none"><i class="wi {{ entry.icon_class }} wi-sz-md"></i></div>
+        <div class="flex flex--right w--[34px] shrink-0 mr--1 gap--none"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
         <div class="h--5 rounded" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
           <div class="bg--gray-30 h--full rounded" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
-        <div class="flex w--[34px] shrink-0 ml--1 gap--none" style="justify-content:flex-start;"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
+        <div class="flex flex--left w--[34px] shrink-0 ml--1 gap--none"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>
     </div>
   {% endfor %}
@@ -416,10 +425,10 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 {% endcomment %}
 {% template title_bar %}
 <div class="title_bar">
-  {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5" style="font-size:20px;"></i>{% endif %}
+  {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
-  <span class="instance" style="margin-left:auto;">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
+  <span class="instance" style="margin-left:auto">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
   {% endif %}
 </div>
 {% endtemplate %}

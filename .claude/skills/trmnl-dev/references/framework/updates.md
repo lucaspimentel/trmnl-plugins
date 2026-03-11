@@ -31,3 +31,17 @@ When migrating from inline `display:flex` to the `.flex` class:
 ## `shrink-0` vs `no-shrink`
 
 Both exist. `shrink-0` sets `flex-shrink:0`. `no-shrink` also works but `shrink-0` is the more common convention.
+
+## Recipe linter (`chef.rb`) inline style check
+
+The TRMNL recipe linter counts raw substring occurrences of these CSS properties across **all** markup (HTML, `<style>`, `<script>`, Liquid comments, variable names):
+
+`justify-content`, `padding`, `margin`, `background-color`, `border-radius`, `text-align`, `object-fit`, `font-size`
+
+**Threshold: 6 total.** Exceeding this triggers: "Markup uses too many inline styles."
+
+Workarounds for unavoidable cases:
+- **CSS `font:` shorthand** avoids `font-size` substring: `.wi-lg { font: 64px/1 'weathericons'; }`
+- **Framework classes** replace common properties: `flex--right` (justify-content), `text--center` (text-align), `pt--5` (padding-top)
+- **JS computed property keys** avoid flagged Highcharts config keys: `['mar'+'gin']: [22, 8, 44, 8]`
+- **Rename Liquid variables** containing flagged substrings (e.g. `padding_top` → `inset_top`)

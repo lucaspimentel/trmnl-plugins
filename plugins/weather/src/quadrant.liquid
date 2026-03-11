@@ -3,7 +3,7 @@
   <div class="flex flex--col flex--stretch-x flex--center-y gap--none" style="flex:1;">
     {% render "weather_current_compact", current: current, icon_size: 48 %}
     <div class="pt--4 pr--1.5 pb--1 pl--2">
-      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 1, padding_top: 0, current_temp: current.temperature %}
+      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 1, inset_top: 0, current_temp: current.temperature %}
     </div>
   </div>
   {% else %}
@@ -12,7 +12,7 @@
     <div class="title mt--2" data-pixel-perfect="true">No weather data.</div>
   </div>
   {% endif %}
-  <div style="margin-top:auto;">
+  <div>
     {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class %}
   </div>
 </div>

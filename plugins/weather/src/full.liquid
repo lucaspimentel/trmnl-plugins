@@ -1,7 +1,7 @@
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
   <div class="flex gap--[16px]" style="flex:1;">
-    <div class="flex flex--col flex--stretch-x flex--between gap--none" style="flex:64; padding-top:30px;">
+    <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8" style="flex:64;">
       {% render "weather_current", current: current %}
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
     </div>
@@ -15,7 +15,7 @@
     <div class="title mt--4" data-pixel-perfect="true">No weather data available.</div>
   </div>
   {% endif %}
-  <div style="margin-top:auto;">
+  <div>
     {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class %}
   </div>
 </div>
