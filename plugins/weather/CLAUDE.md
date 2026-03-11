@@ -72,7 +72,7 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 ```liquid
 {% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
-{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, inset_top: 0, current_temp: current.temperature %}
+{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
 ```
 
 Key access patterns:

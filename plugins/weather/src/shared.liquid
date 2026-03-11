@@ -428,7 +428,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
-  <span class="instance" style="margin-left:auto">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
+  <span class="instance">Updated {{ updated_at | date: "%a %-I:%M %p" }}</span>
   {% endif %}
 </div>
 {% endtemplate %}
