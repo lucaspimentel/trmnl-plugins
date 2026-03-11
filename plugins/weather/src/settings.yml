@@ -9,34 +9,48 @@ polling_headers: ''
 polling_body: ''
 id: 249564
 custom_fields:
-- keyname: instance_name
-  name: LP Weather
+- keyname: doesnt_matter
   field_type: author_bio
-  description: Weather
+  name: LP Weather
+  description: Another weather plugin. Shows current conditions, hourly and daily forecasts. Data from https://open-meteo.com/
+  category: environment,custom
   github_url: https://github.com/lucaspimentel/trmnl-plugins
   learn_more_url: https://github.com/lucaspimentel/trmnl-plugins/tree/main/plugins/weather/README.md
 - keyname: latitude
-  field_type: string
+  field_type: number
   name: Latitude
-  placeholder: '42.36'
+  min: -90
+  max: 90
+  step: 0.001
 - keyname: longitude
-  field_type: string
+  field_type: number
   name: Longitude
-  placeholder: "-71.06"
+  min: -180
+  max: 180
+  step: 0.001
 - keyname: units
   field_type: select
   name: Units
   description: imperial (°F, mph) or metric (°C, km/h)
+  default: imperial
   options:
   - imperial
   - metric
 - keyname: hours
   field_type: number
-  name: Hourly forecast hours
+  name: Hours
+  description: Number of hours to show in the Hourly forecast
   placeholder: '25'
+  min: 1
+  max: 25
+  step: 1
 - keyname: days
   field_type: number
-  name: Daily forecast days, including today
+  name: Days
+  description: Number of days to show in the Daily forecast, including today
   placeholder: '6'
+  min: 1
+  max: 6
+  step: 1
 name: LP Weather
 refresh_interval: 30
