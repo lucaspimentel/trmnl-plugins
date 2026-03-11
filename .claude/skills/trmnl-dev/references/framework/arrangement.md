@@ -4,9 +4,34 @@ Layout utilities for sizing, spacing, gaps, flex, grid, and aspect ratios.
 
 Source docs: [Flex](https://trmnl.com/framework/docs/flex) | [Grid](https://trmnl.com/framework/docs/grid) | [Size](https://trmnl.com/framework/docs/size) | [Spacing](https://trmnl.com/framework/docs/spacing) | [Gap](https://trmnl.com/framework/docs/gap) | [Aspect Ratio](https://trmnl.com/framework/docs/aspect_ratio)
 
+## Arbitrary bracket syntax `[Npx]` availability
+
+Not all utility types support the `[Npx]` bracket syntax. When a value is not on the fixed scale and brackets aren't available, use inline styles.
+
+| Utility | Bracket syntax | Example |
+|---|---|---|
+| `w--` / `h--` | Yes (`[0-800px]`, `[0-100cqw]`) | `w--[68px]`, `h--[225px]` |
+| `gap--` | Yes (`[0-50px]`) | `gap--[12px]` |
+| `rounded--` | Yes (`[0-50px]`) | `rounded--[3px]` |
+| `m*--` / `p*--` (spacing) | **No** | Use `style="padding-top:30px;"` |
+
 ## Flex
 
 Flexbox containers for row/column arrangements.
+
+**IMPORTANT — Hidden defaults in `.flex` classes (from plugins.css):**
+
+| Class | CSS applied (beyond the obvious) |
+|---|---|
+| `.flex` | `display:flex` + **`gap: var(--gap)` (default 10px)** |
+| `.flex > *` | `min-width: 0` (auto-applied to all children) |
+| `.flex:not([data-overflow]) > *` | `min-height: 0` (auto-applied to all children) |
+| `.flex--col` | `flex-direction:column` + **`align-items: center`** |
+
+**Consequences when migrating from inline `display:flex`:**
+- Always pair `.flex` with an explicit gap class (`gap--none`, `gap--[2px]`, etc.) — otherwise you get an unwanted 10px gap
+- `.flex--col` forces `align-items:center` — add `flex--stretch-x` or `flex--left` if you don't want centering
+- The upside: `min-width:0` and `min-height:0` on children are automatic — no need for inline styles
 
 ```html
 <div class="flex flex--row gap--small">...</div>
@@ -23,7 +48,7 @@ Flexbox containers for row/column arrangements.
 
 **Item stretch:** `stretch` | `stretch-x` | `stretch-y`
 
-**Prevent shrink:** `no-shrink`
+**Prevent shrink:** `shrink-0` or `no-shrink`
 
 **Wrapping:** `flex--wrap` | `flex--nowrap` | `flex--wrap-reverse`
 
@@ -67,13 +92,15 @@ Responsive: `md:grid--cols-3`, `portrait:grid--cols-1`, `portrait:col--span-1`
 
 ## Size
 
-Width and height utilities.
+Width and height utilities. Scale = N × 4px.
 
-**Fixed sizes:** `w--{N}` / `h--{N}` where N is 0, 0.5, 1, 1.5, 2...96 (maps to 0px-384px)
+**Fixed sizes:** `w--{N}` / `h--{N}` — available values: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96
 
-**Arbitrary:** `w--[Npx]` / `h--[Npx]` where N is 0-800 (e.g. `w--[150px]`, `h--[225px]`)
+**IMPORTANT — the scale is NOT continuous.** There is no `w--13`, `w--15`, `w--17`, etc. After 12 the scale jumps: 12 → 14 → 16 → 20 → 24 → 28 → 32... Fractional values only exist for 0.5, 1.5, 2.5, 3.5. For sizes not on the scale, use the arbitrary bracket syntax.
 
-**Dynamic:** `w--full` | `w--auto` | `h--full` | `h--auto`
+**Arbitrary:** `w--[Npx]` / `h--[Npx]` where N is 0-800 (e.g. `w--[150px]`, `h--[68px]`). Use this for any pixel value not on the fixed scale.
+
+**Dynamic:** `w--full` | `w--auto` | `w--min` | `w--max` | `h--full` | `h--auto` | `h--min` | `h--max`
 
 **Container query:** `w--[Ncqw]` / `h--[Ncqh]` where N is 0-100 (% of layout dimensions)
 
@@ -89,11 +116,15 @@ Note: Arbitrary `[Npx]` sizes do NOT support responsive variants for non-size di
 
 ## Spacing
 
-Margin and padding utilities.
+Margin and padding utilities. Scale = N × 4px.
 
 **Margin:** `m--{size}`, `mt--{size}`, `mr--{size}`, `mb--{size}`, `ml--{size}`, `mx--{size}`, `my--{size}`
 
 **Padding:** `p--{size}`, `pt--{size}`, `pr--{size}`, `pb--{size}`, `pl--{size}`, `px--{size}`, `py--{size}`
+
+**Available sizes:** 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96
+
+**IMPORTANT — same scale gaps as Size.** No `mt--13`, `pt--7.5`, etc. After 12 the scale jumps. Fractional values only exist for 0.5, 1.5, 2.5, 3.5. **No arbitrary bracket syntax** (`pt--[30px]`) for spacing — use inline styles for values not on the scale.
 
 Responsive: `md:my--{size}`, `portrait:px--{size}`, `lg:portrait:mt--{size}`
 
