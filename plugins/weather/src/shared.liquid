@@ -100,6 +100,7 @@
   Params: hourly, daily, current_time, chart_height
 {% endcomment %}
 {% template weather_hourly_chart %}
+{% assign chart_id = "hourly-chart-" | append_random %}
 <script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
 <script src="https://trmnl.com/js/highcharts/12.3.0/pattern-fill.js"></script>
 {% assign hour_labels = "" %}
@@ -123,7 +124,7 @@
   {% endif %}
 {% endfor %}
 <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end;">
-  <div id="hourly-chart" style="width:100%; height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
+  <div id="{{ chart_id }}" style="width:100%; height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
 </div>
 <script>
 var iconClasses = [{{ icon_classes }}];
@@ -221,7 +222,7 @@ function sunPlotBands() {
   }
   return bands;
 }
-var chart = Highcharts.chart('hourly-chart', {
+var chart = Highcharts.chart('{{ chart_id }}', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
@@ -338,12 +339,12 @@ var chart = Highcharts.chart('hourly-chart', {
   ]
 });
 function fixChartFonts() {
-  document.querySelectorAll('#hourly-chart .highcharts-axis-labels text').forEach(function(el) {
+  document.querySelectorAll('#{{ chart_id }} .highcharts-axis-labels text').forEach(function(el) {
     el.style.setProperty('font-family', 'Inter, sans-serif', 'important');
   });
 }
 fixChartFonts();
-new MutationObserver(fixChartFonts).observe(document.getElementById('hourly-chart'), { childList: true, subtree: true });
+new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id }}'), { childList: true, subtree: true });
 </script>
 {% endtemplate %}
 
