@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # build-preview.sh — run trmnlp build and inject screen classes into built HTML
-# Usage: ./tools/build-preview.sh plugins/weather [--screenshot] [--1bit] [--layout <name>] [--output <dir>]
+# Usage: ./tools/build-preview.sh plugins/weather [--device <name>] [--screenshot] [--1bit] [--layout <name>] [--output <dir>]
 # Output: plugins/weather/_build/*.html (screen classes injected, ready to open in a browser)
 #
+# --device <name>:     target device: og (default) or x.
+#                      og = TRMNL OG (800x480, 1-bit screen classes)
+#                      x  = TRMNL X  (1040x780, 4-bit screen classes)
 # --screenshot:        take a screenshot of the specified layout (default: full).
 #                      Requires playwright-cli and a running HTTP server on port 8765
 #                      serving <plugin-dir>/_build/.
@@ -20,6 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PLUGIN_DIR=""
+DEVICE="og"
 SCREENSHOT=false
 ONEBIT=false
 LAYOUT="full"
@@ -27,6 +31,7 @@ OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --device) DEVICE="$2"; shift ;;
     --screenshot) SCREENSHOT=true ;;
     --1bit) ONEBIT=true ;;
     --layout) LAYOUT="$2"; shift ;;
@@ -37,7 +42,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$PLUGIN_DIR" ]]; then
-  echo "Usage: build-preview.sh <plugin-dir> [--screenshot] [--1bit] [--layout <name>] [--output <dir>]" >&2
+  echo "Usage: build-preview.sh <plugin-dir> [--device <name>] [--screenshot] [--1bit] [--layout <name>] [--output <dir>]" >&2
   exit 1
 fi
 
@@ -52,7 +57,11 @@ cd "$PLUGIN_DIR"
 trmnlp build
 cd - > /dev/null
 
-SCREEN_CLASSES="screen screen--1bit screen--ogv2 screen--md screen--1x"
+case "$DEVICE" in
+  og) SCREEN_CLASSES="screen screen--1bit screen--ogv2 screen--md screen--1x" ;;
+  x)  SCREEN_CLASSES="screen screen--4bit screen--v2 screen--lg screen--1x" ;;
+  *)  echo "Unknown device: $DEVICE (expected: og, x)" >&2; exit 1 ;;
+esac
 
 built_files=()
 for file in "$BUILD_DIR"/*.html; do
@@ -77,12 +86,16 @@ if $SCREENSHOT; then
 
   # Viewport dimensions per layout
   viewport_for_layout() {
-    case "$1" in
-      full)             echo "800 480" ;;
-      half_horizontal)  echo "800 240" ;;
-      half_vertical)    echo "400 480" ;;
-      quadrant)         echo "400 240" ;;
-      *) echo "Unknown layout: $1" >&2; exit 1 ;;
+    case "${DEVICE}:${1}" in
+      og:full)             echo "800 480" ;;
+      og:half_horizontal)  echo "800 240" ;;
+      og:half_vertical)    echo "400 480" ;;
+      og:quadrant)         echo "400 240" ;;
+      x:full)              echo "1040 780" ;;
+      x:half_horizontal)   echo "1040 390" ;;
+      x:half_vertical)     echo "520 780" ;;
+      x:quadrant)          echo "520 390" ;;
+      *) echo "Unknown device/layout: $DEVICE/$1" >&2; exit 1 ;;
     esac
   }
 

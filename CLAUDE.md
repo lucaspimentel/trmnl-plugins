@@ -21,16 +21,30 @@ trmnlp push --force    # --force skips confirmation prompt
 ## Build Preview
 
 ```bash
-bash tools/build-preview.sh plugins/<name>                        # build only
-bash tools/build-preview.sh plugins/<name> --screenshot           # + screenshot full layout
-bash tools/build-preview.sh plugins/<name> --screenshot --1bit    # + 1-bit B&W conversion
-bash tools/build-preview.sh plugins/<name> --screenshot --layout all  # all layouts
+bash tools/build-preview.sh plugins/<name>                                  # build only (TRMNL OG)
+bash tools/build-preview.sh plugins/<name> --device x                       # build for TRMNL X
+bash tools/build-preview.sh plugins/<name> --screenshot                     # + screenshot full layout
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit              # + 1-bit B&W conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --layout all        # all layouts
+bash tools/build-preview.sh plugins/<name> --device x --screenshot          # screenshot for TRMNL X
 ```
 
 The wrapper injected into each `_build/*.html` file:
 - `https://trmnl.com/css/latest/plugins.css` + `https://trmnl.com/js/latest/plugins.js`
 - Inter font (Google Fonts)
 - `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">`
+
+## Docker Sandbox Template
+
+Build and run as a Docker sandbox template with all tools pre-installed (trmnlp, playwright-cli, .NET 10, Azure Functions Core Tools, ImageMagick, Python 3, PowerShell, Ruby):
+
+```bash
+# Build the template
+docker build -t trmnl-plugins:v1 .
+
+# Run a sandbox with it
+docker sandbox run -t trmnl-plugins:v1 claude .
+```
 
 ## Credentials
 
