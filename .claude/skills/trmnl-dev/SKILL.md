@@ -13,9 +13,18 @@ description: >
 
 ## What is TRMNL?
 
-TRMNL is an 800x480 pixel, black-and-white, 2-bit grayscale e-ink display device.
-Plugins fetch data from APIs and render it using Liquid templates styled with the
-TRMNL design system. Think of each plugin as a small dashboard widget.
+TRMNL is a family of e-ink display devices. Plugins fetch data from APIs and render
+it using Liquid templates styled with the TRMNL design system. Think of each plugin
+as a small dashboard widget.
+
+| Device | Resolution | Bit depth | Orientation | Screen classes |
+|--------|-----------|-----------|-------------|----------------|
+| TRMNL OG | 800x480 | 1-bit (B&W) | Landscape | `screen--ogv2 screen--md screen--1bit` |
+| TRMNL X | 1040x780 | 4-bit (16 shades) | Landscape + Portrait | `screen--v2 screen--lg screen--4bit` |
+
+The framework uses responsive prefixes (`md:`, `lg:`, `1bit:`, `4bit:`, `portrait:`) so a
+single template can adapt to all devices. See `references/framework/responsive.md` and
+`references/framework/guides.md` (TRMNL X Guide section) for details.
 
 ## Plugin Layout
 
@@ -136,7 +145,8 @@ For live layout examples (GitHub Commit Graph, Weather, Stock Price, Reddit, etc
 For real-world plugin implementations to use as reference, see the official TRMNL plugins repository: https://github.com/usetrmnl/plugins
 
 Key principles:
-- Everything renders at 800x480px in black, white, and 2-bit grayscale
+- OG renders at 800x480 (1-bit B&W); X renders at 1040x780 (4-bit, 16 shades) with portrait support
+- Use responsive prefixes (`lg:`, `4bit:`, `portrait:`) to adapt layouts for TRMNL X
 - Use `data-pixel-perfect="true"` on text elements for crisp e-ink rendering
 - Use `data-list-limit="true"` with `data-list-max-height` on list containers to handle overflow
 - Use `.clamp--N` classes to limit text to N lines
