@@ -24,7 +24,7 @@ See `README.md` for contributor setup and external dependency details.
     "precipitation": 0.0,
     "weather_code": 3,
     "condition": "Overcast",
-    "icon_class": "wi wi-cloudy",
+    "icon_class": "wi-wmo4680-3",
     "wind_speed": 12,
     "wind_direction_deg": 270,
     "wind_direction": "W",
@@ -38,7 +38,7 @@ See `README.md` for contributor setup and external dependency details.
         "temperature": 35,
         "precipitation_probability": 10,
         "weather_code": 3,
-        "icon_class": "wi wi-cloudy",
+        "icon_class": "wi-wmo4680-3",
         "is_day": true
       }
       // ... up to 25 entries
@@ -52,7 +52,7 @@ See `README.md` for contributor setup and external dependency details.
         "low": 28,
         "weather_code": 61,
         "condition": "Light rain",
-        "icon_class": "wi wi-rain",
+        "icon_class": "wi-wmo4680-61",
         "precipitation_probability": 80,
         "sunrise": "2026-02-25T06:30",
         "sunset": "2026-02-25T17:35"
@@ -79,7 +79,7 @@ Key access patterns:
 - `current.temperature`, `current.condition`, `current.icon_class`, `current.is_day`
 - `hourly.entries` — array of up to 25 entries (current hour + next 24h)
 - `daily.entries` — array of up to 6 entries (today + next 5 days)
-- `icon_class` already includes day/night variant (e.g. `wi wi-day-sunny`) — pre-computed by TrmnlApi
+- `icon_class` already includes day/night variant (e.g. `wi-day-sunny`) — pre-computed by TrmnlApi; templates prepend the `wi` base class
 
 ## Template Architecture
 

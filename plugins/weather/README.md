@@ -58,4 +58,4 @@ CSS icon font used for current conditions and chart labels.
 - GitHub: https://github.com/erikflowers/weather-icons
 - License: SIL OFL 1.1 (font), MIT (CSS)
 - Loaded from jsDelivr CDN (`cdn.jsdelivr.net`)
-- Icon class (e.g. `wi wi-day-sunny`) is pre-computed by the API proxy, including day/night variants
+- Icon class (e.g. `wi-day-sunny`) is pre-computed by the API proxy, including day/night variants; templates prepend the `wi` base class

@@ -38,7 +38,8 @@ plugins/<name>/
 ### Static build preview
 
 ```bash
-bash tools/build-preview.sh plugins/<name>                                          # build only
+bash tools/build-preview.sh plugins/<name>                                          # build only (TRMNL OG)
+bash tools/build-preview.sh plugins/<name> --device x                               # build for TRMNL X
 bash tools/build-preview.sh plugins/<name> --screenshot                             # build + screenshot full layout → render-full.png
 bash tools/build-preview.sh plugins/<name> --screenshot --layout half_horizontal    # screenshot a specific layout
 bash tools/build-preview.sh plugins/<name> --screenshot --layout all                # screenshot all layouts
@@ -49,12 +50,14 @@ bash tools/build-preview.sh plugins/<name> --screenshot --output /tmp/shots     
 `build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then injects the TRMNL screen classes into each built HTML file so it renders correctly in any browser.
 
 Flags:
+- `--device <name>`: target device — `og` (default, 800×480 1-bit) or `x` (1040×780 4-bit)
 - `--screenshot`: captures the specified layout via playwright-cli (requires HTTP server on port 8765); output saved as `render-<layout>.png`
 - `--layout <name>`: layout to screenshot — `full`, `half_horizontal`, `half_vertical`, `quadrant`, or `all` (default: `full`)
 - `--1bit`: converts the screenshot to 1-bit black/white (no dithering) using ImageMagick (`magick`)
 - `--output <dir>`: output directory for screenshots (default: `<plugin-dir>`); created if it doesn't exist
 
-Viewport dimensions per layout: `full` 800×480 · `half_horizontal` 800×240 · `half_vertical` 400×480 · `quadrant` 400×240
+Viewport dimensions per layout (TRMNL OG): `full` 800×480 · `half_horizontal` 800×240 · `half_vertical` 400×480 · `quadrant` 400×240
+Viewport dimensions per layout (TRMNL X): `full` 1040×780 · `half_horizontal` 1040×390 · `half_vertical` 520×780 · `quadrant` 520×390
 
 To view the output, start a local HTTP server (required — `file://` URLs are blocked by browsers). Keep it running in the background between rebuilds:
 

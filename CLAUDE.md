@@ -32,7 +32,8 @@ bash tools/build-preview.sh plugins/<name> --device x --screenshot          # sc
 The wrapper injected into each `_build/*.html` file:
 - `https://trmnl.com/css/latest/plugins.css` + `https://trmnl.com/js/latest/plugins.js`
 - Inter font (Google Fonts)
-- `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">`
+- OG: `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">`
+- X: `<div class="screen screen--4bit screen--v2 screen--lg screen--1x">`
 
 ## Docker Sandbox Template
 
