@@ -393,7 +393,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
-    <div class="my--0.5 lg:my--1">
+    <div class="daily-row my--0.5 lg:my--1">
       {% if forloop.first and current_temp %}
       <div class="marker-pad" style="padding-left:148px; padding-right:40px;">
         <div class="h--3 lg:h--4" style="position:relative; min-width:0;">
@@ -407,7 +407,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
           {% if entry.precipitation_probability >= 10 %}
           {% assign precip_gray_step = entry.precipitation_probability | minus: 10 | times: 13 | divided_by: 90 | times: 5 %}
           {% assign precip_gray = 75 | minus: precip_gray_step | at_least: 10 %}
-          <div class="rounded--[3px]" style="position:relative; overflow:hidden; border:1px solid #000;">
+          <div class="rounded--[3px] lg:rounded--full" style="position:relative; overflow:hidden; border:1px solid #000;">
             <div class="bg--gray-{{ precip_gray }}" style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%;"></div>
             <div class="flex flex--row flex--center-x gap--[6px]" style="position:relative;">
               <i class="wi wi-raindrop text-stroke text-stroke--medium wi-sz-xs"></i>
@@ -418,8 +418,8 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
         </div>
         <div class="flex flex--center-x w--9 lg:w--12 shrink-0 gap--none"><i class="wi {{ entry.icon_class }} wi-sz-md"></i></div>
         <div class="temp-label flex flex--right shrink-0 mr--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
-        <div class="h--5 lg:h--7 rounded" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
-          <div class="bg--gray-30 h--full rounded" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
+        <div class="h--5 lg:h--7 rounded lg:rounded--full" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
+          <div class="bg--gray-30 h--full rounded lg:rounded--full" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
         <div class="temp-label flex flex--left shrink-0 ml--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>

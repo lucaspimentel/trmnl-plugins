@@ -1,9 +1,12 @@
+<style>
+.screen--md .daily-row:nth-child(n+2) { display: none; }
+</style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
   <div class="flex flex--col flex--stretch-x flex--center-y gap--none" style="flex:1;">
     {% render "weather_current_compact", current: current, icon_size: 48 %}
-    <div class="pt--4 pr--1.5 pb--1 pl--2">
-      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 1, inset_top: 0, current_temp: current.temperature %}
+    <div class="pt--4 pr--1.5 pb--1 pl--2" style="flex:1; min-height:0;">
+      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 3, inset_top: 0, current_temp: current.temperature %}
     </div>
   </div>
   {% else %}

@@ -1,7 +1,13 @@
+<style>
+.screen--lg .daily-row:nth-child(n+5) { display: none; }
+</style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
   <div class="flex flex--col flex--stretch-x pt--2 gap--none" style="flex:1;">
     {% render "weather_current_compact", current: current %}
+    <div class="hidden lg:flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1;">
+      {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 280 %}
+    </div>
     <div class="pb--2 pl--2 pr--1.5" style="flex:1; min-height:0;">
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 5, current_temp: current.temperature %}
     </div>
