@@ -26,6 +26,7 @@ bash tools/build-preview.sh plugins/<name> --device x                       # bu
 bash tools/build-preview.sh plugins/<name> --screenshot                     # + screenshot full layout
 bash tools/build-preview.sh plugins/<name> --screenshot --1bit              # + 1-bit B&W conversion
 bash tools/build-preview.sh plugins/<name> --screenshot --layout all        # all layouts
+bash tools/build-preview.sh plugins/<name> --device x --portrait            # TRMNL X portrait
 bash tools/build-preview.sh plugins/<name> --device x --screenshot          # screenshot for TRMNL X
 ```
 

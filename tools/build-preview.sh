@@ -6,6 +6,7 @@
 # --device <name>:     target device: og (default) or x.
 #                      og = TRMNL OG (800x480, 1-bit screen classes)
 #                      x  = TRMNL X  (1040x780, 4-bit screen classes)
+# --portrait:          portrait orientation (swaps width/height, adds screen--portrait class).
 # --screenshot:        take a screenshot of the specified layout (default: full).
 #                      Requires playwright-cli and a running HTTP server on port 8765
 #                      serving <plugin-dir>/_build/.
@@ -24,6 +25,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PLUGIN_DIR=""
 DEVICE="og"
+PORTRAIT=false
 SCREENSHOT=false
 ONEBIT=false
 LAYOUT="full"
@@ -32,6 +34,7 @@ OUTPUT_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --device) DEVICE="$2"; shift ;;
+    --portrait) PORTRAIT=true ;;
     --screenshot) SCREENSHOT=true ;;
     --1bit) ONEBIT=true ;;
     --layout) LAYOUT="$2"; shift ;;
@@ -42,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$PLUGIN_DIR" ]]; then
-  echo "Usage: build-preview.sh <plugin-dir> [--device <name>] [--screenshot] [--1bit] [--layout <name>] [--output <dir>]" >&2
+  echo "Usage: build-preview.sh <plugin-dir> [--device <name>] [--portrait] [--screenshot] [--1bit] [--layout <name>] [--output <dir>]" >&2
   exit 1
 fi
 
@@ -62,6 +65,10 @@ case "$DEVICE" in
   x)  SCREEN_CLASSES="screen screen--4bit screen--v2 screen--lg screen--1x" ;;
   *)  echo "Unknown device: $DEVICE (expected: og, x)" >&2; exit 1 ;;
 esac
+
+if $PORTRAIT; then
+  SCREEN_CLASSES="$SCREEN_CLASSES screen--portrait"
+fi
 
 built_files=()
 for file in "$BUILD_DIR"/*.html; do
@@ -86,17 +93,23 @@ if $SCREENSHOT; then
 
   # Viewport dimensions per layout
   viewport_for_layout() {
+    local dims
     case "${DEVICE}:${1}" in
-      og:full)             echo "800 480" ;;
-      og:half_horizontal)  echo "800 240" ;;
-      og:half_vertical)    echo "400 480" ;;
-      og:quadrant)         echo "400 240" ;;
-      x:full)              echo "1040 780" ;;
-      x:half_horizontal)   echo "1040 390" ;;
-      x:half_vertical)     echo "520 780" ;;
-      x:quadrant)          echo "520 390" ;;
+      og:full)             dims="800 480" ;;
+      og:half_horizontal)  dims="800 240" ;;
+      og:half_vertical)    dims="400 480" ;;
+      og:quadrant)         dims="400 240" ;;
+      x:full)              dims="1040 780" ;;
+      x:half_horizontal)   dims="1040 390" ;;
+      x:half_vertical)     dims="520 780" ;;
+      x:quadrant)          dims="520 390" ;;
       *) echo "Unknown device/layout: $DEVICE/$1" >&2; exit 1 ;;
     esac
+    if $PORTRAIT; then
+      echo "${dims##* } ${dims%% *}"
+    else
+      echo "$dims"
+    fi
   }
 
   screenshot_layout() {
