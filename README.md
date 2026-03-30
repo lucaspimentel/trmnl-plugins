@@ -38,35 +38,36 @@ plugins/<name>/
 ### Static build preview
 
 ```bash
-bash tools/build-preview.sh plugins/<name>                                          # build only (TRMNL OG)
-bash tools/build-preview.sh plugins/<name> --device x                               # build for TRMNL X
-bash tools/build-preview.sh plugins/<name> --device x --portrait                    # TRMNL X portrait
-bash tools/build-preview.sh plugins/<name> --screenshot                             # build + screenshot full layout → render-full.png
-bash tools/build-preview.sh plugins/<name> --screenshot --layout half_horizontal    # screenshot a specific layout
-bash tools/build-preview.sh plugins/<name> --screenshot --layout all                # screenshot all layouts
-bash tools/build-preview.sh plugins/<name> --screenshot --1bit                      # build + screenshot + 1-bit conversion
+bash tools/build-preview.sh plugins/<name>                                          # build all variants (og, x, x-portrait)
+bash tools/build-preview.sh plugins/<name> --device x                               # TRMNL X only (landscape + portrait)
+bash tools/build-preview.sh plugins/<name> --device x --orientation portrait         # X portrait only
+bash tools/build-preview.sh plugins/<name> --screenshot                             # + screenshot all variants × all layouts
+bash tools/build-preview.sh plugins/<name> --screenshot --1bit                      # + 1-bit B&W conversion
+bash tools/build-preview.sh plugins/<name> --screenshot --device x --layout full    # screenshot X full only
 bash tools/build-preview.sh plugins/<name> --screenshot --output /tmp/shots         # custom output directory
 ```
 
-`build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then injects the TRMNL screen classes into each built HTML file so it renders correctly in any browser.
+`build-preview.sh` runs `trmnlp build` (fetches live data, renders all layouts) then generates variant subdirectories under `_build/{og,x,x-portrait}/`, each with the correct TRMNL screen classes injected.
 
 Flags:
-- `--device <name>`: target device — `og` (default, 800×480 1-bit) or `x` (1040×780 4-bit)
-- `--portrait`: portrait orientation — swaps width/height and adds `screen--portrait` class
-- `--screenshot`: captures the specified layout via playwright-cli (requires HTTP server on port 8765); output saved as `render-<layout>.png`
-- `--layout <name>`: layout to screenshot — `full`, `half_horizontal`, `half_vertical`, `quadrant`, or `all` (default: `full`)
-- `--1bit`: converts the screenshot to 1-bit black/white (no dithering) using ImageMagick (`magick`)
+- `--device <name>`: `og`, `x`, or `all` (default: `all`)
+- `--orientation <value>`: `landscape`, `portrait`, or `all` (default: `all`). OG portrait is skipped.
+- `--screenshot`: captures each variant × layout via playwright-cli (requires HTTP server on port 8765); output saved as `render-<variant>-<layout>.png`
+- `--layout <name>`: layout to screenshot — `full`, `half_horizontal`, `half_vertical`, `quadrant`, or `all` (default: `all`)
+- `--1bit`: converts screenshots to 1-bit black/white (no dithering) using ImageMagick (`magick`)
 - `--output <dir>`: output directory for screenshots (default: `<plugin-dir>`); created if it doesn't exist
 
 Viewport dimensions per layout (TRMNL OG): `full` 800×480 · `half_horizontal` 800×240 · `half_vertical` 400×480 · `quadrant` 400×240
 Viewport dimensions per layout (TRMNL X): `full` 1040×780 · `half_horizontal` 1040×390 · `half_vertical` 520×780 · `quadrant` 520×390
-With `--portrait`, width and height are swapped (e.g., TRMNL X full becomes 780×1040).
+Portrait swaps width and height (e.g., TRMNL X full becomes 780×1040).
 
 To view the output, start a local HTTP server (required — `file://` URLs are blocked by browsers). Keep it running in the background between rebuilds:
 
 ```bash
 cd plugins/<name>/_build && python -m http.server 8765
-# open http://localhost:8765/full.html
+# open http://localhost:8765/og/full.html
+# open http://localhost:8765/x/full.html
+# open http://localhost:8765/x-portrait/full.html
 ```
 
 ### Live preview with trmnlp
@@ -77,7 +78,7 @@ trmnlp serve          # preview at http://localhost:4567
 ```
 ## Tools
 
-- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for any plugin (injects screen classes into `trmnlp build` output); `--screenshot` captures `render-<layout>.png` via playwright-cli; `--layout all` screenshots every layout
+- **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for all device variants (OG, X, X portrait) under `_build/{og,x,x-portrait}/`; `--screenshot` captures `render-<variant>-<layout>.png` via playwright-cli
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white); saves timestamped PNG files
 - **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 10 app that fetches and displays the current screen image in Sixel (full color)
 

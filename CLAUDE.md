@@ -21,20 +21,20 @@ trmnlp push --force    # --force skips confirmation prompt
 ## Build Preview
 
 ```bash
-bash tools/build-preview.sh plugins/<name>                                  # build only (TRMNL OG)
-bash tools/build-preview.sh plugins/<name> --device x                       # build for TRMNL X
-bash tools/build-preview.sh plugins/<name> --screenshot                     # + screenshot full layout
+bash tools/build-preview.sh plugins/<name>                                  # build all variants (og, x, x-portrait)
+bash tools/build-preview.sh plugins/<name> --device x                       # TRMNL X only (landscape + portrait)
+bash tools/build-preview.sh plugins/<name> --device x --orientation portrait # X portrait only
+bash tools/build-preview.sh plugins/<name> --screenshot                     # + screenshot all variants × all layouts
 bash tools/build-preview.sh plugins/<name> --screenshot --1bit              # + 1-bit B&W conversion
-bash tools/build-preview.sh plugins/<name> --screenshot --layout all        # all layouts
-bash tools/build-preview.sh plugins/<name> --device x --portrait            # TRMNL X portrait
-bash tools/build-preview.sh plugins/<name> --device x --screenshot          # screenshot for TRMNL X
+bash tools/build-preview.sh plugins/<name> --screenshot --device x --layout full  # screenshot X full only
 ```
 
-The wrapper injected into each `_build/*.html` file:
+Output goes to `_build/{og,x,x-portrait}/`. Each subdirectory gets the TRMNL wrapper:
 - `https://trmnl.com/css/latest/plugins.css` + `https://trmnl.com/js/latest/plugins.js`
 - Inter font (Google Fonts)
 - OG: `<div class="screen screen--1bit screen--ogv2 screen--md screen--1x">`
 - X: `<div class="screen screen--4bit screen--v2 screen--lg screen--1x">`
+- X portrait: same + `screen--portrait`
 
 ## Docker Sandbox Template
 

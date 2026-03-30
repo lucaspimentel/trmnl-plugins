@@ -108,7 +108,7 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 
 **Highcharts**: Script tag must be inside the template block (not the layout file).
 Three Y-axes: `yAxis[0]` = temp (labels hidden), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = linked to yAxis[0] (opposite side, labels hidden).
-Margin: `[22, 8, 44, 8]`.
+Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X via `isLg` JS flag). Chart height: 230px default, overridden to 380px on X via `.screen--lg` CSS in `full.liquid`.
 
 **Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
 
