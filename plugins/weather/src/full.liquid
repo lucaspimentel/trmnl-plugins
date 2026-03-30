@@ -1,11 +1,14 @@
+<style>
+.screen--lg [id^="hourly-chart-"] { height: 380px !important; }
+</style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
-  <div class="flex gap--[16px]" style="flex:1;">
-    <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8" style="flex:64;">
+  <div class="flex gap--[16px] lg:gap--large" style="flex:1;">
+    <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8 lg:pt--12" style="flex:64;">
       {% render "weather_current", current: current %}
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
     </div>
-    <div class="flex flex--col flex--stretch-x pt--4 pr--1.5 pb--4 gap--none" style="flex:36;">
+    <div class="flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none" style="flex:36;">
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
     </div>
   </div>

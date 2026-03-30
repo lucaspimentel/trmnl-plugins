@@ -66,6 +66,14 @@
 .wi-sz-xs { font: 10px/1 'weathericons'; }
 .fs-10 { font: 10px/1 inherit; }
 .chart-temp { font: 700 16px/1 inherit; }
+.day-label { width: 68px; }
+.temp-label { width: 34px; }
+.screen--lg .day-label { width: 90px; }
+.screen--lg .temp-label { width: 44px; }
+.screen--lg .marker-pad { padding-left: 196px; padding-right: 52px; }
+.screen--lg .wi-sz-xl { font: 140px/1 'weathericons'; }
+.screen--lg .wi-sz-md { font: 30px/1 'weathericons'; }
+.screen--lg .chart-temp { font: 700 20px/1 inherit; }
 </style>
 
 {% comment %}
@@ -73,14 +81,14 @@
   Params: current
 {% endcomment %}
 {% template weather_current %}
-<div class="flex flex--row flex--center-x w--full pt--2 pb--1 gap--[12px]">
+<div class="flex flex--row flex--center-x w--full pt--2 lg:pt--4 pb--1 gap--[12px] lg:gap--large">
   <i class="wi {{ current.icon_class }} shrink-0 wi-sz-xl"></i>
-  <div class="value--xxlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
-  <div class="flex flex--col flex--stretch-x gap--[2px]">
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
+  <div class="value--xxlarge lg:value--mega shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
+  <div class="flex flex--col flex--stretch-x gap--[2px] lg:gap--xsmall">
+    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
+    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
+    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
   </div>
 </div>
 {% endtemplate %}
@@ -231,11 +239,12 @@ function sunPlotBands() {
   }
   return bands;
 }
+var isLg = window.matchMedia('(min-width: 1024px)').matches;
 var chart = Highcharts.chart('{{ chart_id }}', {
   chart: {
     animation: false,
     backgroundColor: 'transparent',
-    ['mar'+'gin']: [22, 8, 44, 8],
+    ['mar'+'gin']: isLg ? [30, 12, 56, 12] : [22, 8, 44, 8],
     spacing: [0, 0, 0, 0],
     style: { fontFamily: 'Inter, sans-serif' }
   },
@@ -250,10 +259,10 @@ var chart = Highcharts.chart('{{ chart_id }}', {
     categories: [{{ hour_labels }}],
     tickInterval: 4,
     labels: {
-      style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
+      style: { fontSize: isLg ? '20px' : '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
       rotation: 0,
       align: 'center',
-      y: 16,
+      y: isLg ? 20 : 16,
       formatter: function() { return this.value; }
     },
     gridLineDashStyle: 'dot',
@@ -272,7 +281,7 @@ var chart = Highcharts.chart('{{ chart_id }}', {
           align: 'left',
           x: -10,
           rotation: 0,
-          style: { fontSize: '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
+          style: { fontSize: isLg ? '20px' : '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
           y: -5
         }
       };
@@ -326,7 +335,7 @@ var chart = Highcharts.chart('{{ chart_id }}', {
       data: [{{ temp_data }}],
       yAxis: 0,
       color: '#000',
-      lineWidth: 4,
+      lineWidth: isLg ? 5 : 4,
       marker: { enabled: false },
       zIndex: 1,
       dataLabels: {
@@ -335,7 +344,8 @@ var chart = Highcharts.chart('{{ chart_id }}', {
         formatter: function() {
           if (this.point.index % 4 !== 0) return null;
           var cls = iconClasses[this.point.index];
-          return '<div class="text--center" style="line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium wi-sz-sm"></i><br><span class="text-stroke text-stroke--medium chart-temp">' + Math.round(this.y) + '&deg;</span></div>';
+          var iconSz = isLg ? 'wi-sz-md' : 'wi-sz-sm';
+          return '<div class="text--center" style="line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium ' + iconSz + '"></i><br><span class="text-stroke text-stroke--medium chart-temp">' + Math.round(this.y) + '&deg;</span></div>';
         },
         y: -2,
         ['pad'+'ding']: 0,
@@ -383,17 +393,17 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% for entry in daily_entries limit: day_limit %}
     {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
-    <div class="my--0.5">
+    <div class="my--0.5 lg:my--1">
       {% if forloop.first and current_temp %}
-      <div style="padding-left:148px; padding-right:40px;">
-        <div class="h--3" style="position:relative; min-width:0;">
+      <div class="marker-pad" style="padding-left:148px; padding-right:40px;">
+        <div class="h--3 lg:h--4" style="position:relative; min-width:0;">
           <span class="fs-10" style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); bottom:-2px;">&#9660;</span>
         </div>
       </div>
       {% endif %}
-      <div class="flex flex--row gap--[2px]">
-        <div class="w--[68px] shrink-0">
-          <div class="description" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
+      <div class="flex flex--row gap--[2px] lg:gap--xsmall">
+        <div class="day-label shrink-0">
+          <div class="description lg:description--large" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
           {% assign precip_gray_step = entry.precipitation_probability | minus: 10 | times: 13 | divided_by: 90 | times: 5 %}
           {% assign precip_gray = 75 | minus: precip_gray_step | at_least: 10 %}
@@ -406,12 +416,12 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
           </div>
           {% endif %}
         </div>
-        <div class="flex flex--center-x w--9 shrink-0 gap--none"><i class="wi {{ entry.icon_class }} wi-sz-md"></i></div>
-        <div class="flex flex--right w--[34px] shrink-0 mr--1 gap--none"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
-        <div class="h--5 rounded" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
+        <div class="flex flex--center-x w--9 lg:w--12 shrink-0 gap--none"><i class="wi {{ entry.icon_class }} wi-sz-md"></i></div>
+        <div class="temp-label flex flex--right shrink-0 mr--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
+        <div class="h--5 lg:h--7 rounded" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
           <div class="bg--gray-30 h--full rounded" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
-        <div class="flex flex--left w--[34px] shrink-0 ml--1 gap--none"><span class="value--xsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
+        <div class="temp-label flex flex--left shrink-0 ml--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>
     </div>
   {% endfor %}
