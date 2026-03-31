@@ -1,10 +1,9 @@
 <style>
 .screen--lg [id^="hourly-chart-"] { height: 380px !important; }
 .screen--portrait .full-columns { flex-direction: column !important; }
-.screen--portrait .full-left,
-.screen--portrait .full-right { flex: none !important; width: 100%; }
-.screen--portrait .full-right { flex: none !important; }
-.screen--portrait [id^="hourly-chart-"] { height: 400px !important; }
+.screen--portrait .full-left { flex: none !important; width: 100%; }
+.screen--portrait .full-right { flex: 1 !important; width: 75%; align-self: center; }
+.screen--portrait [id^="hourly-chart-"] { height: 300px !important; }
 </style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
