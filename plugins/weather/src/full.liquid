@@ -1,18 +1,15 @@
 <style>
 .screen--lg [id^="hourly-chart-"] { height: 380px !important; }
-.screen--portrait .full-columns { flex-direction: column !important; }
-.screen--portrait .full-left { flex: none !important; width: 100%; }
-.screen--portrait .full-right { flex: 1 !important; width: 75%; align-self: center; }
 .screen--portrait [id^="hourly-chart-"] { height: 300px !important; }
 </style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
-  <div class="full-columns flex gap--[16px] lg:gap--large" style="flex:1;">
-    <div class="full-left flex flex--col flex--stretch-x flex--between gap--none pt--8 lg:pt--12" style="flex:64;">
+  <div class="flex portrait:flex--col gap--[16px] lg:gap--large" style="flex:1;">
+    <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8 lg:pt--12 w--[64cqw] portrait:w--full">
       {% render "weather_current", current: current %}
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
     </div>
-    <div class="full-right flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none" style="flex:36;">
+    <div class="flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none w--[36cqw] portrait:w--[75cqw] portrait:flex-auto">
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
     </div>
   </div>
