@@ -61,25 +61,39 @@ public class WeatherFunction(
             return bad;
         }
 
-        if (!cache.TryGet(latitude, longitude, metric, out var weatherResponse) || weatherResponse is null)
-        {
-            logger.LogInformation("Cache miss for {Latitude},{Longitude},{Units} — fetching from Open-Meteo", latitude, longitude, metric ? "metric" : "imperial");
+        var hasCached = cache.TryGet(latitude, longitude, metric, out var cachedResponse, out var isFresh);
 
-            Models.OpenMeteo.OpenMeteoResponse raw;
+        WeatherResponse weatherResponse;
+        if (hasCached && isFresh && cachedResponse is not null)
+        {
+            weatherResponse = cachedResponse;
+        }
+        else
+        {
+            logger.LogInformation("Cache {Status} for {Latitude},{Longitude},{Units} — fetching from Open-Meteo",
+                hasCached ? "stale" : "miss", latitude, longitude, metric ? "metric" : "imperial");
+
             try
             {
-                raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
+                var raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
+                weatherResponse = transformer.Transform(raw);
+                cache.Set(latitude, longitude, metric, weatherResponse);
             }
             catch (Exception ex) when (ex is HttpRequestException or JsonException)
             {
-                logger.LogError(ex, "Failed to fetch Open-Meteo forecast for {Latitude},{Longitude}", latitude, longitude);
-                var error = req.CreateResponse(HttpStatusCode.BadGateway);
-                await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
-                return error;
+                if (cachedResponse is not null)
+                {
+                    logger.LogWarning(ex, "Open-Meteo fetch failed for {Latitude},{Longitude}; serving stale cache", latitude, longitude);
+                    weatherResponse = cachedResponse with { Stale = true };
+                }
+                else
+                {
+                    logger.LogError(ex, "Failed to fetch Open-Meteo forecast for {Latitude},{Longitude}", latitude, longitude);
+                    var error = req.CreateResponse(HttpStatusCode.BadGateway);
+                    await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
+                    return error;
+                }
             }
-
-            weatherResponse = transformer.Transform(raw);
-            cache.Set(latitude, longitude, metric, weatherResponse);
         }
 
         // Slice to requested hours/days (cache always stores the full set)
