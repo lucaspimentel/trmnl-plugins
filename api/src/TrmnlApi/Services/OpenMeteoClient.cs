@@ -41,6 +41,6 @@ public class OpenMeteoClient(HttpClient httpClient) : IOpenMeteoClient
             JsonOptions,
             cancellationToken);
 
-        return result ?? throw new JsonException("Open-Meteo returned an empty response.");
+        return result ?? throw new JsonException("Open-Meteo returned JSON null when an object was expected.");
     }
 }
