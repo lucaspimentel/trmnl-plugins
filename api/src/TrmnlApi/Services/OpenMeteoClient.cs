@@ -25,7 +25,16 @@ public class OpenMeteoClient(HttpClient httpClient) : IOpenMeteoClient
                   $"&timezone=auto&forecast_hours=25&forecast_days=6";
 
         var response = await httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var snippet = body.Length > 500 ? body[..500] : body;
+            throw new HttpRequestException(
+                $"Open-Meteo returned {(int)response.StatusCode} {response.StatusCode}: {snippet}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
 
         var result = await JsonSerializer.DeserializeAsync<OpenMeteoResponse>(
             await response.Content.ReadAsStreamAsync(cancellationToken),

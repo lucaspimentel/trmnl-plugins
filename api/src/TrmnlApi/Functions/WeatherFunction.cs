@@ -64,7 +64,20 @@ public class WeatherFunction(
         if (!cache.TryGet(latitude, longitude, metric, out var weatherResponse) || weatherResponse is null)
         {
             logger.LogInformation("Cache miss for {Latitude},{Longitude},{Units} — fetching from Open-Meteo", latitude, longitude, metric ? "metric" : "imperial");
-            var raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
+
+            Models.OpenMeteo.OpenMeteoResponse raw;
+            try
+            {
+                raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or JsonException)
+            {
+                logger.LogError(ex, "Failed to fetch Open-Meteo forecast for {Latitude},{Longitude}", latitude, longitude);
+                var error = req.CreateResponse(HttpStatusCode.BadGateway);
+                await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
+                return error;
+            }
+
             weatherResponse = transformer.Transform(raw);
             cache.Set(latitude, longitude, metric, weatherResponse);
         }
