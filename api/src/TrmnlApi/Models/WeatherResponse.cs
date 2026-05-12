@@ -3,7 +3,8 @@ namespace TrmnlApi.Models;
 public record WeatherResponse(
     CurrentConditions Current,
     HourlyForecast Hourly,
-    DailyForecast Daily
+    DailyForecast Daily,
+    bool Stale = false
 );
 
 public record HourlyForecast(List<HourlyEntry> Entries);
