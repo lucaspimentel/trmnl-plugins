@@ -1,0 +1,42 @@
+name: deploy-azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      function_app_name:
+        description: Azure Function App name to deploy to
+        required: true
+        type: string
+      configuration:
+        description: Build configuration
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish
+        run: |
+          dotnet publish api/src/TrmnlApi/TrmnlApi.csproj \
+            --configuration ${{ inputs.configuration }} \
+            --output ${{ github.workspace }}/publish
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ inputs.function_app_name }}
+          package: ${{ github.workspace }}/publish
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
