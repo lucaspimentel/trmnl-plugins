@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Tests;
@@ -36,6 +37,17 @@ public class OpenMeteoClientTests
         Assert.Equal(HttpStatusCode.InternalServerError, ex.StatusCode);
         Assert.DoesNotContain(longBody, ex.Message);
         Assert.Contains(new string('x', 500), ex.Message);
+    }
+
+    [Fact]
+    public async Task GetForecastAsync_NullDeserializedResult_ThrowsJsonException()
+    {
+        // "null" is valid JSON and deserializes to a null OpenMeteoResponse
+        var handler = new StubHandler(HttpStatusCode.OK, "null");
+        var httpClient = new HttpClient(handler);
+        var client = new OpenMeteoClient(httpClient);
+
+        await Assert.ThrowsAsync<JsonException>(() => client.GetForecastAsync(0, 0));
     }
 
     private sealed class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler

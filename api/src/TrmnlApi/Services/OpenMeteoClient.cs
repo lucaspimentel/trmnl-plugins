@@ -24,7 +24,7 @@ public class OpenMeteoClient(HttpClient httpClient) : IOpenMeteoClient
                   $"&temperature_unit={tempUnit}&wind_speed_unit={windUnit}&precipitation_unit={precipUnit}" +
                   $"&timezone=auto&forecast_hours=25&forecast_days=6";
 
-        var response = await httpClient.GetAsync(url, cancellationToken);
+        using var response = await httpClient.GetAsync(url, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -41,6 +41,6 @@ public class OpenMeteoClient(HttpClient httpClient) : IOpenMeteoClient
             JsonOptions,
             cancellationToken);
 
-        return result ?? throw new InvalidOperationException("Open-Meteo returned an empty response.");
+        return result ?? throw new JsonException("Open-Meteo returned an empty response.");
     }
 }
