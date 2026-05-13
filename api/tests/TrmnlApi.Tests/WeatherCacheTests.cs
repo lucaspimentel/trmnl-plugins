@@ -21,30 +21,29 @@ public class WeatherCacheTests
     }
 
     [Fact]
-    public void TryGet_NoEntry_ReturnsFalse()
+    public void TryGet_NoEntry_ReturnsNull()
     {
         var (cache, _) = Build();
 
-        var found = cache.TryGet(42.0, -71.0, metric: false, out var response, out var isFresh);
+        var entry = cache.TryGet(42.0, -71.0, metric: false);
 
-        Assert.False(found);
-        Assert.Null(response);
-        Assert.False(isFresh);
+        Assert.Null(entry);
     }
 
     [Fact]
     public void TryGet_WithinFreshTtl_ReturnsFresh()
     {
         var (cache, clock) = Build();
+        var setAt = clock.GetUtcNow();
 
         cache.Set(42.0, -71.0, metric: false, SampleResponse());
         clock.Advance(TimeSpan.FromMinutes(4));
 
-        var found = cache.TryGet(42.0, -71.0, metric: false, out var response, out var isFresh);
+        var entry = cache.TryGet(42.0, -71.0, metric: false);
 
-        Assert.True(found);
-        Assert.NotNull(response);
-        Assert.True(isFresh);
+        Assert.NotNull(entry);
+        Assert.True(entry.IsFresh);
+        Assert.Equal(setAt, entry.FetchedAt);
     }
 
     [Fact]
@@ -55,11 +54,10 @@ public class WeatherCacheTests
         cache.Set(42.0, -71.0, metric: false, SampleResponse());
         clock.Advance(TimeSpan.FromMinutes(10));
 
-        var found = cache.TryGet(42.0, -71.0, metric: false, out var response, out var isFresh);
+        var entry = cache.TryGet(42.0, -71.0, metric: false);
 
-        Assert.True(found);
-        Assert.NotNull(response);
-        Assert.False(isFresh);
+        Assert.NotNull(entry);
+        Assert.False(entry.IsFresh);
     }
 
     [Fact]
@@ -69,8 +67,8 @@ public class WeatherCacheTests
 
         cache.Set(42.0, -71.0, metric: false, SampleResponse());
 
-        Assert.True(cache.TryGet(42.0, -71.0, metric: false, out _, out _));
-        Assert.False(cache.TryGet(42.0, -71.0, metric: true, out _, out _));
+        Assert.NotNull(cache.TryGet(42.0, -71.0, metric: false));
+        Assert.Null(cache.TryGet(42.0, -71.0, metric: true));
     }
 
     private sealed class TestClock : TimeProvider

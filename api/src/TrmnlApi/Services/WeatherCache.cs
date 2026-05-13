@@ -14,18 +14,15 @@ public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
-    public bool TryGet(double latitude, double longitude, bool metric, out WeatherResponse? response, out bool isFresh)
+    public CachedForecast? TryGet(double latitude, double longitude, bool metric)
     {
         if (cache.TryGetValue(CacheKey(latitude, longitude, metric), out CacheEntry? entry) && entry is not null)
         {
-            response = entry.Response;
-            isFresh = _timeProvider.GetUtcNow() - entry.CachedAt < FreshTtl;
-            return true;
+            var isFresh = _timeProvider.GetUtcNow() - entry.FetchedAt < FreshTtl;
+            return new CachedForecast(entry.Response, entry.FetchedAt, isFresh);
         }
 
-        response = null;
-        isFresh = false;
-        return false;
+        return null;
     }
 
     public void Set(double latitude, double longitude, bool metric, WeatherResponse response)
@@ -36,5 +33,7 @@ public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
     private static string CacheKey(double latitude, double longitude, bool metric) =>
         $"weather:{latitude:F2}:{longitude:F2}:{(metric ? "metric" : "imperial")}";
 
-    private sealed record CacheEntry(WeatherResponse Response, DateTimeOffset CachedAt);
+    private sealed record CacheEntry(WeatherResponse Response, DateTimeOffset FetchedAt);
 }
+
+public sealed record CachedForecast(WeatherResponse Response, DateTimeOffset FetchedAt, bool IsFresh);

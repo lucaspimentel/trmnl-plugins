@@ -18,5 +18,6 @@ builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>();
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 builder.Services.AddSingleton<WeatherCache>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Build().Run();

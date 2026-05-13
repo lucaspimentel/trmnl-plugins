@@ -4,7 +4,7 @@ public record WeatherResponse(
     CurrentConditions Current,
     HourlyForecast Hourly,
     DailyForecast Daily,
-    bool Stale = false
+    Meta? Meta = null
 );
 
 public record HourlyForecast(List<HourlyEntry> Entries);

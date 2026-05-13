@@ -13,10 +13,15 @@ public class WeatherFunction(
     IOpenMeteoClient openMeteoClient,
     IWeatherTransformer transformer,
     WeatherCache cache,
+    TimeProvider timeProvider,
     ILogger<WeatherFunction> logger)
 {
     private const int MaxHours = 25;
     private const int MaxDays = 6;
+
+    private const string CacheFreshFetch = "fresh_fetch";
+    private const string CacheFreshHit = "fresh_hit";
+    private const string CacheStaleServed = "stale_served";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -61,30 +66,43 @@ public class WeatherFunction(
             return bad;
         }
 
-        var hasCached = cache.TryGet(latitude, longitude, metric, out var cachedResponse, out var isFresh);
+        var cached = cache.TryGet(latitude, longitude, metric);
 
         WeatherResponse weatherResponse;
-        if (hasCached && isFresh && cachedResponse is not null)
+        string cacheStatus;
+        DateTimeOffset fetchedAt;
+        Upstream? upstream;
+
+        if (cached is { IsFresh: true })
         {
-            weatherResponse = cachedResponse;
+            weatherResponse = cached.Response;
+            cacheStatus = CacheFreshHit;
+            fetchedAt = cached.FetchedAt;
+            upstream = null;
         }
         else
         {
             logger.LogInformation("Cache {Status} for {Latitude},{Longitude},{Units} — fetching from Open-Meteo",
-                hasCached ? "stale" : "miss", latitude, longitude, metric ? "metric" : "imperial");
+                cached is null ? "miss" : "stale", latitude, longitude, metric ? "metric" : "imperial");
 
             try
             {
                 var raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
                 weatherResponse = transformer.Transform(raw);
                 cache.Set(latitude, longitude, metric, weatherResponse);
+                cacheStatus = CacheFreshFetch;
+                fetchedAt = timeProvider.GetUtcNow();
+                upstream = new Upstream(200, null);
             }
             catch (Exception ex) when (ex is HttpRequestException or JsonException)
             {
-                if (cachedResponse is not null)
+                if (cached is not null)
                 {
                     logger.LogWarning(ex, "Open-Meteo fetch failed for {Latitude},{Longitude}; serving stale cache", latitude, longitude);
-                    weatherResponse = cachedResponse with { Stale = true };
+                    weatherResponse = cached.Response;
+                    cacheStatus = CacheStaleServed;
+                    fetchedAt = cached.FetchedAt;
+                    upstream = BuildUpstreamFromException(ex);
                 }
                 else
                 {
@@ -96,7 +114,6 @@ public class WeatherFunction(
             }
         }
 
-        // Slice to requested hours/days (cache always stores the full set)
         if (hours < MaxHours || days < MaxDays)
         {
             weatherResponse = weatherResponse with
@@ -111,11 +128,29 @@ public class WeatherFunction(
             weatherResponse = FakePrecipitation(weatherResponse);
         }
 
+        var servedAt = timeProvider.GetUtcNow();
+        var meta = new Meta(
+            Cache: cacheStatus,
+            FetchedAt: fetchedAt,
+            DataTime: weatherResponse.Current.Time,
+            ServedAt: servedAt,
+            AgeSeconds: (long)(servedAt - fetchedAt).TotalSeconds,
+            Upstream: upstream);
+
+        weatherResponse = weatherResponse with { Meta = meta };
+
         var ok = req.CreateResponse(HttpStatusCode.OK);
         ok.Headers.Add("Content-Type", "application/json; charset=utf-8");
         await ok.WriteStringAsync(JsonSerializer.Serialize(weatherResponse, JsonOptions), cancellationToken);
         return ok;
     }
+
+    private static Upstream BuildUpstreamFromException(Exception ex) => ex switch
+    {
+        HttpRequestException httpEx => new Upstream(httpEx.StatusCode is null ? null : (int)httpEx.StatusCode, httpEx.Message),
+        JsonException jsonEx => new Upstream(200, jsonEx.Message),
+        _ => new Upstream(null, ex.Message)
+    };
 
     private static WeatherResponse FakePrecipitation(WeatherResponse response)
     {
@@ -127,11 +162,9 @@ public class WeatherFunction(
             .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
             .ToList();
 
-        // Last day: identical high/low → zero-width bar, labels outside
         var last = daily[^1];
         daily[^1] = last with { High = last.Low };
 
-        // Second-to-last day: high/low 2° apart → narrow bar, labels outside
         var secondLast = daily[^2];
         daily[^2] = secondLast with { High = secondLast.Low + 2 };
 
@@ -141,5 +174,4 @@ public class WeatherFunction(
             Daily = new DailyForecast(daily)
         };
     }
-
 }
