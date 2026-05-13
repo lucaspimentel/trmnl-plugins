@@ -94,7 +94,9 @@ public class WeatherFunction(
                 fetchedAt = timeProvider.GetUtcNow();
                 upstream = new Upstream(200, null);
             }
-            catch (Exception ex) when (ex is HttpRequestException or JsonException)
+            catch (Exception ex) when (
+                ex is HttpRequestException or JsonException or IOException ||
+                (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
             {
                 if (cached is not null)
                 {
