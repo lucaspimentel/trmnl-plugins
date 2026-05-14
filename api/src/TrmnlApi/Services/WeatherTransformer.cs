@@ -24,7 +24,6 @@ public class WeatherTransformer : IWeatherTransformer
             ApparentTemperature: (int)Math.Round(c.ApparentTemperature),
             RelativeHumidity: c.RelativeHumidity2m,
             Precipitation: c.Precipitation,
-            WeatherCode: c.WeatherCode,
             Condition: WmoCodeMap.GetCondition(c.WeatherCode),
             IconClass: WmoCodeMap.GetIconClass(c.WeatherCode, isDay),
             WindSpeed: (int)Math.Round(c.WindSpeed10m),
@@ -56,7 +55,6 @@ public class WeatherTransformer : IWeatherTransformer
                 Label: label,
                 Temperature: (int)Math.Round(hourly.Temperature2m[i]),
                 PrecipitationProbability: hourly.PrecipitationProbability[i] ?? 0,
-                WeatherCode: wc,
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay),
                 IsDay: isDay
             ));
@@ -76,7 +74,6 @@ public class WeatherTransformer : IWeatherTransformer
                 Date: daily.Time[i],
                 High: (int)Math.Round(daily.Temperature2mMax[i]),
                 Low: (int)Math.Round(daily.Temperature2mMin[i]),
-                WeatherCode: wc,
                 Condition: WmoCodeMap.GetCondition(wc),
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay: true),
                 PrecipitationProbability: daily.PrecipitationProbabilityMax[i] ?? 0,

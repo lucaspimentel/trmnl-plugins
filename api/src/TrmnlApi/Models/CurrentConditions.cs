@@ -8,7 +8,6 @@ public record CurrentConditions(
     [property: JsonPropertyName("apparent_temperature")] int ApparentTemperature,
     [property: JsonPropertyName("relative_humidity")] int RelativeHumidity,
     double Precipitation,
-    [property: JsonPropertyName("weather_code")] int WeatherCode,
     string Condition,
     [property: JsonPropertyName("icon_class")] string IconClass,
     [property: JsonPropertyName("wind_speed")] int WindSpeed,

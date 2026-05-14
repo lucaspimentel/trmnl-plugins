@@ -51,7 +51,7 @@ public class OpenMeteoProviderTests
         Current: new CurrentConditions(
             Time: "2026-01-01T00:00",
             Temperature: 0, ApparentTemperature: 0, RelativeHumidity: 0,
-            Precipitation: 0, WeatherCode: 0, Condition: "Clear", IconClass: "wi-day-sunny",
+            Precipitation: 0, Condition: "Clear", IconClass: "wi-day-sunny",
             WindSpeed: 0, WindDirectionDeg: 0, WindDirection: "N", IsDay: true),
         Hourly: new HourlyForecast([]),
         Daily: new DailyForecast([]));

@@ -19,7 +19,6 @@ data.
         apparent_temperature    (integer, "feels like", °F or °C)
         relative_humidity       (%, 0-100)
         precipitation           (inch or mm)
-        weather_code            (WMO code, integer)
         condition               (string, e.g. "Clear", "Overcast", "Rain")
         icon_class              (CSS class, e.g. "wi-day-sunny", "wi-night-clear")
         wind_speed              (integer, mph or km/h)
@@ -32,7 +31,6 @@ data.
             label               (string, e.g. "Now", "3pm")
             temperature         (integer)
             precipitation_probability (%, 0–100)
-            weather_code        (WMO code, integer)
             icon_class          (CSS class, day/night variant pre-computed)
             is_day              (boolean)
     daily.
@@ -40,23 +38,8 @@ data.
             date                (date string, e.g. "2026-02-28")
             high                (integer, daily high temperature)
             low                 (integer, daily low temperature)
-            weather_code        (WMO code, integer)
             condition           (string, e.g. "Clear", "Snow")
             icon_class          (CSS class, no day/night variant for daily)
             precipitation_probability (%, 0–100)
             sunrise             (ISO 8601, e.g. "2026-02-28T06:20")
             sunset              (ISO 8601, e.g. "2026-02-28T17:32")
-
-WMO Weather Code Groups:
-    0          = Clear sky
-    1          = Mainly clear
-    2          = Partly cloudy
-    3          = Overcast
-    45, 48     = Fog
-    51-55      = Drizzle
-    61-65      = Rain
-    66-67      = Freezing rain
-    71-77      = Snow
-    80-82      = Rain showers
-    85-86      = Snow showers
-    95-99      = Thunderstorm

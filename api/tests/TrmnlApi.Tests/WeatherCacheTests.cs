@@ -8,7 +8,7 @@ public class WeatherCacheTests
 {
     private static WeatherResponse SampleResponse() =>
         new(
-            new CurrentConditions("", 0, 0, 0, 0, 0, "", "", 0, 0, "", true),
+            new CurrentConditions("", 0, 0, 0, 0, "", "", 0, 0, "", true),
             new HourlyForecast([]),
             new DailyForecast([]));
 

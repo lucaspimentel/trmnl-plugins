@@ -22,7 +22,6 @@ See `README.md` for contributor setup and external dependency details.
     "apparent_temperature": 28,
     "relative_humidity": 72,
     "precipitation": 0.0,
-    "weather_code": 3,
     "condition": "Overcast",
     "icon_class": "wi-wmo4680-3",
     "wind_speed": 12,
@@ -37,7 +36,6 @@ See `README.md` for contributor setup and external dependency details.
         "label": "Now",
         "temperature": 35,
         "precipitation_probability": 10,
-        "weather_code": 3,
         "icon_class": "wi-wmo4680-3",
         "is_day": true
       }
@@ -50,7 +48,6 @@ See `README.md` for contributor setup and external dependency details.
         "date": "2026-02-25",
         "high": 38,
         "low": 28,
-        "weather_code": 61,
         "condition": "Light rain",
         "icon_class": "wi-wmo4680-61",
         "precipitation_probability": 80,
