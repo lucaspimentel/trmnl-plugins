@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language: 
-polling_url: https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&provider={{ weather_provider }}
+polling_url: https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?provider={{ weather_provider }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -14,10 +14,18 @@ custom_fields:
 - keyname: doesnt_matter
   field_type: author_bio
   name: LP Weather
-  description: Another weather plugin. Shows current conditions, hourly and daily forecasts. Data from https://open-meteo.com/
+  description: Another weather plugin. Shows current conditions, hourly and daily forecasts.
   category: environment,custom
   github_url: https://github.com/lucaspimentel/trmnl-plugins
   learn_more_url: https://github.com/lucaspimentel/trmnl-plugins/tree/main/plugins/weather/README.md
+- keyname: weather_provider
+  field_type: select
+  name: Weather Data Provider
+  description: Which upstream weather API to use
+  default: pirate-weather
+  options:
+  - pirate-weather
+  - open-meteo
 - keyname: latitude
   field_type: number
   name: Latitude
@@ -54,13 +62,5 @@ custom_fields:
   min: 1
   max: 6
   step: 1
-- keyname: weather_provider
-  field_type: select
-  name: Weather Provider
-  description: Which upstream weather API to use
-  default: open-meteo
-  options:
-  - open-meteo
-  - pirate-weather
 name: LP Weather
 refresh_interval: 30
