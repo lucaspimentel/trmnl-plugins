@@ -10,7 +10,7 @@ See `README.md` for contributor setup and external dependency details.
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6), `provider` (`open-meteo` (default) / `pirate-weather`); `fake=true` injects random precipitation for testing
 
 ### Response Shape
 
@@ -56,6 +56,15 @@ See `README.md` for contributor setup and external dependency details.
       }
       // ... up to 6 entries
     ]
+  },
+  "meta": {
+    "cache": "fresh_fetch",          // fresh_fetch | fresh_hit | stale_served
+    "provider": "open-meteo",
+    "fetched_at": "2026-02-25T14:00:00+00:00",
+    "data_time": "2026-02-25T14:00",
+    "served_at": "2026-02-25T14:00:01+00:00",
+    "age_seconds": 1,
+    "upstream": null                  // populated with { status, error } when stale_served
   }
 }
 ```
