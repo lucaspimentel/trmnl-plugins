@@ -27,3 +27,11 @@
     4. ✅ **DONE** — Add `PirateWeatherProvider` + `Models/PirateWeather/PirateWeatherResponse.cs` DTOs + `PirateIconMap.cs` + tests. Register as second keyed provider.
     5. ✅ **DONE** — Configure `PIRATE_WEATHER_API_KEY` app setting in Azure, update `local.settings.json` for dev, add `weather_provider` select field to `plugins/weather/src/settings.yml` and reference it in the polling URL. Deploy + smoke-test both providers.
   - Effort estimate: ~4-6 hours total for steps 1-5 (1h DTOs+client, 1.5h icon map verification against screenshots, 1h transformer wiring, 1h env var/Azure config, 1h end-to-end smoke test)
+- [ ] Weather plugin: show the data source in the title bar
+  - API already exposes `meta.provider` (`open-meteo` or `pirate-weather`) on every `/v1/forecast` response
+  - Likely insertion point: `plugins/weather/src/shared.liquid` `title_bar` template (currently shows plugin name + "Updated {time}"), or as a small label/icon near the current conditions
+  - Consider a short pretty label map: `open-meteo` → "Open-Meteo", `pirate-weather` → "Pirate Weather"
+- [ ] Weather plugin: show a visual indicator when the displayed forecast is stale
+  - API exposes `meta.cache` (`fresh_hit` / `fresh_fetch` / `stale_served`), `meta.age_seconds`, and `meta.upstream` (status + error message) when the most recent upstream call failed
+  - "Stale" most naturally maps to `meta.cache == "stale_served"`, i.e. upstream is down and we're serving an older cached response — a badge or icon in the `title_bar` would surface this without disrupting the main view
+  - May also want to surface the upstream error briefly (e.g. tooltip-style or icon) for at-a-glance debugging
