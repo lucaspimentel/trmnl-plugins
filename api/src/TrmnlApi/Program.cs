@@ -15,6 +15,7 @@ builder.Services
     .ConfigureFunctionsApplicationInsights();
 
 builder.Services.AddMemoryCache(options => options.SizeLimit = 100);
+builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>();
 builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>();
 builder.Services.AddHttpClient("TrmnlApi");

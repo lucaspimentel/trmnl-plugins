@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using TrmnlApi.Models;
 using TrmnlApi.Services;
 
@@ -12,11 +13,11 @@ public class WeatherCacheTests
             new HourlyForecast([]),
             new DailyForecast([]));
 
-    private static (WeatherCache cache, TestClock clock) Build()
+    private static (WeatherCache cache, TestClock clock) Build(WeatherCacheOptions? options = null)
     {
         var clock = new TestClock();
         var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10 });
-        var cache = new WeatherCache(memoryCache, clock);
+        var cache = new WeatherCache(memoryCache, Options.Create(options ?? new WeatherCacheOptions()), clock);
         return (cache, clock);
     }
 

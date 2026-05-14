@@ -1,24 +1,19 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using TrmnlApi.Models;
 
 namespace TrmnlApi.Services;
 
-public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
+public class WeatherCache(IMemoryCache cache, IOptions<WeatherCacheOptions> options, TimeProvider? timeProvider = null)
 {
-    private static readonly TimeSpan FreshTtl = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan StaleTtl = TimeSpan.FromHours(1);
-
-    private static readonly MemoryCacheEntryOptions CacheOptions = new MemoryCacheEntryOptions()
-        .SetAbsoluteExpiration(StaleTtl)
-        .SetSize(1);
-
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly WeatherCacheOptions _options = options.Value;
 
     public CachedForecast? TryGet(string provider, double latitude, double longitude, bool metric)
     {
         if (cache.TryGetValue(CacheKey(provider, latitude, longitude, metric), out CacheEntry? entry) && entry is not null)
         {
-            var isFresh = _timeProvider.GetUtcNow() - entry.FetchedAt < FreshTtl;
+            var isFresh = _timeProvider.GetUtcNow() - entry.FetchedAt < _options.FreshTtl;
             return new CachedForecast(entry.Response, entry.FetchedAt, isFresh);
         }
 
@@ -27,7 +22,10 @@ public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
 
     public void Set(string provider, double latitude, double longitude, bool metric, WeatherResponse response)
     {
-        cache.Set(CacheKey(provider, latitude, longitude, metric), new CacheEntry(response, _timeProvider.GetUtcNow()), CacheOptions);
+        var entryOptions = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(_options.StaleTtl)
+            .SetSize(1);
+        cache.Set(CacheKey(provider, latitude, longitude, metric), new CacheEntry(response, _timeProvider.GetUtcNow()), entryOptions);
     }
 
     private static string CacheKey(string provider, double latitude, double longitude, bool metric) =>
