@@ -25,5 +25,9 @@
     2. ✅ **DONE** — Add `WeatherProviderResolver` + keyed DI registration. `WeatherFunction` resolves via the resolver but only `open-meteo` is registered. Default behavior unchanged.
     3. ✅ **DONE** — Add `provider` query param parsing, propagate provider name to cache key, add `Meta.Provider` field. Still only one provider available.
     4. ✅ **DONE** — Add `PirateWeatherProvider` + `Models/PirateWeather/PirateWeatherResponse.cs` DTOs + `PirateIconMap.cs` + tests. Register as second keyed provider.
-    5. Configure `PIRATE_WEATHER_API_KEY` app setting in Azure, update `local.settings.json` for dev, add `weather_provider` select field to `plugins/weather/src/settings.yml` and reference it in the polling URL. Deploy + smoke-test both providers.
+    5. ⏳ **IN PROGRESS** — Configure `PIRATE_WEATHER_API_KEY` app setting in Azure, update `local.settings.json` for dev, add `weather_provider` select field to `plugins/weather/src/settings.yml` and reference it in the polling URL. Deploy + smoke-test both providers.
+       - ✅ `weather_provider` select field added to `plugins/weather/src/settings.yml` + `&provider={{ weather_provider }}` appended to `polling_url`
+       - ✅ `PIRATE_WEATHER_API_KEY` set in local `api/src/TrmnlApi/local.settings.json` (gitignored)
+       - ⏳ Set `PIRATE_WEATHER_API_KEY` Azure App Setting on `trmnl-plugins-api`
+       - ⏳ Deploy via `func azure functionapp publish trmnl-plugins-api` and smoke-test both `?provider=open-meteo` and `?provider=pirate-weather`
   - Effort estimate: ~4-6 hours total for steps 1-5 (1h DTOs+client, 1.5h icon map verification against screenshots, 1h transformer wiring, 1h env var/Azure config, 1h end-to-end smoke test)

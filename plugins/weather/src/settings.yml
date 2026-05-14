@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language: 
-polling_url: https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}
+polling_url: https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&provider={{ weather_provider }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -54,5 +54,13 @@ custom_fields:
   min: 1
   max: 6
   step: 1
+- keyname: weather_provider
+  field_type: select
+  name: Weather Provider
+  description: Which upstream weather API to use
+  default: open-meteo
+  options:
+  - open-meteo
+  - pirate-weather
 name: LP Weather
 refresh_interval: 30
