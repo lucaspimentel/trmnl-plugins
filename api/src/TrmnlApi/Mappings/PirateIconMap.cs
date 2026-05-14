@@ -26,7 +26,7 @@ public static class PirateIconMap
         "snow" => "wi-wmo4680-71",
         "sleet" => "wi-wmo4680-67",
         "fog" => "wi-wmo4680-45",
-        "wind" => "wi-wmo4680-3",
+        "wind" => "wi-strong-wind",
         _ => "wi-na"
     };
 }
