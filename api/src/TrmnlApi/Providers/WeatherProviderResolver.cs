@@ -4,7 +4,7 @@ namespace TrmnlApi.Providers;
 
 public class WeatherProviderResolver(IServiceProvider services)
 {
-    public const string DefaultName = "open-meteo";
+    public const string DefaultName = "pirate-weather";
 
     public IWeatherProvider Resolve(string? name)
     {

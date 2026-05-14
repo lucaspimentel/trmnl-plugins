@@ -11,8 +11,8 @@ public class WeatherProviderResolverTests
     [InlineData("")]
     public void Resolve_NullOrEmptyName_ReturnsDefaultProvider(string? name)
     {
-        var defaultProvider = new FakeProvider("open-meteo");
-        var resolver = BuildResolver(("open-meteo", defaultProvider));
+        var defaultProvider = new FakeProvider("pirate-weather");
+        var resolver = BuildResolver(("pirate-weather", defaultProvider));
 
         Assert.Same(defaultProvider, resolver.Resolve(name));
     }
