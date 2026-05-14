@@ -25,7 +25,7 @@ public class WeatherCacheTests
     {
         var (cache, _) = Build();
 
-        var entry = cache.TryGet(42.0, -71.0, metric: false);
+        var entry = cache.TryGet("open-meteo", 42.0, -71.0, metric: false);
 
         Assert.Null(entry);
     }
@@ -36,10 +36,10 @@ public class WeatherCacheTests
         var (cache, clock) = Build();
         var setAt = clock.GetUtcNow();
 
-        cache.Set(42.0, -71.0, metric: false, SampleResponse());
+        cache.Set("open-meteo", 42.0, -71.0, metric: false, SampleResponse());
         clock.Advance(TimeSpan.FromMinutes(4));
 
-        var entry = cache.TryGet(42.0, -71.0, metric: false);
+        var entry = cache.TryGet("open-meteo", 42.0, -71.0, metric: false);
 
         Assert.NotNull(entry);
         Assert.True(entry.IsFresh);
@@ -51,10 +51,10 @@ public class WeatherCacheTests
     {
         var (cache, clock) = Build();
 
-        cache.Set(42.0, -71.0, metric: false, SampleResponse());
+        cache.Set("open-meteo", 42.0, -71.0, metric: false, SampleResponse());
         clock.Advance(TimeSpan.FromMinutes(10));
 
-        var entry = cache.TryGet(42.0, -71.0, metric: false);
+        var entry = cache.TryGet("open-meteo", 42.0, -71.0, metric: false);
 
         Assert.NotNull(entry);
         Assert.False(entry.IsFresh);
@@ -65,10 +65,21 @@ public class WeatherCacheTests
     {
         var (cache, _) = Build();
 
-        cache.Set(42.0, -71.0, metric: false, SampleResponse());
+        cache.Set("open-meteo", 42.0, -71.0, metric: false, SampleResponse());
 
-        Assert.NotNull(cache.TryGet(42.0, -71.0, metric: false));
-        Assert.Null(cache.TryGet(42.0, -71.0, metric: true));
+        Assert.NotNull(cache.TryGet("open-meteo", 42.0, -71.0, metric: false));
+        Assert.Null(cache.TryGet("open-meteo", 42.0, -71.0, metric: true));
+    }
+
+    [Fact]
+    public void Set_DifferentProviders_KeySeparately()
+    {
+        var (cache, _) = Build();
+
+        cache.Set("open-meteo", 42.0, -71.0, metric: false, SampleResponse());
+
+        Assert.NotNull(cache.TryGet("open-meteo", 42.0, -71.0, metric: false));
+        Assert.Null(cache.TryGet("pirate-weather", 42.0, -71.0, metric: false));
     }
 
     private sealed class TestClock : TimeProvider

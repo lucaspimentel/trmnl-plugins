@@ -66,9 +66,19 @@ public class WeatherFunction(
             return bad;
         }
 
-        var weatherProvider = providerResolver.Resolve(null);
+        IWeatherProvider weatherProvider;
+        try
+        {
+            weatherProvider = providerResolver.Resolve(query["provider"]);
+        }
+        catch (ArgumentException)
+        {
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync($"provider '{query["provider"]}' is not a known weather provider.", cancellationToken);
+            return bad;
+        }
 
-        var cached = cache.TryGet(latitude, longitude, metric);
+        var cached = cache.TryGet(weatherProvider.Name, latitude, longitude, metric);
 
         WeatherResponse weatherResponse;
         string cacheStatus;
@@ -90,7 +100,7 @@ public class WeatherFunction(
             try
             {
                 weatherResponse = await weatherProvider.GetForecastAsync(latitude, longitude, metric, cancellationToken);
-                cache.Set(latitude, longitude, metric, weatherResponse);
+                cache.Set(weatherProvider.Name, latitude, longitude, metric, weatherResponse);
                 cacheStatus = CacheFreshFetch;
                 fetchedAt = timeProvider.GetUtcNow();
                 upstream = new Upstream(200, null);
@@ -134,6 +144,7 @@ public class WeatherFunction(
         var servedAt = timeProvider.GetUtcNow();
         var meta = new Meta(
             Cache: cacheStatus,
+            Provider: weatherProvider.Name,
             FetchedAt: fetchedAt,
             DataTime: weatherResponse.Current.Time,
             ServedAt: servedAt,

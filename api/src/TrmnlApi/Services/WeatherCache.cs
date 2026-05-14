@@ -14,9 +14,9 @@ public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
-    public CachedForecast? TryGet(double latitude, double longitude, bool metric)
+    public CachedForecast? TryGet(string provider, double latitude, double longitude, bool metric)
     {
-        if (cache.TryGetValue(CacheKey(latitude, longitude, metric), out CacheEntry? entry) && entry is not null)
+        if (cache.TryGetValue(CacheKey(provider, latitude, longitude, metric), out CacheEntry? entry) && entry is not null)
         {
             var isFresh = _timeProvider.GetUtcNow() - entry.FetchedAt < FreshTtl;
             return new CachedForecast(entry.Response, entry.FetchedAt, isFresh);
@@ -25,13 +25,13 @@ public class WeatherCache(IMemoryCache cache, TimeProvider? timeProvider = null)
         return null;
     }
 
-    public void Set(double latitude, double longitude, bool metric, WeatherResponse response)
+    public void Set(string provider, double latitude, double longitude, bool metric, WeatherResponse response)
     {
-        cache.Set(CacheKey(latitude, longitude, metric), new CacheEntry(response, _timeProvider.GetUtcNow()), CacheOptions);
+        cache.Set(CacheKey(provider, latitude, longitude, metric), new CacheEntry(response, _timeProvider.GetUtcNow()), CacheOptions);
     }
 
-    private static string CacheKey(double latitude, double longitude, bool metric) =>
-        $"weather:{latitude:F2}:{longitude:F2}:{(metric ? "metric" : "imperial")}";
+    private static string CacheKey(string provider, double latitude, double longitude, bool metric) =>
+        $"weather:{provider}:{latitude:F2}:{longitude:F2}:{(metric ? "metric" : "imperial")}";
 
     private sealed record CacheEntry(WeatherResponse Response, DateTimeOffset FetchedAt);
 }
