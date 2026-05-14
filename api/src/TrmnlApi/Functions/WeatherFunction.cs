@@ -5,13 +5,13 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using TrmnlApi.Models;
+using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Functions;
 
 public class WeatherFunction(
-    IOpenMeteoClient openMeteoClient,
-    IWeatherTransformer transformer,
+    IWeatherProvider weatherProvider,
     WeatherCache cache,
     TimeProvider timeProvider,
     ILogger<WeatherFunction> logger)
@@ -82,13 +82,12 @@ public class WeatherFunction(
         }
         else
         {
-            logger.LogInformation("Cache {Status} for {Latitude},{Longitude},{Units} — fetching from Open-Meteo",
-                cached is null ? "miss" : "stale", latitude, longitude, metric ? "metric" : "imperial");
+            logger.LogInformation("Cache {Status} for {Latitude},{Longitude},{Units} — fetching from {Provider}",
+                cached is null ? "miss" : "stale", latitude, longitude, metric ? "metric" : "imperial", weatherProvider.Name);
 
             try
             {
-                var raw = await openMeteoClient.GetForecastAsync(latitude, longitude, metric, cancellationToken);
-                weatherResponse = transformer.Transform(raw);
+                weatherResponse = await weatherProvider.GetForecastAsync(latitude, longitude, metric, cancellationToken);
                 cache.Set(latitude, longitude, metric, weatherResponse);
                 cacheStatus = CacheFreshFetch;
                 fetchedAt = timeProvider.GetUtcNow();
@@ -100,7 +99,7 @@ public class WeatherFunction(
             {
                 if (cached is not null)
                 {
-                    logger.LogWarning(ex, "Open-Meteo fetch failed for {Latitude},{Longitude}; serving stale cache", latitude, longitude);
+                    logger.LogWarning(ex, "{Provider} fetch failed for {Latitude},{Longitude}; serving stale cache", weatherProvider.Name, latitude, longitude);
                     weatherResponse = cached.Response;
                     cacheStatus = CacheStaleServed;
                     fetchedAt = cached.FetchedAt;
@@ -108,7 +107,7 @@ public class WeatherFunction(
                 }
                 else
                 {
-                    logger.LogError(ex, "Failed to fetch Open-Meteo forecast for {Latitude},{Longitude}", latitude, longitude);
+                    logger.LogError(ex, "Failed to fetch {Provider} forecast for {Latitude},{Longitude}", weatherProvider.Name, latitude, longitude);
                     var error = req.CreateResponse(HttpStatusCode.BadGateway);
                     await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
                     return error;

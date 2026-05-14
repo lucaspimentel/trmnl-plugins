@@ -3,6 +3,7 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
 var builder = FunctionsApplication.CreateBuilder(args);
@@ -17,6 +18,7 @@ builder.Services.AddMemoryCache(options => options.SizeLimit = 100);
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>();
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
+builder.Services.AddSingleton<IWeatherProvider, OpenMeteoProvider>();
 builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton(TimeProvider.System);
 

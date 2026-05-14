@@ -21,7 +21,7 @@
     - Pirate Weather specifics: API key in URL path (env var `PIRATE_WEATHER_API_KEY`), unix-second timestamps (convert using `raw.Timezone` IANA tz to keep `"yyyy-MM-ddTHH:mm"` strings), humidity is 0..1 (multiply by 100), `isDay` derived from icon suffix `-day`/`-night`. URL: `https://api.pirateweather.net/forecast/{key}/{lat},{lon}?units=us|si&exclude=minutely,alerts,flags`. Icon strings: `clear-day`, `clear-night`, `rain`, `snow`, `sleet`, `wind`, `fog`, `cloudy`, `partly-cloudy-day`, `partly-cloudy-night` → `wi-*` classes in new `Mappings/PirateIconMap.cs`.
     - Decision needed before step 4: keep `WeatherCode: int` (synthesize stable int from Pirate icon) OR change to `string` (icon key). The latter is cleaner but breaks the documented field shape in `plugins/weather/CLAUDE.md`; check `plugins/weather/src/shared.liquid` for numeric uses.
   - **Migration order (each step independently shippable, prod endpoint stays stable):**
-    1. Introduce `IWeatherProvider`. Wrap existing logic as `OpenMeteoProvider` (no behavior change, no new query param yet). Existing tests still pass.
+    1. ✅ **DONE** — Introduce `IWeatherProvider`. Wrap existing logic as `OpenMeteoProvider` (no behavior change, no new query param yet). Existing tests still pass.
     2. Add `WeatherProviderResolver` + keyed DI registration. `WeatherFunction` resolves via the resolver but only `open-meteo` is registered. Default behavior unchanged.
     3. Add `provider` query param parsing, propagate provider name to cache key, add `Meta.Provider` field. Still only one provider available.
     4. Add `PirateWeatherProvider` + `Models/PirateWeather/PirateWeatherResponse.cs` DTOs + `PirateIconMap.cs` + tests. Register as second keyed provider.
