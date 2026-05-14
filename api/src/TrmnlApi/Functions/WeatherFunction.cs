@@ -11,7 +11,7 @@ using TrmnlApi.Services;
 namespace TrmnlApi.Functions;
 
 public class WeatherFunction(
-    IWeatherProvider weatherProvider,
+    WeatherProviderResolver providerResolver,
     WeatherCache cache,
     TimeProvider timeProvider,
     ILogger<WeatherFunction> logger)
@@ -65,6 +65,8 @@ public class WeatherFunction(
             await bad.WriteStringAsync($"days must be an integer between 1 and {MaxDays}.", cancellationToken);
             return bad;
         }
+
+        var weatherProvider = providerResolver.Resolve(null);
 
         var cached = cache.TryGet(latitude, longitude, metric);
 
