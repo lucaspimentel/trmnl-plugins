@@ -7,7 +7,9 @@ public class OpenMeteoProvider(
     IOpenMeteoClient client,
     IWeatherTransformer transformer) : IWeatherProvider
 {
-    public string Name => "open-meteo";
+    public const string ProviderName = "open-meteo";
+
+    public string Name => ProviderName;
 
     public async Task<WeatherResponse> GetForecastAsync(
         double latitude,

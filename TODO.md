@@ -35,3 +35,17 @@
   - API exposes `meta.cache` (`fresh_hit` / `fresh_fetch` / `stale_served`), `meta.age_seconds`, and `meta.upstream` (status + error message) when the most recent upstream call failed
   - "Stale" most naturally maps to `meta.cache == "stale_served"`, i.e. upstream is down and we're serving an older cached response — a badge or icon in the `title_bar` would surface this without disrupting the main view
   - May also want to surface the upstream error briefly (e.g. tooltip-style or icon) for at-a-glance debugging
+- [ ] API: add HTTP retry logic for transient upstream failures, but skip retries on non-retryable errors (e.g. 429 rate limit, 4xx auth)
+  - Touchpoints: `api/src/TrmnlApi/Program.cs` registers typed clients via `AddHttpClient<IOpenMeteoClient, ...>` and `AddHttpClient<IPirateWeatherClient, ...>` — wire `Microsoft.Extensions.Http.Resilience` (`AddStandardResilienceHandler` or a custom pipeline) here
+  - Retry on 5xx, 408, and transient network errors; do NOT retry on 401/403/404/429 (rate-limit/auth failures should fail fast so the fallback provider can take over)
+  - Consider honoring `Retry-After` header when present
+- [ ] API: add cross-provider fallback so if one weather source fails, try another
+  - Today `WeatherProviderResolver` resolves a single keyed `IWeatherProvider` based on the `?provider=` query param; a failure bubbles up to the caller
+  - Idea: wrap the resolved provider with a fallback chain (e.g. requested → other registered providers in priority order). `WeatherCache` key already includes provider name, so a fallback hit caches under the actual provider that served it
+  - `Meta.Provider` should reflect which provider actually served the response (already does — keep this contract), and `meta.upstream` should record the original failure for debugging
+  - Decision needed: is fallback opt-in (`?fallback=true`) or always on? Always-on is simpler but masks which provider the user actually selected
+- [ ] Azure: provision a staging Function App for the API
+  - Production app: `trmnl-plugins-api` in resource group `trmnl-plugins`
+  - Options: separate Function App (e.g. `trmnl-plugins-api-staging`) OR a deployment slot on the existing app (slot swap gives zero-downtime promotion, but Consumption-tier Function Apps don't support slots — Premium/Dedicated do)
+  - Need to mirror app settings (`PIRATE_WEATHER_API_KEY`, any `WeatherCache:*` overrides) and update deploy command/docs (currently `func azure functionapp publish trmnl-plugins-api` in `CLAUDE.md`)
+  - Use staging to smoke-test new providers, retry/fallback behavior, and any settings.yml URL changes before pointing the plugin at prod

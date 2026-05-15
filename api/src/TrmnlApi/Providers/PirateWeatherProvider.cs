@@ -7,7 +7,9 @@ namespace TrmnlApi.Providers;
 
 public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvider
 {
-    public string Name => "pirate-weather";
+    public const string ProviderName = "pirate-weather";
+
+    public string Name => ProviderName;
 
     public async Task<WeatherResponse> GetForecastAsync(double latitude, double longitude, bool metric, CancellationToken cancellationToken = default)
     {
