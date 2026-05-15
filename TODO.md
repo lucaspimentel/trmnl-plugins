@@ -31,10 +31,11 @@
   - API already exposes `meta.provider` (`open-meteo` or `pirate-weather`) on every `/v1/forecast` response
   - Likely insertion point: `plugins/weather/src/shared.liquid` `title_bar` template (currently shows plugin name + "Updated {time}"), or as a small label/icon near the current conditions
   - Consider a short pretty label map: `open-meteo` → "Open-Meteo", `pirate-weather` → "Pirate Weather"
-- [ ] Weather plugin: show a visual indicator when the displayed forecast is stale
+- [x] Weather plugin: show a visual indicator when the displayed forecast is stale
   - API exposes `meta.cache` (`fresh_hit` / `fresh_fetch` / `stale_served`), `meta.age_seconds`, and `meta.upstream` (status + error message) when the most recent upstream call failed
   - "Stale" most naturally maps to `meta.cache == "stale_served"`, i.e. upstream is down and we're serving an older cached response — a badge or icon in the `title_bar` would surface this without disrupting the main view
-  - May also want to surface the upstream error briefly (e.g. tooltip-style or icon) for at-a-glance debugging
+  - Implemented as a subtle label swap in `shared.liquid` `title_bar`: when `cache == "stale_served"`, "Updated <time>" becomes "Cached <time>". All 4 layouts pass `cache: meta.cache` through to the template.
+  - Not done (potential follow-up): surfacing the `meta.upstream` error briefly (e.g. tooltip-style or icon) for at-a-glance debugging
 - [x] API: add HTTP retry logic for transient upstream failures
   - Wired `Microsoft.Extensions.Http.Resilience` 10.6.0 `AddStandardResilienceHandler()` (stock defaults) onto both typed clients in `api/src/TrmnlApi/Program.cs`
   - Standard handler retries on 5xx/408/**429** + `HttpRequestException` + `TimeoutRejectedException` with exponential-backoff + jitter, honors `Retry-After`. Original intent was to exclude 429, but the library default retries it with Retry-After respect, which is the safer choice; accepted as the library default to keep the registration to a single line and benefit from upstream tuning.
