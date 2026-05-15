@@ -1,7 +1,8 @@
 # Weather Plugin
 
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
-using a custom TrmnlApi Azure Function that fetches and pre-processes Open-Meteo data.
+using a custom TrmnlApi Azure Function that fetches and normalizes data from
+either Pirate Weather (default) or Open-Meteo.
 
 See `README.md` for contributor setup and external dependency details.
 
@@ -10,7 +11,7 @@ See `README.md` for contributor setup and external dependency details.
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6), `provider` (`open-meteo` (default) / `pirate-weather`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6), `provider` (`pirate-weather` (default) / `open-meteo`); `fake=true` injects random precipitation for testing
 
 ### Response Shape
 

@@ -10,6 +10,7 @@ Query parameters:
     units       — "imperial" (default) or "metric"
     hours       — number of hourly entries (1–25, default 25)
     days        — number of daily entries (1–6, default 6)
+    provider    — "pirate-weather" (default) or "open-meteo"
     fake        — "true" or "1" to inject randomized precipitation (testing)
 
 data.
@@ -43,3 +44,11 @@ data.
             precipitation_probability (%, 0–100)
             sunrise             (ISO 8601, e.g. "2026-02-28T06:20")
             sunset              (ISO 8601, e.g. "2026-02-28T17:32")
+    meta.
+        cache                   (string: "fresh_fetch", "fresh_hit", or "stale_served")
+        provider                (string: "pirate-weather" or "open-meteo")
+        fetched_at              (ISO 8601 UTC timestamp of last upstream fetch)
+        data_time               (ISO 8601, matches current.time)
+        served_at               (ISO 8601 UTC timestamp when this response was served)
+        age_seconds             (integer, seconds since fetched_at)
+        upstream                (null when healthy; { status, error } when stale_served)
