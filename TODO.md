@@ -27,7 +27,7 @@
     4. ✅ **DONE** — Add `PirateWeatherProvider` + `Models/PirateWeather/PirateWeatherResponse.cs` DTOs + `PirateIconMap.cs` + tests. Register as second keyed provider.
     5. ✅ **DONE** — Configure `PIRATE_WEATHER_API_KEY` app setting in Azure, update `local.settings.json` for dev, add `weather_provider` select field to `plugins/weather/src/settings.yml` and reference it in the polling URL. Deploy + smoke-test both providers.
   - Effort estimate: ~4-6 hours total for steps 1-5 (1h DTOs+client, 1.5h icon map verification against screenshots, 1h transformer wiring, 1h env var/Azure config, 1h end-to-end smoke test)
-- [ ] Weather plugin: show the data source in the title bar
+- [x] Weather plugin: show the data source in the title bar
   - API already exposes `meta.provider` (`open-meteo` or `pirate-weather`) on every `/v1/forecast` response
   - Likely insertion point: `plugins/weather/src/shared.liquid` `title_bar` template (currently shows plugin name + "Updated {time}"), or as a small label/icon near the current conditions
   - Consider a short pretty label map: `open-meteo` → "Open-Meteo", `pirate-weather` → "Pirate Weather"

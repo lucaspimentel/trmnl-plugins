@@ -435,11 +435,20 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   Params: plugin_name
 {% endcomment %}
 {% template title_bar %}
+{% case provider %}
+  {% when "open-meteo" %}{% assign provider_label = "Open-Meteo" %}
+  {% when "pirate-weather" %}{% assign provider_label = "Pirate Weather" %}
+  {% else %}{% assign provider_label = provider %}
+{% endcase %}
 <div class="title_bar">
   {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
+  {% if provider_label %}
+  <span class="instance">Updated {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %-I:%M %p" }} from {{ provider_label }}</span>
+  {% else %}
   <span class="instance">Updated {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%a %-I:%M %p" }}</span>
+  {% endif %}
   {% endif %}
 </div>
 {% endtemplate %}
