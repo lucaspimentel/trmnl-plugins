@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Polly.Timeout;
 using TrmnlApi.Models;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
@@ -106,7 +107,7 @@ public class WeatherFunction(
                 upstream = new Upstream(200, null);
             }
             catch (Exception ex) when (
-                ex is HttpRequestException or JsonException or IOException ||
+                ex is HttpRequestException or JsonException or IOException or TimeoutRejectedException ||
                 (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
             {
                 if (cached is not null)
@@ -163,6 +164,7 @@ public class WeatherFunction(
     {
         HttpRequestException httpEx => new Upstream(httpEx.StatusCode is null ? null : (int)httpEx.StatusCode, httpEx.Message),
         JsonException jsonEx => new Upstream(200, jsonEx.Message),
+        TimeoutRejectedException => new Upstream((int)HttpStatusCode.GatewayTimeout, "upstream timed out after retries"),
         _ => new Upstream(null, ex.Message)
     };
 

@@ -16,8 +16,10 @@ builder.Services
 
 builder.Services.AddMemoryCache(options => options.SizeLimit = 100);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
-builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>();
-builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>();
+builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
+    .AddStandardResilienceHandler();
+builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>()
+    .AddStandardResilienceHandler();
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 builder.Services.AddKeyedSingleton<IWeatherProvider, OpenMeteoProvider>(OpenMeteoProvider.ProviderName);

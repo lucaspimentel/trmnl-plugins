@@ -35,10 +35,11 @@
   - API exposes `meta.cache` (`fresh_hit` / `fresh_fetch` / `stale_served`), `meta.age_seconds`, and `meta.upstream` (status + error message) when the most recent upstream call failed
   - "Stale" most naturally maps to `meta.cache == "stale_served"`, i.e. upstream is down and we're serving an older cached response — a badge or icon in the `title_bar` would surface this without disrupting the main view
   - May also want to surface the upstream error briefly (e.g. tooltip-style or icon) for at-a-glance debugging
-- [ ] API: add HTTP retry logic for transient upstream failures, but skip retries on non-retryable errors (e.g. 429 rate limit, 4xx auth)
-  - Touchpoints: `api/src/TrmnlApi/Program.cs` registers typed clients via `AddHttpClient<IOpenMeteoClient, ...>` and `AddHttpClient<IPirateWeatherClient, ...>` — wire `Microsoft.Extensions.Http.Resilience` (`AddStandardResilienceHandler` or a custom pipeline) here
-  - Retry on 5xx, 408, and transient network errors; do NOT retry on 401/403/404/429 (rate-limit/auth failures should fail fast so the fallback provider can take over)
-  - Consider honoring `Retry-After` header when present
+- [x] API: add HTTP retry logic for transient upstream failures
+  - Wired `Microsoft.Extensions.Http.Resilience` 10.6.0 `AddStandardResilienceHandler()` (stock defaults) onto both typed clients in `api/src/TrmnlApi/Program.cs`
+  - Standard handler retries on 5xx/408/**429** + `HttpRequestException` + `TimeoutRejectedException` with exponential-backoff + jitter, honors `Retry-After`. Original intent was to exclude 429, but the library default retries it with Retry-After respect, which is the safer choice; accepted as the library default to keep the registration to a single line and benefit from upstream tuning.
+  - 401/403/404 are not retried (out of `ShouldHandle`), preserving the "fail fast on auth" intent
+  - Extended `WeatherFunction.cs` catch block + `BuildUpstreamFromException` to also handle `Polly.Timeout.TimeoutRejectedException` (10s attempt / 30s total budget) so timeouts degrade to stale-cache instead of returning 500
 - [ ] API: add cross-provider fallback so if one weather source fails, try another
   - Today `WeatherProviderResolver` resolves a single keyed `IWeatherProvider` based on the `?provider=` query param; a failure bubbles up to the caller
   - Idea: wrap the resolved provider with a fallback chain (e.g. requested → other registered providers in priority order). `WeatherCache` key already includes provider name, so a fallback hit caches under the actual provider that served it
