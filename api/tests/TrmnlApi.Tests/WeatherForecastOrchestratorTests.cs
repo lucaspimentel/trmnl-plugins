@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Polly.Timeout;
@@ -157,6 +156,7 @@ public class WeatherForecastOrchestratorTests
 
         await Assert.ThrowsAsync<TaskCanceledException>(
             () => orchestrator.GetAsync(Primary, 1, 2, false, cts.Token));
+        Assert.Equal(1, first.CallCount);
         Assert.Equal(0, second.CallCount);
     }
 
@@ -166,16 +166,7 @@ public class WeatherForecastOrchestratorTests
         var clock = new TestClock();
         var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10 });
         var cache = new WeatherCache(memoryCache, Options.Create(new WeatherCacheOptions()), clock);
-
-        var services = new ServiceCollection();
-        foreach (var p in providers)
-        {
-            services.AddKeyedSingleton<IWeatherProvider>(p.Name, p);
-            services.AddSingleton<IWeatherProvider>(p);
-        }
-        services.AddSingleton<WeatherProviderResolver>();
-        var resolver = services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
-
+        var resolver = new WeatherProviderResolver(providers);
         var orchestrator = new WeatherForecastOrchestrator(
             resolver, cache, clock, NullLogger<WeatherForecastOrchestrator>.Instance);
         return (orchestrator, cache, clock);

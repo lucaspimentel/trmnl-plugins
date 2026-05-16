@@ -47,8 +47,7 @@ public class WeatherForecastOrchestrator(
         var requestedProvider = chain[0].Name;
         Upstream? firstFailure = null;
         Exception? firstFailureException = null;
-        CachedForecast? staleFallback = null;
-        string? staleFallbackProvider = null;
+        (CachedForecast Forecast, string Provider)? staleFallback = null;
 
         foreach (var provider in chain)
         {
@@ -64,10 +63,9 @@ public class WeatherForecastOrchestrator(
                     firstFailure);
             }
 
-            if (cached is not null && staleFallback is null)
+            if (cached is not null)
             {
-                staleFallback = cached;
-                staleFallbackProvider = provider.Name;
+                staleFallback ??= (cached, provider.Name);
             }
 
             try
@@ -93,16 +91,16 @@ public class WeatherForecastOrchestrator(
             }
         }
 
-        if (staleFallback is not null)
+        if (staleFallback is { } stale)
         {
             logger.LogWarning("All providers failed for {Latitude},{Longitude}; serving stale cache from {Provider}",
-                latitude, longitude, staleFallbackProvider);
+                latitude, longitude, stale.Provider);
             return new ForecastOutcome(
-                staleFallback.Response,
-                staleFallbackProvider!,
+                stale.Forecast.Response,
+                stale.Provider,
                 requestedProvider,
                 CacheStaleServed,
-                staleFallback.FetchedAt,
+                stale.Forecast.FetchedAt,
                 firstFailure);
         }
 

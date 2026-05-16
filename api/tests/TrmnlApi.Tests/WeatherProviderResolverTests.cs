@@ -15,7 +15,7 @@ public class WeatherProviderResolverTests
     public void Resolve_NullOrEmptyName_ReturnsDefaultProvider(string? name)
     {
         var defaultProvider = new FakeProvider("pirate-weather");
-        var resolver = BuildResolver(("pirate-weather", defaultProvider));
+        var resolver = new WeatherProviderResolver([defaultProvider]);
 
         Assert.Same(defaultProvider, resolver.Resolve(name));
     }
@@ -25,7 +25,7 @@ public class WeatherProviderResolverTests
     {
         var openMeteo = new FakeProvider("open-meteo");
         var pirate = new FakeProvider("pirate-weather");
-        var resolver = BuildResolver(("open-meteo", openMeteo), ("pirate-weather", pirate));
+        var resolver = new WeatherProviderResolver([openMeteo, pirate]);
 
         Assert.Same(pirate, resolver.Resolve("pirate-weather"));
         Assert.Same(openMeteo, resolver.Resolve("open-meteo"));
@@ -34,7 +34,7 @@ public class WeatherProviderResolverTests
     [Fact]
     public void Resolve_UnknownName_ThrowsArgumentException()
     {
-        var resolver = BuildResolver(("open-meteo", new FakeProvider("open-meteo")));
+        var resolver = new WeatherProviderResolver([new FakeProvider("open-meteo")]);
 
         var ex = Assert.Throws<ArgumentException>(() => resolver.Resolve("does-not-exist"));
         Assert.Contains("does-not-exist", ex.Message);
@@ -46,7 +46,7 @@ public class WeatherProviderResolverTests
         var openMeteo = new FakeProvider("open-meteo");
         var pirate = new FakeProvider("pirate-weather");
         // Registration order: pirate first, then open-meteo.
-        var resolver = BuildResolver(("pirate-weather", pirate), ("open-meteo", openMeteo));
+        var resolver = new WeatherProviderResolver([pirate, openMeteo]);
 
         var chain = resolver.ResolveChain("open-meteo");
 
@@ -60,7 +60,7 @@ public class WeatherProviderResolverTests
     {
         var openMeteo = new FakeProvider("open-meteo");
         var pirate = new FakeProvider("pirate-weather");
-        var resolver = BuildResolver(("open-meteo", openMeteo), ("pirate-weather", pirate));
+        var resolver = new WeatherProviderResolver([openMeteo, pirate]);
 
         var chain = resolver.ResolveChain(null);
 
@@ -71,28 +71,22 @@ public class WeatherProviderResolverTests
     [Fact]
     public void ResolveChain_UnknownName_ThrowsArgumentException()
     {
-        var resolver = BuildResolver(("open-meteo", new FakeProvider("open-meteo")));
+        var resolver = new WeatherProviderResolver([new FakeProvider("open-meteo")]);
 
         Assert.Throws<ArgumentException>(() => resolver.ResolveChain("does-not-exist"));
     }
 
-    // Mirrors the keyed + enumerable registrations in Program.cs so a key/type mismatch
-    // between Program.cs and a provider's ProviderName is caught at test time.
+    // Mirrors Program.cs registrations so a key/type mismatch between Program.cs
+    // and a provider's ProviderName is caught at test time.
     [Fact]
-    public void Resolve_UsingProductionKeyedRegistrations_ReturnsCorrectConcreteType()
+    public void Resolve_UsingProductionRegistrations_ReturnsCorrectConcreteType()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IOpenMeteoClient, StubOpenMeteoClient>();
         services.AddSingleton<IWeatherTransformer, StubWeatherTransformer>();
         services.AddSingleton<IPirateWeatherClient, StubPirateWeatherClient>();
-        services.AddSingleton<OpenMeteoProvider>();
-        services.AddSingleton<PirateWeatherProvider>();
-        services.AddKeyedSingleton<IWeatherProvider>(OpenMeteoProvider.ProviderName,
-            (sp, _) => sp.GetRequiredService<OpenMeteoProvider>());
-        services.AddKeyedSingleton<IWeatherProvider>(PirateWeatherProvider.ProviderName,
-            (sp, _) => sp.GetRequiredService<PirateWeatherProvider>());
-        services.AddSingleton<IWeatherProvider>(sp => sp.GetRequiredService<PirateWeatherProvider>());
-        services.AddSingleton<IWeatherProvider>(sp => sp.GetRequiredService<OpenMeteoProvider>());
+        services.AddSingleton<IWeatherProvider, PirateWeatherProvider>();
+        services.AddSingleton<IWeatherProvider, OpenMeteoProvider>();
         services.AddSingleton<WeatherProviderResolver>();
 
         var resolver = services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
@@ -104,19 +98,6 @@ public class WeatherProviderResolverTests
         Assert.Equal(2, chain.Count);
         Assert.IsType<OpenMeteoProvider>(chain[0]);
         Assert.IsType<PirateWeatherProvider>(chain[1]);
-    }
-
-    private static WeatherProviderResolver BuildResolver(params (string key, IWeatherProvider provider)[] providers)
-    {
-        var services = new ServiceCollection();
-        foreach (var (key, provider) in providers)
-        {
-            services.AddKeyedSingleton(key, provider);
-            // Also register for IEnumerable<IWeatherProvider> so ResolveChain can enumerate.
-            services.AddSingleton(provider);
-        }
-        services.AddSingleton<WeatherProviderResolver>();
-        return services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
     }
 
     private sealed class FakeProvider(string name) : IWeatherProvider
