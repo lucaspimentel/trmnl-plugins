@@ -16,6 +16,10 @@ Displays current conditions, 24-hour temperature/precipitation chart, and 6-day 
 
 ![Weather](./plugins/weather/screenshot.png)
 
+## Backend API
+
+The [Weather](./plugins/weather) plugin polls a custom Azure Functions backend in [`api/`](./api) that normalizes responses from upstream weather providers (Pirate Weather, Open-Meteo) into a uniform shape. Production endpoint: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`.
+
 ## Plugin Structure
 
 Each plugin directory uses the trmnlp `src/` layout:

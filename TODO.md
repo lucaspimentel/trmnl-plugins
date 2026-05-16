@@ -48,8 +48,10 @@
   - `meta.provider` now reflects the winning provider; new `meta.requested_provider` echoes the caller's pick; `meta.upstream` carries the first failure when fallback occurred. On a clean direct success `meta.upstream` is `null` (cleaner than the previous `{status:200}` filler).
   - Total failure (all providers fail + no cache anywhere) throws `UpstreamUnavailableException` → 502 from `WeatherFunction` (preserves existing behavior).
   - Tests: new `WeatherForecastOrchestratorTests` covers fresh-hit, fresh-fetch, fallback-after-each-transient-exception (via `[Theory]`), fallback-to-second-cache, stale-cache rescue, no-cache 502, non-transient bubble-up, client-cancel-no-fallback. Extended `WeatherProviderResolverTests` for `ResolveChain` ordering. All 175 tests pass.
-- [ ] Azure: provision a staging Function App for the API
-  - Production app: `trmnl-plugins-api` in resource group `trmnl-plugins`
-  - Options: separate Function App (e.g. `trmnl-plugins-api-staging`) OR a deployment slot on the existing app (slot swap gives zero-downtime promotion, but Consumption-tier Function Apps don't support slots — Premium/Dedicated do)
-  - Need to mirror app settings (`PIRATE_WEATHER_API_KEY`, any `WeatherCache:*` overrides) and update deploy command/docs (currently `func azure functionapp publish trmnl-plugins-api` in `CLAUDE.md`)
-  - Use staging to smoke-test new providers, retry/fallback behavior, and any settings.yml URL changes before pointing the plugin at prod
+- [x] Azure: provision a staging Function App for the API
+  - Created `trmnl-plugins-api-staging` in resource group `trmnl-plugins` (Windows Y1 Consumption, East US, separate auto-created consumption plan + Application Insights, reuses storage account `trmnlplugins`)
+  - Mirrored functional app settings only: `PIRATE_WEATHER_API_KEY`, `WeatherCache__FreshTtl`, `WeatherCache__StaleTtl`, `TRMNL_DEVICE_ID`, `TRMNL_DEVICE_API_KEY`. Skipped Datadog/profiler/App Insights mirror — staging is smoke-test only.
+  - Deploy command: `cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api-staging`
+  - Smoke-tested: default (pirate-weather) → 200 + fresh_fetch; `?provider=open-meteo` → 200 + fresh_fetch (separate cache key); `?provider=bogus` → 400. Response shape matches prod.
+  - Base URL: `https://trmnl-plugins-api-staging.azurewebsites.net`
+  - Not done (potential follow-up): wire staging URL into a non-prod plugin variant or a smoke-test script
