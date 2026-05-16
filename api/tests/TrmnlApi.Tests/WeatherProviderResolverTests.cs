@@ -40,7 +40,43 @@ public class WeatherProviderResolverTests
         Assert.Contains("does-not-exist", ex.Message);
     }
 
-    // Mirrors the keyed registrations in Program.cs so a key/type mismatch
+    [Fact]
+    public void ResolveChain_RequestedFirstThenRemainingInRegistrationOrder()
+    {
+        var openMeteo = new FakeProvider("open-meteo");
+        var pirate = new FakeProvider("pirate-weather");
+        // Registration order: pirate first, then open-meteo.
+        var resolver = BuildResolver(("pirate-weather", pirate), ("open-meteo", openMeteo));
+
+        var chain = resolver.ResolveChain("open-meteo");
+
+        Assert.Equal(2, chain.Count);
+        Assert.Same(openMeteo, chain[0]);
+        Assert.Same(pirate, chain[1]);
+    }
+
+    [Fact]
+    public void ResolveChain_DefaultRequest_PutsDefaultFirst()
+    {
+        var openMeteo = new FakeProvider("open-meteo");
+        var pirate = new FakeProvider("pirate-weather");
+        var resolver = BuildResolver(("open-meteo", openMeteo), ("pirate-weather", pirate));
+
+        var chain = resolver.ResolveChain(null);
+
+        Assert.Equal(2, chain.Count);
+        Assert.Equal(WeatherProviderResolver.DefaultName, chain[0].Name);
+    }
+
+    [Fact]
+    public void ResolveChain_UnknownName_ThrowsArgumentException()
+    {
+        var resolver = BuildResolver(("open-meteo", new FakeProvider("open-meteo")));
+
+        Assert.Throws<ArgumentException>(() => resolver.ResolveChain("does-not-exist"));
+    }
+
+    // Mirrors the keyed + enumerable registrations in Program.cs so a key/type mismatch
     // between Program.cs and a provider's ProviderName is caught at test time.
     [Fact]
     public void Resolve_UsingProductionKeyedRegistrations_ReturnsCorrectConcreteType()
@@ -49,14 +85,25 @@ public class WeatherProviderResolverTests
         services.AddSingleton<IOpenMeteoClient, StubOpenMeteoClient>();
         services.AddSingleton<IWeatherTransformer, StubWeatherTransformer>();
         services.AddSingleton<IPirateWeatherClient, StubPirateWeatherClient>();
-        services.AddKeyedSingleton<IWeatherProvider, OpenMeteoProvider>(OpenMeteoProvider.ProviderName);
-        services.AddKeyedSingleton<IWeatherProvider, PirateWeatherProvider>(PirateWeatherProvider.ProviderName);
+        services.AddSingleton<OpenMeteoProvider>();
+        services.AddSingleton<PirateWeatherProvider>();
+        services.AddKeyedSingleton<IWeatherProvider>(OpenMeteoProvider.ProviderName,
+            (sp, _) => sp.GetRequiredService<OpenMeteoProvider>());
+        services.AddKeyedSingleton<IWeatherProvider>(PirateWeatherProvider.ProviderName,
+            (sp, _) => sp.GetRequiredService<PirateWeatherProvider>());
+        services.AddSingleton<IWeatherProvider>(sp => sp.GetRequiredService<PirateWeatherProvider>());
+        services.AddSingleton<IWeatherProvider>(sp => sp.GetRequiredService<OpenMeteoProvider>());
         services.AddSingleton<WeatherProviderResolver>();
 
         var resolver = services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
 
         Assert.IsType<OpenMeteoProvider>(resolver.Resolve(OpenMeteoProvider.ProviderName));
         Assert.IsType<PirateWeatherProvider>(resolver.Resolve(PirateWeatherProvider.ProviderName));
+
+        var chain = resolver.ResolveChain(OpenMeteoProvider.ProviderName);
+        Assert.Equal(2, chain.Count);
+        Assert.IsType<OpenMeteoProvider>(chain[0]);
+        Assert.IsType<PirateWeatherProvider>(chain[1]);
     }
 
     private static WeatherProviderResolver BuildResolver(params (string key, IWeatherProvider provider)[] providers)
@@ -65,6 +112,8 @@ public class WeatherProviderResolverTests
         foreach (var (key, provider) in providers)
         {
             services.AddKeyedSingleton(key, provider);
+            // Also register for IEnumerable<IWeatherProvider> so ResolveChain can enumerate.
+            services.AddSingleton(provider);
         }
         services.AddSingleton<WeatherProviderResolver>();
         return services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();

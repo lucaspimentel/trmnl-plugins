@@ -41,11 +41,13 @@
   - Standard handler retries on 5xx/408/**429** + `HttpRequestException` + `TimeoutRejectedException` with exponential-backoff + jitter, honors `Retry-After`. Original intent was to exclude 429, but the library default retries it with Retry-After respect, which is the safer choice; accepted as the library default to keep the registration to a single line and benefit from upstream tuning.
   - 401/403/404 are not retried (out of `ShouldHandle`), preserving the "fail fast on auth" intent
   - Extended `WeatherFunction.cs` catch block + `BuildUpstreamFromException` to also handle `Polly.Timeout.TimeoutRejectedException` (10s attempt / 30s total budget) so timeouts degrade to stale-cache instead of returning 500
-- [ ] API: add cross-provider fallback so if one weather source fails, try another
-  - Today `WeatherProviderResolver` resolves a single keyed `IWeatherProvider` based on the `?provider=` query param; a failure bubbles up to the caller
-  - Idea: wrap the resolved provider with a fallback chain (e.g. requested → other registered providers in priority order). `WeatherCache` key already includes provider name, so a fallback hit caches under the actual provider that served it
-  - `Meta.Provider` should reflect which provider actually served the response (already does — keep this contract), and `meta.upstream` should record the original failure for debugging
-  - Decision needed: is fallback opt-in (`?fallback=true`) or always on? Always-on is simpler but masks which provider the user actually selected
+- [x] API: add cross-provider fallback so if one weather source fails, try another
+  - Implemented as a new `WeatherForecastOrchestrator` service that owns the request workflow (chain resolution → per-provider cache check → upstream call → exception classification → final stale-cache rescue).
+  - Always-on: any transient upstream failure (same set `WeatherFunction` used to catch: `HttpRequestException`, `JsonException`, `IOException`, `TimeoutRejectedException`, provider-side `TaskCanceledException`) falls back to the next-registered provider.
+  - `WeatherProviderResolver` gained `ResolveChain(string?)` which returns `[requested, ...others in registration order]`. Providers are registered in DI three ways (concrete singleton + keyed `IWeatherProvider` + unkeyed `IWeatherProvider`) so they can be looked up by name AND enumerated for the chain.
+  - `meta.provider` now reflects the winning provider; new `meta.requested_provider` echoes the caller's pick; `meta.upstream` carries the first failure when fallback occurred. On a clean direct success `meta.upstream` is `null` (cleaner than the previous `{status:200}` filler).
+  - Total failure (all providers fail + no cache anywhere) throws `UpstreamUnavailableException` → 502 from `WeatherFunction` (preserves existing behavior).
+  - Tests: new `WeatherForecastOrchestratorTests` covers fresh-hit, fresh-fetch, fallback-after-each-transient-exception (via `[Theory]`), fallback-to-second-cache, stale-cache rescue, no-cache 502, non-transient bubble-up, client-cancel-no-fallback. Extended `WeatherProviderResolverTests` for `ResolveChain` ordering. All 175 tests pass.
 - [ ] Azure: provision a staging Function App for the API
   - Production app: `trmnl-plugins-api` in resource group `trmnl-plugins`
   - Options: separate Function App (e.g. `trmnl-plugins-api-staging`) OR a deployment slot on the existing app (slot swap gives zero-downtime promotion, but Consumption-tier Function Apps don't support slots — Premium/Dedicated do)

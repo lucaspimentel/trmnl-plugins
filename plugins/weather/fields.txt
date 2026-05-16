@@ -46,9 +46,10 @@ data.
             sunset              (ISO 8601, e.g. "2026-02-28T17:32")
     meta.
         cache                   (string: "fresh_fetch", "fresh_hit", or "stale_served")
-        provider                (string: "pirate-weather" or "open-meteo")
+        provider                (string: provider that actually served this response, e.g. "pirate-weather" or "open-meteo"; may differ from requested_provider on fallback)
+        requested_provider      (string: provider the caller asked for)
         fetched_at              (ISO 8601 UTC timestamp of last upstream fetch)
         data_time               (ISO 8601, matches current.time)
         served_at               (ISO 8601 UTC timestamp when this response was served)
         age_seconds             (integer, seconds since fetched_at)
-        upstream                (null when healthy; { status, error } when stale_served)
+        upstream                (null when healthy; { status, error } when stale_served or when a fallback was used)

@@ -4,25 +4,18 @@ using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using Polly.Timeout;
 using TrmnlApi.Models;
-using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Functions;
 
 public class WeatherFunction(
-    WeatherProviderResolver providerResolver,
-    WeatherCache cache,
+    WeatherForecastOrchestrator orchestrator,
     TimeProvider timeProvider,
     ILogger<WeatherFunction> logger)
 {
     private const int MaxHours = 25;
     private const int MaxDays = 6;
-
-    private const string CacheFreshFetch = "fresh_fetch";
-    private const string CacheFreshHit = "fresh_hit";
-    private const string CacheStaleServed = "stale_served";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -67,66 +60,28 @@ public class WeatherFunction(
             return bad;
         }
 
-        IWeatherProvider weatherProvider;
+        var requestedProvider = query["provider"];
+
+        ForecastOutcome outcome;
         try
         {
-            weatherProvider = providerResolver.Resolve(query["provider"]);
+            outcome = await orchestrator.GetAsync(requestedProvider, latitude, longitude, metric, cancellationToken);
         }
         catch (ArgumentException)
         {
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync($"provider '{query["provider"]}' is not a known weather provider.", cancellationToken);
+            await bad.WriteStringAsync($"provider '{requestedProvider}' is not a known weather provider.", cancellationToken);
             return bad;
         }
-
-        var cached = cache.TryGet(weatherProvider.Name, latitude, longitude, metric);
-
-        WeatherResponse weatherResponse;
-        string cacheStatus;
-        DateTimeOffset fetchedAt;
-        Upstream? upstream;
-
-        if (cached is { IsFresh: true })
+        catch (UpstreamUnavailableException ex)
         {
-            weatherResponse = cached.Response;
-            cacheStatus = CacheFreshHit;
-            fetchedAt = cached.FetchedAt;
-            upstream = null;
+            logger.LogError(ex, "All weather providers failed for {Latitude},{Longitude}", latitude, longitude);
+            var error = req.CreateResponse(HttpStatusCode.BadGateway);
+            await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
+            return error;
         }
-        else
-        {
-            logger.LogInformation("Cache {Status} for {Latitude},{Longitude},{Units} — fetching from {Provider}",
-                cached is null ? "miss" : "stale", latitude, longitude, metric ? "metric" : "imperial", weatherProvider.Name);
 
-            try
-            {
-                weatherResponse = await weatherProvider.GetForecastAsync(latitude, longitude, metric, cancellationToken);
-                cache.Set(weatherProvider.Name, latitude, longitude, metric, weatherResponse);
-                cacheStatus = CacheFreshFetch;
-                fetchedAt = timeProvider.GetUtcNow();
-                upstream = new Upstream(200, null);
-            }
-            catch (Exception ex) when (
-                ex is HttpRequestException or JsonException or IOException or TimeoutRejectedException ||
-                (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
-            {
-                if (cached is not null)
-                {
-                    logger.LogWarning(ex, "{Provider} fetch failed for {Latitude},{Longitude}; serving stale cache", weatherProvider.Name, latitude, longitude);
-                    weatherResponse = cached.Response;
-                    cacheStatus = CacheStaleServed;
-                    fetchedAt = cached.FetchedAt;
-                    upstream = BuildUpstreamFromException(ex);
-                }
-                else
-                {
-                    logger.LogError(ex, "Failed to fetch {Provider} forecast for {Latitude},{Longitude}", weatherProvider.Name, latitude, longitude);
-                    var error = req.CreateResponse(HttpStatusCode.BadGateway);
-                    await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
-                    return error;
-                }
-            }
-        }
+        var weatherResponse = outcome.Response;
 
         if (hours < MaxHours || days < MaxDays)
         {
@@ -144,13 +99,14 @@ public class WeatherFunction(
 
         var servedAt = timeProvider.GetUtcNow();
         var meta = new Meta(
-            Cache: cacheStatus,
-            Provider: weatherProvider.Name,
-            FetchedAt: fetchedAt,
+            Cache: outcome.CacheStatus,
+            Provider: outcome.WinningProvider,
+            RequestedProvider: outcome.RequestedProvider,
+            FetchedAt: outcome.FetchedAt,
             DataTime: weatherResponse.Current.Time,
             ServedAt: servedAt,
-            AgeSeconds: (long)(servedAt - fetchedAt).TotalSeconds,
-            Upstream: upstream);
+            AgeSeconds: (long)(servedAt - outcome.FetchedAt).TotalSeconds,
+            Upstream: outcome.Upstream);
 
         weatherResponse = weatherResponse with { Meta = meta };
 
@@ -159,14 +115,6 @@ public class WeatherFunction(
         await ok.WriteStringAsync(JsonSerializer.Serialize(weatherResponse, JsonOptions), cancellationToken);
         return ok;
     }
-
-    private static Upstream BuildUpstreamFromException(Exception ex) => ex switch
-    {
-        HttpRequestException httpEx => new Upstream(httpEx.StatusCode is null ? null : (int)httpEx.StatusCode, httpEx.Message),
-        JsonException jsonEx => new Upstream(200, jsonEx.Message),
-        TimeoutRejectedException => new Upstream((int)HttpStatusCode.GatewayTimeout, "upstream timed out after retries"),
-        _ => new Upstream(null, ex.Message)
-    };
 
     private static WeatherResponse FakePrecipitation(WeatherResponse response)
     {

@@ -5,6 +5,7 @@ namespace TrmnlApi.Models;
 public record Meta(
     string Cache,
     string Provider,
+    [property: JsonPropertyName("requested_provider")] string RequestedProvider,
     [property: JsonPropertyName("fetched_at")] DateTimeOffset FetchedAt,
     [property: JsonPropertyName("data_time")] string DataTime,
     [property: JsonPropertyName("served_at")] DateTimeOffset ServedAt,

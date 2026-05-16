@@ -60,12 +60,13 @@ See `README.md` for contributor setup and external dependency details.
   },
   "meta": {
     "cache": "fresh_fetch",          // fresh_fetch | fresh_hit | stale_served
-    "provider": "open-meteo",
+    "provider": "open-meteo",        // provider that actually served (may differ from requested_provider on fallback)
+    "requested_provider": "open-meteo",
     "fetched_at": "2026-02-25T14:00:00+00:00",
     "data_time": "2026-02-25T14:00",
     "served_at": "2026-02-25T14:00:01+00:00",
     "age_seconds": 1,
-    "upstream": null                  // populated with { status, error } when stale_served
+    "upstream": null                  // populated with { status, error } when stale_served or fallback used
   }
 }
 ```
