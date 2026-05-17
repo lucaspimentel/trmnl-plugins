@@ -11,5 +11,8 @@ plugins/*/render*.png
 .claude/*.local.*
 CLAUDE.local.md
 
+# SixLabors license
+sixlabors.lic
+
 # temp docs
 docs/trmnl-framework
