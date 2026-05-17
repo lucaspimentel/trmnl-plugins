@@ -94,7 +94,12 @@ public class WeatherForecastOrchestrator(
             }
             catch (Exception ex) when (IsTransient(ex, cancellationToken))
             {
-                logger.LogWarning(ex, "{Provider} fetch failed for {Latitude},{Longitude}", provider.Name, latitude, longitude);
+                logger.LogWarning(
+                    ex,
+                    "{Provider} fetch failed for {Latitude},{Longitude}",
+                    provider.Name,
+                    latitude.ToString("F1", CultureInfo.InvariantCulture),
+                    longitude.ToString("F1", CultureInfo.InvariantCulture));
                 if (firstFailure is null)
                 {
                     firstFailure = BuildUpstreamFromException(ex);
@@ -105,8 +110,11 @@ public class WeatherForecastOrchestrator(
 
         if (staleFallback is { } stale)
         {
-            logger.LogWarning("All providers failed for {Latitude},{Longitude}; serving stale cache from {Provider}",
-                latitude, longitude, stale.Provider);
+            logger.LogWarning(
+                "All providers failed for {Latitude},{Longitude}; serving stale cache from {Provider}",
+                latitude.ToString("F1", CultureInfo.InvariantCulture),
+                longitude.ToString("F1", CultureInfo.InvariantCulture),
+                stale.Provider);
             return TagOutcome(span, new ForecastOutcome(
                 stale.Forecast.Response,
                 stale.Provider,
