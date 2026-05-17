@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -67,6 +68,14 @@ public class WeatherFunction(
         {
             outcome = await orchestrator.GetAsync(requestedProvider, latitude, longitude, metric, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogInformation(
+                "Client cancelled forecast request for {Latitude},{Longitude}",
+                latitude.ToString("F1", CultureInfo.InvariantCulture),
+                longitude.ToString("F1", CultureInfo.InvariantCulture));
+            return req.CreateResponse((HttpStatusCode)499);
+        }
         catch (ArgumentException)
         {
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
@@ -75,7 +84,11 @@ public class WeatherFunction(
         }
         catch (UpstreamUnavailableException ex)
         {
-            logger.LogError(ex, "All weather providers failed for {Latitude},{Longitude}", latitude, longitude);
+            logger.LogError(
+                ex,
+                "All weather providers failed for {Latitude},{Longitude}",
+                latitude.ToString("F1", CultureInfo.InvariantCulture),
+                longitude.ToString("F1", CultureInfo.InvariantCulture));
             var error = req.CreateResponse(HttpStatusCode.BadGateway);
             await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
             return error;
