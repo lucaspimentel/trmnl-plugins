@@ -43,8 +43,7 @@ public class WeatherForecastOrchestrator(
     {
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
-        span.SetTag("weather.coord.lat", latitude.ToString("F1", CultureInfo.InvariantCulture));
-        span.SetTag("weather.coord.lon", longitude.ToString("F1", CultureInfo.InvariantCulture));
+        span.SetTag("weather.coord", string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
         span.SetTag("weather.units", metric ? "metric" : "imperial");
 
         var chain = resolver.ResolveChain(requestedName);
