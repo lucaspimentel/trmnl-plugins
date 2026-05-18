@@ -15,12 +15,6 @@ public class RequestValidatorTests
     [InlineData("abc", "-71.06", false, 0.0, 0.0)]          // non-numeric lat
     [InlineData("42.36", "xyz", false, 42.36, 0.0)]         // non-numeric lon (lat parsed before failure)
     [InlineData("", "-71.06", false, 0.0, 0.0)]             // empty lat
-    [InlineData("90.0001", "0", false, 90.0001, 0.0)]       // lat just above max
-    [InlineData("-90.0001", "0", false, -90.0001, 0.0)]     // lat just below min
-    [InlineData("0", "180.0001", false, 0.0, 180.0001)]     // lon just above max
-    [InlineData("0", "-180.0001", false, 0.0, -180.0001)]   // lon just below min
-    [InlineData("91", "0", false, 91.0, 0.0)]               // lat well above range
-    [InlineData("0", "200", false, 0.0, 200.0)]             // lon well above range
     public void TryParseCoordinates_ReturnsExpected(string? lat, string? lon, bool expectedResult, double expectedLat, double expectedLon)
     {
         var result = RequestValidator.TryParseCoordinates(lat, lon, out var latitude, out var longitude);
@@ -28,6 +22,26 @@ public class RequestValidatorTests
         Assert.Equal(expectedResult, result);
         Assert.Equal(expectedLat, latitude);
         Assert.Equal(expectedLon, longitude);
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.0, true)]                // origin
+    [InlineData(42.36, -71.06, true)]           // typical coords
+    [InlineData(90.0, 180.0, true)]             // upper boundaries
+    [InlineData(-90.0, -180.0, true)]           // lower boundaries
+    [InlineData(90.0001, 0.0, false)]           // lat just above max
+    [InlineData(-90.0001, 0.0, false)]          // lat just below min
+    [InlineData(0.0, 180.0001, false)]          // lon just above max
+    [InlineData(0.0, -180.0001, false)]         // lon just below min
+    [InlineData(91.0, 0.0, false)]              // lat well above range
+    [InlineData(0.0, 200.0, false)]             // lon well above range
+    [InlineData(double.NaN, 0.0, false)]        // NaN lat
+    [InlineData(0.0, double.NaN, false)]        // NaN lon
+    [InlineData(double.PositiveInfinity, 0.0, false)] // +Inf lat
+    [InlineData(double.NegativeInfinity, 0.0, false)] // -Inf lat
+    public void AreCoordinatesInRange_ReturnsExpected(double latitude, double longitude, bool expected)
+    {
+        Assert.Equal(expected, RequestValidator.AreCoordinatesInRange(latitude, longitude));
     }
 
     [Theory]

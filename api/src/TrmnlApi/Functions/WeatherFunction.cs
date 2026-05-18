@@ -38,6 +38,13 @@ public class WeatherFunction(
             return bad;
         }
 
+        if (!RequestValidator.AreCoordinatesInRange(latitude, longitude))
+        {
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync("latitude must be between -90 and 90, longitude must be between -180 and 180.", cancellationToken);
+            return bad;
+        }
+
         var unitsParam = query["units"];
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
