@@ -1,5 +1,6 @@
 [
   { "name": "DD_AZURE_APP_SERVICES", "value": "1", "slotSetting": false },
+  { "name": "DD_ENV", "value": "staging", "slotSetting": false },
   { "name": "DD_TRACE_AGENT_PATH", "value": "C:\\home\\SiteExtensions\\Datadog.AzureAppServices.DotNet\\v3_43_000\\Agent\\datadog-trace-agent.exe", "slotSetting": false },
   { "name": "DD_TRACE_AGENT_ARGS", "value": "--config C:\\home\\SiteExtensions\\Datadog.AzureAppServices.DotNet\\v3_43_000\\Agent\\datadog.yaml", "slotSetting": false },
   { "name": "DD_DOGSTATSD_PATH", "value": "C:\\home\\SiteExtensions\\Datadog.AzureAppServices.DotNet\\v3_43_000\\Agent\\dogstatsd.exe", "slotSetting": false },
@@ -7,13 +8,13 @@
   { "name": "DD_TRACE_METRICS_ENABLED", "value": "0", "slotSetting": false },
   { "name": "DD_PROFILER_EXCLUDE_PROCESSES", "value": "SnapshotUploader.exe;workerforwarder.exe;SnapshotUploader64.exe;Crashmon.exe", "slotSetting": false },
   { "name": "DD_TRACE_TRANSPORT", "value": "DATADOG-NAMED-PIPES", "slotSetting": false },
-  { "name": "DD_APM_WINDOWS_PIPE_NAME", "value": "datadogtrace-AFBD7C56-08BF-4501-9DAE-73B247DEAC09", "slotSetting": false },
-  { "name": "DD_TRACE_PIPE_NAME", "value": "datadogtrace-AFBD7C56-08BF-4501-9DAE-73B247DEAC09", "slotSetting": false },
+  { "name": "DD_APM_WINDOWS_PIPE_NAME", "value": "datadogtrace-BF4AB490-1053-421D-AE6A-5658500BB813", "slotSetting": false },
+  { "name": "DD_TRACE_PIPE_NAME", "value": "datadogtrace-BF4AB490-1053-421D-AE6A-5658500BB813", "slotSetting": false },
   { "name": "DD_APM_REMOTE_TAGGER", "value": "0", "slotSetting": false },
   { "name": "DD_REMOTE_CONFIGURATION_ENABLED", "value": "false", "slotSetting": false },
-  { "name": "DD_AGENT_PIPE_NAME", "value": "dogstatsd-A100B3B6-8B21-4C3F-B280-E5A26457B7F5", "slotSetting": false },
-  { "name": "DD_DOGSTATSD_PIPE_NAME", "value": "dogstatsd-A100B3B6-8B21-4C3F-B280-E5A26457B7F5", "slotSetting": false },
-  { "name": "DD_DOGSTATSD_WINDOWS_PIPE_NAME", "value": "dogstatsd-A100B3B6-8B21-4C3F-B280-E5A26457B7F5", "slotSetting": false },
+  { "name": "DD_AGENT_PIPE_NAME", "value": "dogstatsd-CB8DFFED-1EE4-481D-8EC0-BC6752DF5E62", "slotSetting": false },
+  { "name": "DD_DOGSTATSD_PIPE_NAME", "value": "dogstatsd-CB8DFFED-1EE4-481D-8EC0-BC6752DF5E62", "slotSetting": false },
+  { "name": "DD_DOGSTATSD_WINDOWS_PIPE_NAME", "value": "dogstatsd-CB8DFFED-1EE4-481D-8EC0-BC6752DF5E62", "slotSetting": false },
   { "name": "DD_DOGSTATSD_PORT", "value": "0", "slotSetting": false },
   { "name": "DD_APM_RECEIVER_PORT", "value": "0", "slotSetting": false },
   { "name": "DD_AAS_DOTNET_EXTENSION_VERSION", "value": "v3.43.000", "slotSetting": false },
@@ -35,6 +36,6 @@
   { "name": "DD_TRACE_LOG_DIRECTORY", "value": "C:\\home\\LogFiles\\datadog\\v3_43_000\\", "slotSetting": false },
   { "name": "DD_PROFILING_LOG_DIR", "value": "C:\\home\\LogFiles\\datadog\\v3_43_000\\", "slotSetting": false },
 
-  { "name": "DD_TRACE_SAMPLE_RATE", "value": "0.3", "slotSetting": false },
+  { "name": "DD_TRACE_SAMPLE_RATE", "value": "1", "slotSetting": false },
   { "name": "DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED", "value": "1", "slotSetting": false }
 ]
