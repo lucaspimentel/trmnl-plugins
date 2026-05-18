@@ -166,7 +166,7 @@ public class WeatherForecastOrchestratorTests
         var clock = new TestClock();
         var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10 });
         var cache = new WeatherCache(memoryCache, Options.Create(new WeatherCacheOptions()), clock);
-        var resolver = new WeatherProviderResolver(providers);
+        var resolver = new WeatherProviderResolver(providers, providers.Select(p => p.Name).ToList());
         var orchestrator = new WeatherForecastOrchestrator(
             resolver, cache, clock, NullLogger<WeatherForecastOrchestrator>.Instance);
         return (orchestrator, cache, clock);
