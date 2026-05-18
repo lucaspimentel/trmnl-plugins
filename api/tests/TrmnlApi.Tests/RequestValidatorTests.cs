@@ -8,12 +8,19 @@ public class RequestValidatorTests
     [InlineData("42.36", "-71.06", true, 42.36, -71.06)]   // valid coords
     [InlineData("0", "0", true, 0.0, 0.0)]                  // zero coords
     [InlineData("-90", "180", true, -90.0, 180.0)]          // boundary values
+    [InlineData("90", "-180", true, 90.0, -180.0)]          // opposite boundary values
     [InlineData("1.5", "2.5", true, 1.5, 2.5)]              // decimals
     [InlineData(null, "-71.06", false, 0.0, 0.0)]           // null lat
     [InlineData("42.36", null, false, 42.36, 0.0)]           // null lon (lat parsed before failure)
     [InlineData("abc", "-71.06", false, 0.0, 0.0)]          // non-numeric lat
     [InlineData("42.36", "xyz", false, 42.36, 0.0)]         // non-numeric lon (lat parsed before failure)
     [InlineData("", "-71.06", false, 0.0, 0.0)]             // empty lat
+    [InlineData("90.0001", "0", false, 90.0001, 0.0)]       // lat just above max
+    [InlineData("-90.0001", "0", false, -90.0001, 0.0)]     // lat just below min
+    [InlineData("0", "180.0001", false, 0.0, 180.0001)]     // lon just above max
+    [InlineData("0", "-180.0001", false, 0.0, -180.0001)]   // lon just below min
+    [InlineData("91", "0", false, 91.0, 0.0)]               // lat well above range
+    [InlineData("0", "200", false, 0.0, 200.0)]             // lon well above range
     public void TryParseCoordinates_ReturnsExpected(string? lat, string? lon, bool expectedResult, double expectedLat, double expectedLon)
     {
         var result = RequestValidator.TryParseCoordinates(lat, lon, out var latitude, out var longitude);
