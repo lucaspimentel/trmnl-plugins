@@ -66,7 +66,7 @@ public class WeatherFunction(
         ForecastOutcome outcome;
         try
         {
-            outcome = await orchestrator.GetAsync(requestedProvider, latitude, longitude, metric, cancellationToken);
+            outcome = await orchestrator.GetAsync(requestedProvider, latitude, longitude, metric, hours, days, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

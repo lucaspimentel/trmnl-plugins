@@ -24,7 +24,7 @@ public class WeatherForecastOrchestratorTests
         cache.Set(Primary, 1, 2, false, MakeResponse("cached-primary"));
         clock.Advance(TimeSpan.FromMinutes(2));
 
-        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None);
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
 
         Assert.Equal("cached-primary", outcome.Response.Current.Condition);
         Assert.Equal(Primary, outcome.WinningProvider);
@@ -42,7 +42,7 @@ public class WeatherForecastOrchestratorTests
         var second = new StubProvider(Secondary) { Response = MakeResponse("second-fetch") };
         var (orchestrator, _, _) = Build(first, second);
 
-        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None);
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
 
         Assert.Equal("first-fetch", outcome.Response.Current.Condition);
         Assert.Equal(Primary, outcome.WinningProvider);
@@ -69,7 +69,7 @@ public class WeatherForecastOrchestratorTests
         var second = new StubProvider(Secondary) { Response = MakeResponse("fallback-fetch") };
         var (orchestrator, _, _) = Build(first, second);
 
-        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None);
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
 
         Assert.Equal("fallback-fetch", outcome.Response.Current.Condition);
         Assert.Equal(Secondary, outcome.WinningProvider);
@@ -89,7 +89,7 @@ public class WeatherForecastOrchestratorTests
         cache.Set(Secondary, 1, 2, false, MakeResponse("cached-secondary"));
         clock.Advance(TimeSpan.FromMinutes(2));
 
-        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None);
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
 
         Assert.Equal("cached-secondary", outcome.Response.Current.Condition);
         Assert.Equal(Secondary, outcome.WinningProvider);
@@ -110,7 +110,7 @@ public class WeatherForecastOrchestratorTests
         cache.Set(Secondary, 1, 2, false, MakeResponse("stale-secondary"));
         clock.Advance(TimeSpan.FromMinutes(30)); // beyond FreshTtl (10m default)
 
-        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None);
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
 
         Assert.Equal("stale-primary", outcome.Response.Current.Condition);
         Assert.Equal(Primary, outcome.WinningProvider);
@@ -127,7 +127,7 @@ public class WeatherForecastOrchestratorTests
         var (orchestrator, _, _) = Build(first, second);
 
         var ex = await Assert.ThrowsAsync<UpstreamUnavailableException>(
-            () => orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None));
+            () => orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None));
         Assert.Equal("boom", ex.Upstream.Error);
     }
 
@@ -139,7 +139,7 @@ public class WeatherForecastOrchestratorTests
         var (orchestrator, _, _) = Build(first, second);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => orchestrator.GetAsync(Primary, 1, 2, false, CancellationToken.None));
+            () => orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None));
         Assert.Equal(1, first.CallCount);
         Assert.Equal(0, second.CallCount);
     }
@@ -155,7 +155,7 @@ public class WeatherForecastOrchestratorTests
         cts.Cancel();
 
         await Assert.ThrowsAsync<TaskCanceledException>(
-            () => orchestrator.GetAsync(Primary, 1, 2, false, cts.Token));
+            () => orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, cts.Token));
         Assert.Equal(1, first.CallCount);
         Assert.Equal(0, second.CallCount);
     }

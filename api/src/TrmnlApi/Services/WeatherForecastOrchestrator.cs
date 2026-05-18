@@ -39,12 +39,16 @@ public class WeatherForecastOrchestrator(
         double latitude,
         double longitude,
         bool metric,
+        int hours,
+        int days,
         CancellationToken cancellationToken)
     {
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
         span.SetTag("weather.coord", string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
         span.SetTag("weather.units", metric ? "metric" : "imperial");
+        span.SetTag("weather.hours", hours.ToString(CultureInfo.InvariantCulture));
+        span.SetTag("weather.days", days.ToString(CultureInfo.InvariantCulture));
 
         var chain = resolver.ResolveChain(requestedName);
         if (chain.Count == 0)
