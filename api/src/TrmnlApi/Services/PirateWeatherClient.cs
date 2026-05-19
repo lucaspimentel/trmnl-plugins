@@ -4,7 +4,7 @@ using TrmnlApi.Models.PirateWeather;
 
 namespace TrmnlApi.Services;
 
-public class PirateWeatherClient(HttpClient httpClient, IConfiguration configuration) : IPirateWeatherClient
+public class PirateWeatherClient : IPirateWeatherClient
 {
     public const string ApiKeySettingName = "PIRATE_WEATHER_API_KEY";
 
@@ -13,15 +13,22 @@ public class PirateWeatherClient(HttpClient httpClient, IConfiguration configura
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly HttpClient _httpClient;
+    private readonly string _apiKey;
+
+    public PirateWeatherClient(HttpClient httpClient, IConfiguration configuration)
+    {
+        _httpClient = httpClient;
+        _apiKey = configuration[ApiKeySettingName]
+            ?? throw new InvalidOperationException($"{ApiKeySettingName} is not configured.");
+    }
+
     public async Task<PirateWeatherResponse> GetForecastAsync(double latitude, double longitude, bool metric = false, CancellationToken cancellationToken = default)
     {
-        var apiKey = configuration[ApiKeySettingName]
-            ?? throw new InvalidOperationException($"{ApiKeySettingName} is not configured.");
-
         var units = metric ? "si" : "us";
-        var url = $"https://api.pirateweather.net/forecast/{apiKey}/{latitude},{longitude}?units={units}&exclude=minutely,alerts,flags";
+        var url = $"https://api.pirateweather.net/forecast/{_apiKey}/{latitude},{longitude}?units={units}&exclude=minutely,alerts,flags";
 
-        using var response = await httpClient.GetAsync(url, cancellationToken);
+        using var response = await _httpClient.GetAsync(url, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

@@ -9,12 +9,11 @@ namespace TrmnlApi.Tests;
 public class PirateWeatherClientTests
 {
     [Fact]
-    public async Task GetForecastAsync_NoApiKeyConfigured_ThrowsInvalidOperationException()
+    public void Ctor_NoApiKeyConfigured_ThrowsInvalidOperationException()
     {
         var handler = new StubHandler(HttpStatusCode.OK, "{}");
-        var client = new PirateWeatherClient(new HttpClient(handler), BuildConfig(apiKey: null));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetForecastAsync(0, 0));
+        Assert.Throws<InvalidOperationException>(() => new PirateWeatherClient(new HttpClient(handler), BuildConfig(apiKey: null)));
     }
 
     [Fact]

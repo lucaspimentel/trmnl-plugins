@@ -34,6 +34,18 @@ public class WeatherForecastOrchestrator(
     public const string CacheStaleServed = "stale_served";
     public const string CacheAllFailed = "all_failed";
 
+    private const string TagCoord = "weather.coord";
+    private const string TagUnits = "weather.units";
+    private const string TagHours = "weather.hours";
+    private const string TagDays = "weather.days";
+    private const string TagRequestedProvider = "weather.requested_provider";
+    private const string TagWinningProvider = "weather.winning_provider";
+    private const string TagCacheStatus = "weather.cache_status";
+    private const string TagFallback = "weather.fallback";
+    private const string TagAgeSeconds = "weather.age_seconds";
+    private const string TagFirstFailureStatus = "weather.first_failure.status";
+    private const string TagFirstFailureError = "weather.first_failure.error";
+
     public async Task<ForecastOutcome> GetAsync(
         string? requestedName,
         double latitude,
@@ -46,10 +58,10 @@ public class WeatherForecastOrchestrator(
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
         span.SetTag(Tags.SpanKind, SpanKinds.Internal);
-        span.SetTag("weather.coord", string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
-        span.SetTag("weather.units", metric ? "metric" : "imperial");
-        span.SetTag("weather.hours", hours.ToString(CultureInfo.InvariantCulture));
-        span.SetTag("weather.days", days.ToString(CultureInfo.InvariantCulture));
+        span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
+        span.SetTag(TagUnits, metric ? "metric" : "imperial");
+        span.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
+        span.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
 
         var chain = resolver.ResolveChain(requestedName);
         if (chain.Count == 0)
@@ -59,7 +71,7 @@ public class WeatherForecastOrchestrator(
 
         var requestedProvider = chain[0].Name;
         span.ResourceName = requestedProvider;
-        span.SetTag("weather.requested_provider", requestedProvider);
+        span.SetTag(TagRequestedProvider, requestedProvider);
 
         Upstream? firstFailure = null;
         Exception? firstFailureException = null;
@@ -130,17 +142,17 @@ public class WeatherForecastOrchestrator(
 
         var failure = new UpstreamUnavailableException(firstFailure!, firstFailureException);
         span.SetException(failure);
-        span.SetTag("weather.cache_status", CacheAllFailed);
+        span.SetTag(TagCacheStatus, CacheAllFailed);
         TagFirstFailure(span, firstFailure!);
         throw failure;
     }
 
     private ForecastOutcome TagOutcome(ISpan span, ForecastOutcome outcome)
     {
-        span.SetTag("weather.winning_provider", outcome.WinningProvider);
-        span.SetTag("weather.cache_status", outcome.CacheStatus);
-        span.SetTag("weather.fallback", outcome.WinningProvider != outcome.RequestedProvider ? "true" : "false");
-        span.SetTag("weather.age_seconds", (timeProvider.GetUtcNow() - outcome.FetchedAt).TotalSeconds.ToString("F0", CultureInfo.InvariantCulture));
+        span.SetTag(TagWinningProvider, outcome.WinningProvider);
+        span.SetTag(TagCacheStatus, outcome.CacheStatus);
+        span.SetTag(TagFallback, outcome.WinningProvider != outcome.RequestedProvider ? "true" : "false");
+        span.SetTag(TagAgeSeconds, (timeProvider.GetUtcNow() - outcome.FetchedAt).TotalSeconds.ToString("F0", CultureInfo.InvariantCulture));
         if (outcome.Upstream is { } u)
         {
             TagFirstFailure(span, u);
@@ -150,8 +162,8 @@ public class WeatherForecastOrchestrator(
 
     private static void TagFirstFailure(ISpan span, Upstream upstream)
     {
-        span.SetTag("weather.first_failure.status", upstream.Status?.ToString(CultureInfo.InvariantCulture));
-        span.SetTag("weather.first_failure.error", upstream.Error);
+        span.SetTag(TagFirstFailureStatus, upstream.Status?.ToString(CultureInfo.InvariantCulture));
+        span.SetTag(TagFirstFailureError, upstream.Error);
     }
 
     private static bool IsTransient(Exception ex, CancellationToken cancellationToken) =>

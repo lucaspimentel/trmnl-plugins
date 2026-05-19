@@ -35,8 +35,8 @@ public class WeatherTransformer : IWeatherTransformer
 
     internal static HourlyForecast TransformHourly(OpenMeteoHourly hourly, string currentTime, OpenMeteoDaily daily, int hours)
     {
-        var currentHour = currentTime[..13]; // "yyyy-MM-ddTHH"
-        var startIndex = hourly.Time.FindIndex(t => t[..13] == currentHour);
+        var currentHour = currentTime[..13];
+        var startIndex = hourly.Time.FindIndex(t => t.StartsWith(currentHour, StringComparison.Ordinal));
         if (startIndex < 0) startIndex = 0;
 
         var count = Math.Min(hours, hourly.Time.Count - startIndex);
@@ -48,7 +48,7 @@ public class WeatherTransformer : IWeatherTransformer
             var wc = hourly.WeatherCode[i];
             var loopIndex = i - startIndex;
 
-            var label = loopIndex == 0 ? "Now" : FormatHourLabel(time);
+            var label = loopIndex == 0 ? "Now" : HourLabel.Format(time);
 
             entries.Add(new HourlyEntry(
                 Time: time,
@@ -99,17 +99,4 @@ public class WeatherTransformer : IWeatherTransformer
         return false;
     }
 
-    private static string FormatHourLabel(string isoTime)
-    {
-        // isoTime format: "yyyy-MM-ddTHH:mm"
-        var hourStr = isoTime[11..13];
-        var h = int.Parse(hourStr);
-        return h switch
-        {
-            0 => "12am",
-            < 12 => $"{h}am",
-            12 => "12pm",
-            _ => $"{h - 12}pm"
-        };
-    }
 }

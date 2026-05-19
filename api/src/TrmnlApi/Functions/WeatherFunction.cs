@@ -33,39 +33,29 @@ public class WeatherFunction(
 
         if (!RequestValidator.TryParseCoordinates(query["latitude"], query["longitude"], out var latitude, out var longitude))
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync("latitude and longitude query parameters are required and must be valid numbers.", cancellationToken);
-            return bad;
+            return await BadRequest(req, "latitude and longitude query parameters are required and must be valid numbers.", cancellationToken);
         }
 
         if (!RequestValidator.AreCoordinatesInRange(latitude, longitude))
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync("latitude must be between -90 and 90, longitude must be between -180 and 180.", cancellationToken);
-            return bad;
+            return await BadRequest(req, "latitude must be between -90 and 90, longitude must be between -180 and 180.", cancellationToken);
         }
 
         var unitsParam = query["units"];
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync($"units must be 'imperial' or 'metric'.", cancellationToken);
-            return bad;
+            return await BadRequest(req, "units must be 'imperial' or 'metric'.", cancellationToken);
         }
         var metric = unitsParam is "metric";
 
         if (!RequestValidator.TryParseRangeParam(query["hours"], 1, MaxHours, out var hours))
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync($"hours must be an integer between 1 and {MaxHours}.", cancellationToken);
-            return bad;
+            return await BadRequest(req, $"hours must be an integer between 1 and {MaxHours}.", cancellationToken);
         }
 
         if (!RequestValidator.TryParseRangeParam(query["days"], 1, MaxDays, out var days))
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync($"days must be an integer between 1 and {MaxDays}.", cancellationToken);
-            return bad;
+            return await BadRequest(req, $"days must be an integer between 1 and {MaxDays}.", cancellationToken);
         }
 
         var requestedProvider = query["provider"];
@@ -85,9 +75,7 @@ public class WeatherFunction(
         }
         catch (ArgumentException)
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync($"provider '{requestedProvider}' is not a known weather provider.", cancellationToken);
-            return bad;
+            return await BadRequest(req, $"provider '{requestedProvider}' is not a known weather provider.", cancellationToken);
         }
         catch (UpstreamUnavailableException ex)
         {
@@ -134,6 +122,13 @@ public class WeatherFunction(
         ok.Headers.Add("Content-Type", "application/json; charset=utf-8");
         await ok.WriteStringAsync(JsonSerializer.Serialize(weatherResponse, JsonOptions), cancellationToken);
         return ok;
+    }
+
+    private static async Task<HttpResponseData> BadRequest(HttpRequestData req, string message, CancellationToken cancellationToken)
+    {
+        var response = req.CreateResponse(HttpStatusCode.BadRequest);
+        await response.WriteStringAsync(message, cancellationToken);
+        return response;
     }
 
     private static WeatherResponse FakePrecipitation(WeatherResponse response)

@@ -59,7 +59,7 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
             var time = FormatLocalTime(pe.Time, tz);
             var isDay = !IsNightHour(time, daily);
             var loopIndex = i - startIndex;
-            var label = loopIndex == 0 ? "Now" : FormatHourLabel(time);
+            var label = loopIndex == 0 ? "Now" : HourLabel.Format(time);
 
             entries.Add(new HourlyEntry(
                 Time: time,
@@ -126,15 +126,4 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
         return local.ToString("yyyy-MM-dd");
     }
 
-    private static string FormatHourLabel(string isoTime)
-    {
-        var h = int.Parse(isoTime[11..13]);
-        return h switch
-        {
-            0 => "12am",
-            < 12 => $"{h}am",
-            12 => "12pm",
-            _ => $"{h - 12}pm"
-        };
-    }
 }

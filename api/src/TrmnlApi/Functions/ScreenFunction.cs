@@ -2,32 +2,43 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace TrmnlApi.Functions;
 
-public class ScreenFunction(IHttpClientFactory httpClientFactory, ILogger<ScreenFunction> logger)
+public class ScreenFunction
 {
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<ScreenFunction> _logger;
+    private readonly string? _deviceId;
+    private readonly string? _apiKey;
+
+    public ScreenFunction(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<ScreenFunction> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+        _deviceId = configuration["TRMNL_DEVICE_ID"];
+        _apiKey = configuration["TRMNL_DEVICE_API_KEY"];
+    }
+
     [Function("screen")]
     public async Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "v1/screen")] HttpRequestData req,
         CancellationToken cancellationToken)
     {
-        var deviceId = Environment.GetEnvironmentVariable("TRMNL_DEVICE_ID");
-        var apiKey = Environment.GetEnvironmentVariable("TRMNL_DEVICE_API_KEY");
-
-        if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(apiKey))
+        if (string.IsNullOrEmpty(_deviceId) || string.IsNullOrEmpty(_apiKey))
         {
-            logger.LogError("TRMNL_DEVICE_ID or TRMNL_DEVICE_API_KEY environment variable is not configured");
+            _logger.LogError("TRMNL_DEVICE_ID or TRMNL_DEVICE_API_KEY environment variable is not configured");
             var error = req.CreateResponse(HttpStatusCode.InternalServerError);
             await error.WriteStringAsync("TRMNL_DEVICE_ID and TRMNL_DEVICE_API_KEY must be configured.", cancellationToken);
             return error;
         }
 
-        var client = httpClientFactory.CreateClient("TrmnlApi");
+        var client = _httpClientFactory.CreateClient("TrmnlApi");
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://usetrmnl.com/api/current_screen");
-        request.Headers.Add("ID", deviceId);
-        request.Headers.Add("Access-Token", apiKey);
+        request.Headers.Add("ID", _deviceId);
+        request.Headers.Add("Access-Token", _apiKey);
 
         HttpResponseMessage upstream;
         try
@@ -36,7 +47,7 @@ public class ScreenFunction(IHttpClientFactory httpClientFactory, ILogger<Screen
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to call TRMNL current_screen API");
+            _logger.LogError(ex, "Failed to call TRMNL current_screen API");
             var error = req.CreateResponse(HttpStatusCode.BadGateway);
             await error.WriteStringAsync("Failed to reach TRMNL API.", cancellationToken);
             return error;
@@ -52,7 +63,7 @@ public class ScreenFunction(IHttpClientFactory httpClientFactory, ILogger<Screen
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to parse TRMNL current_screen response");
+            _logger.LogError(ex, "Failed to parse TRMNL current_screen response");
         }
 
         if (string.IsNullOrEmpty(imageUrl))
