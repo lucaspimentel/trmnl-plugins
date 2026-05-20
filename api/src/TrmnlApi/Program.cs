@@ -17,9 +17,9 @@ builder.Services
 builder.Services.AddMemoryCache(options => options.SizeLimit = 200);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
-    .AddStandardResilienceHandler();
+    .AddStandardResilienceHandler(WeatherResilience.Configure);
 builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>()
-    .AddStandardResilienceHandler();
+    .AddStandardResilienceHandler(WeatherResilience.Configure);
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 // Registration order defines the fallback order: requested provider first, then the others in this order.
