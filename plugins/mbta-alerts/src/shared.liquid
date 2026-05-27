@@ -26,6 +26,6 @@
 {% template title_bar %}
 <div class="title_bar">
   <span class="title">{{ plugin_name }}</span>
-  <span class="instance">Updated {{ trmnl.system.timestamp_utc | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %-I:%M %p" }} from MBTA</span>
+  <span class="instance">Updated {{ "now" | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %-I:%M %p" }} from MBTA</span>
 </div>
 {% endtemplate %}
