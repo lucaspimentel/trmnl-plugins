@@ -16,6 +16,10 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current service alerts fro
 
 [MBTA V3 API](https://api-v3.mbta.com/) — free, no API key required.
 
+### Attribution
+
+Data provided by the Massachusetts Department of Transportation (MassDOT), including the Massachusetts Bay Transportation Authority (MBTA), under the [MassDOT Developers License Agreement](https://cdn.mbta.com/sites/default/files/2023-08/mbta-massdot-develop-license-agreement.pdf). This plugin filters the alerts feed to subway and light rail routes and trims the response to the fields used by the templates. No MassDOT or MBTA logos or trademarks are reproduced.
+
 ## Setup
 
 Install as a private plugin on [TRMNL](https://usetrmnl.com/). The plugin polls the MBTA API every 30 minutes.
