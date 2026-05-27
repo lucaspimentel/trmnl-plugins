@@ -2,6 +2,11 @@
 
 Displays current service alerts from the MBTA, filtered to subway and light rail routes, sorted by severity.
 
+## Plugin IDs
+
+- **Prod**: 93149 (checked in at `src/settings.yml`)
+- **Staging**: 316556 (swap in locally before `trmnlp push` to staging; do not commit)
+
 ## API
 
 MBTA v3 API, no auth required:

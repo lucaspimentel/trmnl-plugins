@@ -6,6 +6,11 @@ either Pirate Weather (default) or Open-Meteo.
 
 See `README.md` for contributor setup and external dependency details.
 
+## Plugin IDs
+
+- **Prod**: 249564 (checked in at `src/settings.yml`)
+- **Staging**: 316595 (swap in locally before `trmnlp push` to staging; do not commit)
+
 ## API: TrmnlApi
 
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
