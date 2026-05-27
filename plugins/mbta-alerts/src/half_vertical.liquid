@@ -1,2 +1,4 @@
+{% assign latest_update = "" %}
+{% for alert in data %}{% if alert.attributes.updated_at > latest_update %}{% assign latest_update = alert.attributes.updated_at %}{% endif %}{% endfor %}
 {% render "alert_list", data: data, max_height: 360 %}
-{% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name %}
+{% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: latest_update %}
