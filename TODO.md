@@ -42,3 +42,10 @@ Improvements identified during a review of the caching and fallback workflow in 
 - [ ] **Cache on the provider's snapped coordinates, not the requested ones**
   - `api/src/TrmnlApi/Services/WeatherCache.cs:31-32` builds the cache key from the requested `lat`/`lon` rounded to `F2`. Open-Meteo snaps requests to its nearest grid cell and returns the resolved coordinates in the response body (e.g. requested `42.37,-71.04` resolves to `42.35753,-71.02687`), so nearby requests that map to the same grid cell currently miss the cache.
   - Fix: key the cache on the provider's snapped coordinates (parsed from the upstream response) so requests resolving to the same cell share a cache entry. Coordinate with the L2 cache key design in the P1 Table Storage item above.
+
+## Docs & tooling
+
+- [ ] **Document `trmnlp build --png` in CLAUDE.md or the trmnl-dev skill**
+  - `trmnlp build` (added PNG support in trmnl_preview 0.8.1; we're now on 0.8.7) renders templates to static HTML, and `--png` also rasterizes each view to a PNG. Flags: `--width`, `--height`, `--color-depth` (1-8, e.g. `1` for OG 1-bit e-ink).
+  - It's the lightweight built-in alternative to this repo's `tools/build-preview.sh` (which wraps output in real TRMNL CSS/JS and screenshots variants via Playwright). Note the relationship so it's clear when to reach for each.
+  - Candidate homes: the "Build Preview" section of root `CLAUDE.md`, or the trmnl-dev skill docs.
