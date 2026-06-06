@@ -5,7 +5,16 @@ Displays current service alerts from the MBTA, filtered to subway and light rail
 ## Plugin IDs
 
 - **Prod**: 93149 (checked in at `src/settings.yml`)
-- **Staging**: 316556 (swap in locally before `trmnlp push` to staging; do not commit)
+- **Staging**: 316556
+
+### Pushing to staging
+
+Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (do not commit them; revert with `git checkout -- src/settings.yml` afterward):
+
+1. `id:` → `316556`
+2. `name:` → append ` (staging)` (e.g. `MBTA Alerts (staging)`) so it's distinguishable from prod in the TRMNL UI
+
+(No `polling_url` swap: this plugin polls the public MBTA API directly, same for prod and staging.)
 
 ## API
 
