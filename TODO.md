@@ -39,9 +39,11 @@ Improvements identified during a review of the caching and fallback workflow in 
   - `api/src/TrmnlApi/Services/WeatherTransformer.cs:51` sets `label = loopIndex == 0 ? "Now" : HourLabel.Format(time)`. The first hourly bucket carries the model temperature for the current hour, which can differ from `current.temperature` (e.g. 68° hourly vs 72° current observed for the same moment), so labeling it "Now" reads as inconsistent next to the current temp.
   - Fix: drop the special-case and just use `HourLabel.Format(time)` for index 0 so it shows the actual hour (e.g. "10am") like the rest of the chart.
 
-- [ ] **Cache on the provider's snapped coordinates, not the requested ones**
-  - `api/src/TrmnlApi/Services/WeatherCache.cs:31-32` builds the cache key from the requested `lat`/`lon` rounded to `F2`. Open-Meteo snaps requests to its nearest grid cell and returns the resolved coordinates in the response body (e.g. requested `42.37,-71.04` resolves to `42.35753,-71.02687`), so nearby requests that map to the same grid cell currently miss the cache.
-  - Fix: key the cache on the provider's snapped coordinates (parsed from the upstream response) so requests resolving to the same cell share a cache entry. Coordinate with the L2 cache key design in the P1 Table Storage item above.
+- [ ] **Improve cross-user cache dedup for nearby coordinates (low priority — likely drop)**
+  - `api/src/TrmnlApi/Services/WeatherCache.cs:31-32` keys on the requested `lat`/`lon` rounded to `F2`. Idea was to share entries between requests that resolve to the same provider grid cell.
+  - **Coarsening the key (round to a fixed grid) does not work** — tested F1 (0.1 deg) vs raw F2 against Open-Meteo at `42.36,-71.06` (2026-06-06): the two requests land in different grid cells **4.23 km apart**, with current temp differing **1.4 F** and hourly temps up to **3.2 F**. Open-Meteo serves a high-res grid (~1-2 km) here, finer than F2, so F1 jumps several cells and degrades accuracy. The F2 key already matches the raw request closely.
+  - **Snapping to the provider's resolved coords has a chicken-and-egg problem**: the snapped coords only come back *in the response*, so you can't key a cache *read* on them without first calling the provider (defeating the cache). The only correct form is a `requested-key -> snapped-key` alias map (two-level lookup), which still costs one provider call per distinct requested coordinate to learn its mapping.
+  - **Conclusion**: not worth it for this workload. TRMNL devices poll with fixed per-device coords, which already hit the F2 cache; the only upside (cross-user dedup) requires many geographically-clustered users and costs measurable accuracy. Revisit only if usage shows coordinate clustering, and only via the alias-map approach.
 
 ## Docs & tooling
 
