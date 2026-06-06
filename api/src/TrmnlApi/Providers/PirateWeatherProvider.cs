@@ -58,12 +58,10 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
             var pe = hourly.Data[i];
             var time = FormatLocalTime(pe.Time, tz);
             var isDay = !IsNightHour(time, daily);
-            var loopIndex = i - startIndex;
-            var label = loopIndex == 0 ? "Now" : HourLabel.Format(time);
 
             entries.Add(new HourlyEntry(
                 Time: time,
-                Label: label,
+                Label: HourLabel.Format(time),
                 Temperature: (int)Math.Round(pe.Temperature),
                 PrecipitationProbability: (int)Math.Round(pe.PrecipProbability * 100),
                 IconClass: PirateIconMap.GetIconClass(pe.Icon),

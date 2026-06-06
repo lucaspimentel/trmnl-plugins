@@ -54,7 +54,7 @@ public class WeatherTransformerTests
 
         Assert.Equal(25, result.Hourly.Entries.Count);
         Assert.Equal("2026-02-25T14:00", result.Hourly.Entries[0].Time);
-        Assert.Equal("Now", result.Hourly.Entries[0].Label);
+        Assert.Equal("2pm", result.Hourly.Entries[0].Label);
         Assert.Equal("2026-02-26T14:00", result.Hourly.Entries[^1].Time);
     }
 
@@ -95,7 +95,7 @@ public class WeatherTransformerTests
         var result = new WeatherTransformer().Transform(raw, hours: 12);
 
         Assert.Equal(12, result.Hourly.Entries.Count);
-        Assert.Equal("Now", result.Hourly.Entries[0].Label);
+        Assert.Equal("2pm", result.Hourly.Entries[0].Label);
     }
 
     [Fact]

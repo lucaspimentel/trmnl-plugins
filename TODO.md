@@ -35,7 +35,7 @@ Improvements identified during a review of the caching and fallback workflow in 
 
 ## Weather display & accuracy
 
-- [ ] **Show clock time instead of "Now" for the first hourly entry**
+- [x] **Show clock time instead of "Now" for the first hourly entry**
   - `api/src/TrmnlApi/Services/WeatherTransformer.cs:51` sets `label = loopIndex == 0 ? "Now" : HourLabel.Format(time)`. The first hourly bucket carries the model temperature for the current hour, which can differ from `current.temperature` (e.g. 68° hourly vs 72° current observed for the same moment), so labeling it "Now" reads as inconsistent next to the current temp.
   - Fix: drop the special-case and just use `HourLabel.Format(time)` for index 0 so it shows the actual hour (e.g. "10am") like the rest of the chart.
 

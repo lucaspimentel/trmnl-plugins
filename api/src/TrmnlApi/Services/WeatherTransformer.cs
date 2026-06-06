@@ -46,13 +46,10 @@ public class WeatherTransformer : IWeatherTransformer
             var time = hourly.Time[i];
             var isDay = IsNightHour(time, daily) == false;
             var wc = hourly.WeatherCode[i];
-            var loopIndex = i - startIndex;
-
-            var label = loopIndex == 0 ? "Now" : HourLabel.Format(time);
 
             entries.Add(new HourlyEntry(
                 Time: time,
-                Label: label,
+                Label: HourLabel.Format(time),
                 Temperature: (int)Math.Round(hourly.Temperature2m[i]),
                 PrecipitationProbability: hourly.PrecipitationProbability[i] ?? 0,
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay),

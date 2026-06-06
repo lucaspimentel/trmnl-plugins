@@ -68,7 +68,7 @@ public class PirateWeatherProviderTests
     {
         var result = PirateWeatherProvider.Transform(LoadFixture());
         Assert.Equal(25, result.Hourly.Entries.Count);
-        Assert.Equal("Now", result.Hourly.Entries[0].Label);
+        Assert.Matches(@"^\d{1,2}(am|pm)$", result.Hourly.Entries[0].Label);
         Assert.Matches(@"^\d{1,2}(am|pm)$", result.Hourly.Entries[1].Label);
     }
 
