@@ -32,3 +32,13 @@ Improvements identified during a review of the caching and fallback workflow in 
 - [ ] **P3 — Cleanup: make `TimeProvider` required in `WeatherCache`**
   - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:40`), so the null-default is dead code.
   - Make the parameter required; drop the null coalesce.
+
+## Weather display & accuracy
+
+- [ ] **Show clock time instead of "Now" for the first hourly entry**
+  - `api/src/TrmnlApi/Services/WeatherTransformer.cs:51` sets `label = loopIndex == 0 ? "Now" : HourLabel.Format(time)`. The first hourly bucket carries the model temperature for the current hour, which can differ from `current.temperature` (e.g. 68° hourly vs 72° current observed for the same moment), so labeling it "Now" reads as inconsistent next to the current temp.
+  - Fix: drop the special-case and just use `HourLabel.Format(time)` for index 0 so it shows the actual hour (e.g. "10am") like the rest of the chart.
+
+- [ ] **Cache on the provider's snapped coordinates, not the requested ones**
+  - `api/src/TrmnlApi/Services/WeatherCache.cs:31-32` builds the cache key from the requested `lat`/`lon` rounded to `F2`. Open-Meteo snaps requests to its nearest grid cell and returns the resolved coordinates in the response body (e.g. requested `42.37,-71.04` resolves to `42.35753,-71.02687`), so nearby requests that map to the same grid cell currently miss the cache.
+  - Fix: key the cache on the provider's snapped coordinates (parsed from the upstream response) so requests resolving to the same cell share a cache entry. Coordinate with the L2 cache key design in the P1 Table Storage item above.
