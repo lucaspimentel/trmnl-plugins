@@ -4,7 +4,7 @@
 
 Improvements identified during a review of the caching and fallback workflow in the Azure Functions weather API. Ordered by impact-to-effort ratio (highest first).
 
-- [ ] **P1 — Pick freshest stale entry, not first found**
+- [x] **P1 — Pick freshest stale entry, not first found**
   - `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:94-97` uses `staleFallback ??= (cached, provider.Name)`, which locks in the first stale entry encountered (the requested provider's, since it's `chain[0]`). If the secondary provider has a more recent stale entry, we still serve the older one.
   - Fix: track all stale entries seen in the loop and pick the one with the highest `FetchedAt`.
   - Quick win — ~5 lines, no infra changes, directly improves availability when both providers are down.

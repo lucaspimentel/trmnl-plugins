@@ -120,6 +120,24 @@ public class WeatherForecastOrchestratorTests
     }
 
     [Fact]
+    public async Task GetAsync_AllFail_ServesFreshestStaleEntry_NotFirstFound()
+    {
+        var first = new StubProvider(Primary) { Failure = new HttpRequestException("boom") };
+        var second = new StubProvider(Secondary) { Failure = new HttpRequestException("also down") };
+        var (orchestrator, cache, clock) = Build(first, second);
+        cache.Set(Primary, 1, 2, false, MakeResponse("stale-primary"));       // older
+        clock.Advance(TimeSpan.FromMinutes(5));
+        cache.Set(Secondary, 1, 2, false, MakeResponse("stale-secondary"));   // newer
+        clock.Advance(TimeSpan.FromMinutes(30)); // both > FreshTtl (10m), both < StaleTtl (3h)
+
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
+
+        Assert.Equal("stale-secondary", outcome.Response.Current.Condition);
+        Assert.Equal(Secondary, outcome.WinningProvider);
+        Assert.Equal(WeatherForecastOrchestrator.CacheStaleServed, outcome.CacheStatus);
+    }
+
+    [Fact]
     public async Task GetAsync_AllFail_NoStaleCacheAnywhere_Throws()
     {
         var first = new StubProvider(Primary) { Failure = new HttpRequestException("boom") };

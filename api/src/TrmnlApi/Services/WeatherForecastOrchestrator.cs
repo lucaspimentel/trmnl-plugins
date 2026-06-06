@@ -91,9 +91,10 @@ public class WeatherForecastOrchestrator(
                     firstFailure));
             }
 
-            if (cached is not null)
+            if (cached is not null &&
+                (staleFallback is null || cached.FetchedAt > staleFallback.Value.Forecast.FetchedAt))
             {
-                staleFallback ??= (cached, provider.Name);
+                staleFallback = (cached, provider.Name);
             }
 
             try
