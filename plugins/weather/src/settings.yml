@@ -51,6 +51,7 @@ custom_fields:
   name: Hours
   description: Number of hours to show in the Hourly forecast
   placeholder: '25'
+  default: 25
   min: 1
   max: 25
   step: 1
@@ -59,6 +60,7 @@ custom_fields:
   name: Days
   description: Number of days to show in the Daily forecast, including today
   placeholder: '6'
+  default: 6
   min: 1
   max: 6
   step: 1
