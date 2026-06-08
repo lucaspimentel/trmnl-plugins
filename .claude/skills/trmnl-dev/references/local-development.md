@@ -34,6 +34,20 @@ trmnlp serve                  # develop locally
 trmnlp push --force           # upload changes
 ```
 
+## Static HTML / PNG Render (`trmnlp build`)
+
+`trmnlp build` writes static HTML for every layout to `_build/`. Add `--png` (trmnl_preview ≥ 0.8.1) to also rasterize each layout to a PNG:
+
+```bash
+trmnlp build                                                  # _build/<layout>.html only
+trmnlp build --png --width 800 --height 480 --color-depth 1   # OG 1-bit (2 colors)
+trmnlp build --png --width 1040 --height 780 --color-depth 4  # 4-bit (16 grays)
+```
+
+- `--color-depth` is 1-8; it genuinely quantizes (1 → true 1-bit, 4 → 16 grays). JS runs, so Highcharts renders.
+- **Limitation:** the wrapper is a bare `<div class="screen">` — no `screen--md/lg`, `screen--1bit/4bit`, or `screen--portrait`. So only the default (OG) layout renders; the TRMNL X responsive layout and portrait do not. `--width`/`--height` only resize the canvas (OG layout sits top-left with empty space), and sub-full layouts render on a full-size canvas rather than their mashup slot.
+- Good for a fast OG sanity check. For a true X / portrait / in-slot preview, this repo wraps the build output in real device screen classes via `tools/build-preview.sh` (see root `CLAUDE.md`).
+
 ## .trmnlp.yml — Local Dev Config
 
 This file configures the local preview server (not uploaded to TRMNL):

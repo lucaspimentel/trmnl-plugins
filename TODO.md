@@ -47,7 +47,7 @@ Improvements identified during a review of the caching and fallback workflow in 
 
 ## Docs & tooling
 
-- [ ] **Document `trmnlp build --png` in CLAUDE.md or the trmnl-dev skill**
+- [x] **Document `trmnlp build --png` in CLAUDE.md or the trmnl-dev skill**
   - `trmnlp build` (added PNG support in trmnl_preview 0.8.1; we're now on 0.8.7) renders templates to static HTML, and `--png` also rasterizes each view to a PNG. Flags: `--width`, `--height`, `--color-depth` (1-8, e.g. `1` for OG 1-bit e-ink).
   - It's the lightweight built-in alternative to this repo's `tools/build-preview.sh` (which wraps output in real TRMNL CSS/JS and screenshots variants via Playwright). Note the relationship so it's clear when to reach for each.
-  - Candidate homes: the "Build Preview" section of root `CLAUDE.md`, or the trmnl-dev skill docs.
+  - **Outcome (keep both):** compared the two on the weather plugin. `trmnlp build --png` runs JS (Highcharts renders) and quantizes bit-depth correctly, but its wrapper is a bare `<div class="screen">` — it never applies `screen--lg`/`screen--4bit`/`screen--portrait`, so the TRMNL X responsive layout and portrait don't render and `--width`/`--height` only resize the canvas. Not a replacement for `build-preview.sh`; they're complementary. Documented in root `CLAUDE.md` "Build Preview" and the trmnl-dev skill's `local-development.md`.

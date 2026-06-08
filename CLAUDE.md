@@ -37,6 +37,18 @@ Output goes to `_build/{og,x,x-portrait}/`. Each subdirectory gets the TRMNL wra
 - X: `<div class="screen screen--4bit screen--v2 screen--lg screen--1x">`
 - X portrait: same + `screen--portrait`
 
+### Quick look: `trmnlp build --png`
+
+Built-in lightweight alternative — renders all four layouts to HTML + PNG in one command, no HTTP server or Playwright. Runs JS (Highcharts renders correctly).
+
+```bash
+cd plugins/<name>
+trmnlp build --png --width 800 --height 480 --color-depth 1   # OG 1-bit quick check
+trmnlp build --png --width 1040 --height 780 --color-depth 4  # 4-bit (16 grays)
+```
+
+Use it for fast OG sanity checks while iterating. It is **not** a replacement for `build-preview.sh`: the wrapper is a bare `<div class="screen">`, so it never applies `screen--lg`/`screen--4bit`/`screen--portrait` — the TRMNL X responsive layout and portrait do **not** render (`--width`/`--height` only resize the canvas, leaving the OG layout top-left with empty space). Reach for `build-preview.sh --screenshot` when you need a true X / portrait / in-slot preview.
+
 ## Docker Sandbox Template
 
 Build and run as a Docker sandbox template with all tools pre-installed (trmnlp, playwright-cli, .NET 10, Azure Functions Core Tools, ImageMagick, Python 3, PowerShell, Ruby):
