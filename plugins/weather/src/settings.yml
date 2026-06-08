@@ -22,10 +22,10 @@ custom_fields:
   field_type: select
   name: Weather Data Provider
   description: Which upstream weather API to use
-  default: pirate-weather
+  default: open-meteo
   options:
-  - pirate-weather
   - open-meteo
+  - pirate-weather
 - keyname: latitude
   field_type: number
   name: Latitude
