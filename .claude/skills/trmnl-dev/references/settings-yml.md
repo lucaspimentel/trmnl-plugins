@@ -70,7 +70,7 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `keyname` | yes | Identifier. Used in `polling_url` as `##{{ keyname }}` and in templates as `trmnl.plugin_settings.keyname` |
+| `keyname` | yes | Identifier. Used in `polling_url` as `{{ keyname }}` and in templates as `trmnl.plugin_settings.keyname` |
 | `name` | yes | Label shown in TRMNL UI |
 | `field_type` | yes | Input type (see below) |
 | `description` | no | Help text displayed under the field |
@@ -78,6 +78,10 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 | `learn_more_url` | no | Secondary link |
 | `placeholder` | no | Placeholder for text/number inputs |
 | `options` | no | List of values for `select` field type |
+| `default` | no | Pre-filled value that is submitted if the user leaves the field untouched (all field types). Unlike `placeholder`, which is hint-only and not submitted. |
+| `min` | no | Minimum value for `number` fields |
+| `max` | no | Maximum value for `number` fields |
+| `step` | no | Decimal grid for `number` fields. Renders as an HTML5 `step` attribute, so an off-grid value (e.g. a 6-decimal coordinate under `step: 0.001`) is rejected as "invalid" with no "too long" wording. Use `step: any` for free-form decimal precision. |
 
 ---
 
@@ -89,7 +93,7 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 | `string` | Single-line text input | string | General purpose text |
 | `multi_string` | Multiple text inputs | array of strings | For comma-separated or multiple values |
 | `text` | Multi-line textarea | string | For longer text |
-| `number` | Numeric input | number | |
+| `number` | Numeric input | number | Supports `min`/`max`/`step`/`default`. `step` enforces HTML5 grid validation; use `step: any` to accept arbitrary decimals. |
 | `password` | Password input (masked) | string | For API keys, tokens |
 | `boolean` | Checkbox | `true`/`false` | |
 | `date` | Date picker | date string | |

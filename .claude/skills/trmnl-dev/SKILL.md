@@ -96,6 +96,7 @@ Key points:
 - Plugins in this repo use: `.trmnlp.yml` at plugin root, all files under `src/`
 - `trmnlp serve` starts local preview at `http://localhost:4567`
 - `trmnlp push --force` uploads to TRMNL device
+- `trmnlp push` round-trips the target plugin's server-side settings back into the local `settings.yml`, so check `git diff` after a push for unrelated drift (e.g. a value edited in the TRMNL UI on the pushed-to plugin)
 
 ## TRMNL Documentation
 
