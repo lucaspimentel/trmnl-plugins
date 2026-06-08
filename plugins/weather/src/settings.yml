@@ -31,13 +31,13 @@ custom_fields:
   name: Latitude
   min: -90
   max: 90
-  step: 0.001
+  step: any
 - keyname: longitude
   field_type: number
   name: Longitude
   min: -180
   max: 180
-  step: 0.001
+  step: any
 - keyname: units
   field_type: select
   name: Units
