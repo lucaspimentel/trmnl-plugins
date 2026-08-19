@@ -2,7 +2,7 @@
 
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
 using a custom TrmnlApi Azure Function that fetches and normalizes data from
-either Pirate Weather (default) or Open-Meteo.
+either Open-Meteo (plugin default) or Pirate Weather.
 
 See `README.md` for contributor setup and external dependency details.
 
@@ -24,7 +24,9 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
 - **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude`, `units` (`imperial`/`metric`), `hours` (1–25), `days` (1–6), `provider` (`pirate-weather` (default) / `open-meteo`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–6, default 6), `provider` (`open-meteo` / `pirate-weather`); `fake=true` injects random precipitation for testing
+- **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting; `src/settings.yml` always sends `provider`, defaulting to `open-meteo`
+- **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 
 ### Response Shape
 
@@ -112,7 +114,9 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 | `weather_current_compact` | Compact current conditions (half/quadrant layouts) |
 | `weather_hourly_chart` | Highcharts spline (temp) + areaspline (precip %) with icons on x-axis, sunrise/sunset lines |
 | `weather_daily_bars_vertical` | CSS range bars, weather icons, labels inside/outside bar |
-| `title_bar` | Bottom bar with day + time |
+| `title_bar` | Bottom bar: plugin name, weather icon, "Updated"/"Cached" timestamp, provider label (full/half_horizontal only) |
+
+Daily bars per layout: `full` 6 days, `half_horizontal` 4, `half_vertical` 5, `quadrant` 3 (no hourly chart).
 
 `full.liquid` layout structure:
 
@@ -129,7 +133,7 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 
 **Highcharts**: Script tag must be inside the template block (not the layout file).
 Three Y-axes: `yAxis[0]` = temp (labels hidden), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = linked to yAxis[0] (opposite side, labels hidden).
-Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X via `isLg` JS flag). Chart height: 230px default, overridden to 380px on X via `.screen--lg` CSS in `full.liquid`.
+Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X via `isLg` JS flag). Chart height: 230px default in `full.liquid` (200 half_horizontal, 280 half_vertical), overridden via CSS in `full.liquid` to 380px on X (`.screen--lg`) and 300px in portrait (`.screen--portrait`).
 
 **Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
 

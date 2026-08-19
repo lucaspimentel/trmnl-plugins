@@ -15,11 +15,11 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally choose a **Weather Provider** (Pirate Weather (default) or Open-Meteo) and override the **Units**, **Hours**, and **Days** fields. The plugin polls the API every 30 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally choose a **Weather Data Provider** (Open-Meteo (default) or Pirate Weather) and override the **Units**, **Hours**, and **Days** fields. The plugin polls the API every 30 minutes.
 
 ## Data Source
 
-Weather data is fetched via a custom Azure Functions proxy (`api/` in this repo) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Pirate Weather](https://pirateweather.net/) (default) and [Open-Meteo](https://open-meteo.com/).
+Weather data is fetched via a custom Azure Functions proxy (`api/` in this repo) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Open-Meteo](https://open-meteo.com/) (default) and [Pirate Weather](https://pirateweather.net/). If the selected provider fails, the proxy automatically falls back to the other one and reports which provider actually served the data.
 
 ### Attribution
 
@@ -35,7 +35,7 @@ Weather data is fetched via a custom Azure Functions proxy (`api/` in this repo)
 | `units` | no | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
 | `hours` | no | `25` | Number of hourly forecast entries (1–25) |
 | `days` | no | `6` | Number of daily forecast entries (1–6) |
-| `provider` | no | `pirate-weather` | Upstream provider: `pirate-weather` or `open-meteo` |
+| `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather` (the plugin sends `open-meteo` by default) |
 
 ## Development
 

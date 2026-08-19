@@ -12,13 +12,26 @@ Displays service alerts from the Massachusetts Bay Transportation Authority (MBT
 
 ### [Weather](./plugins/weather)
 
-Displays current conditions, 24-hour temperature/precipitation chart, and 6-day forecast with weather icons.
+Displays current conditions, an hourly temperature/precipitation chart, and a multi-day forecast with weather icons.
 
 ![Weather](./plugins/weather/screenshot.png)
 
 ## Backend API
 
-The [Weather](./plugins/weather) plugin polls a custom Azure Functions backend in [`api/`](./api) that normalizes responses from upstream weather providers (Pirate Weather, Open-Meteo) into a uniform shape. Production endpoint: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`.
+The [Weather](./plugins/weather) plugin polls a custom Azure Functions backend in [`api/`](./api) that normalizes responses from upstream weather providers (Open-Meteo, Pirate Weather) into a uniform shape, caches them, and falls back to the other provider when one is unavailable.
+
+Endpoints (base `https://trmnl-plugins-api.azurewebsites.net`):
+
+- `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — normalized weather forecast (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
+- `GET /api/v1/screen` — redirects to the current screen image of the configured TRMNL device
+
+Build and test locally (.NET 10 SDK required):
+
+```bash
+dotnet build api/TrmnlApi.slnx
+dotnet test api/TrmnlApi.slnx
+cd api/src/TrmnlApi && func start    # Azure Functions Core Tools
+```
 
 ## Plugin Structure
 
@@ -27,7 +40,7 @@ Each plugin directory uses the trmnlp `src/` layout:
 ```
 plugins/<name>/
   .trmnlp.yml                 # local dev config
-  fields.txt                  # API data field docs
+  fields.txt                  # API data field docs (optional)
   src/
     settings.yml              # API endpoint, refresh interval, metadata (must be in src/)
     shared.liquid             # reusable Liquid templates

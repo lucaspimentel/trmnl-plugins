@@ -10,7 +10,7 @@ For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.tr
 - Plugin ID is stored in `src/settings.yml` under the `id:` key (not in `.trmnlp.yml`)
 - `polling_url` interpolation: use `{{ keyname }}` (plain Liquid), not `##{{ keyname }}`
 - Flex children that should shrink need `min-width: 0` — `plugins.js` measures widths before layout, so without it they expand to full container width
-- Recipe linter counts raw substrings of `font-size`, `padding`, `margin`, etc. across ALL markup (including JS, comments, variable names) — max 6 total. See `references/framework/updates.md` for workarounds.
+- Recipe linter counts raw substrings of `font-size`, `padding`, `margin`, etc. across ALL markup (including JS, comments, variable names) — max 6 total. See `.claude/skills/trmnl-dev/references/framework/updates.md` for workarounds.
 
 ## Deploy a Plugin
 
@@ -49,17 +49,22 @@ trmnlp build --png --width 1040 --height 780 --color-depth 4  # 4-bit (16 grays)
 
 Use it for fast OG sanity checks while iterating. It is **not** a replacement for `build-preview.sh`: the wrapper is a bare `<div class="screen">`, so it never applies `screen--lg`/`screen--4bit`/`screen--portrait` — the TRMNL X responsive layout and portrait do **not** render (`--width`/`--height` only resize the canvas, leaving the OG layout top-left with empty space). Reach for `build-preview.sh --screenshot` when you need a true X / portrait / in-slot preview.
 
-## Docker Sandbox Template
+## API Backend (`api/`)
 
-Build and run as a Docker sandbox template with all tools pre-installed (trmnlp, playwright-cli, .NET 10, Azure Functions Core Tools, ImageMagick, Python 3, PowerShell, Ruby):
+.NET 10 Azure Functions app (`TrmnlApi`) behind the Weather plugin. Solution: `api/TrmnlApi.slnx`.
 
 ```bash
-# Build the template
-docker build -t trmnl-plugins:v1 .
-
-# Run a sandbox with it
-docker sandbox run -t trmnl-plugins:v1 claude .
+dotnet build api/TrmnlApi.slnx
+dotnet test api/TrmnlApi.slnx                     # also run by .github/workflows/tests.yml
+cd api/src/TrmnlApi && func start                 # local run (Azure Functions Core Tools)
+cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api          # prod
+cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api-staging  # staging
 ```
+
+- Routes: `GET /api/v1/forecast` (anonymous), `GET /api/v1/screen` (redirects to the device's current screen image)
+- `WeatherProviders` app setting is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
+- Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`; screen route needs `TRMNL_DEVICE_ID`/`TRMNL_DEVICE_API_KEY`
+- Round latitude/longitude to `F1` before logging (coordinates are PII)
 
 ## Credentials
 
