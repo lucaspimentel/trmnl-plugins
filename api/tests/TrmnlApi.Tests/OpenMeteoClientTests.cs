@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Tests;
@@ -12,8 +13,7 @@ public class OpenMeteoClientTests
     {
         const string errorBody = "{\"error\":true,\"reason\":\"Latitude must be in range\"}";
         var handler = new StubHandler(HttpStatusCode.BadRequest, errorBody);
-        var httpClient = new HttpClient(handler);
-        var client = new OpenMeteoClient(httpClient);
+        var client = new OpenMeteoClient(new HttpClient(handler), BuildConfig(apiKey: null));
 
         var ex = await Assert.ThrowsAsync<HttpRequestException>(
             () => client.GetForecastAsync(200, 0));
@@ -28,8 +28,7 @@ public class OpenMeteoClientTests
     {
         var longBody = new string('x', 1000);
         var handler = new StubHandler(HttpStatusCode.InternalServerError, longBody);
-        var httpClient = new HttpClient(handler);
-        var client = new OpenMeteoClient(httpClient);
+        var client = new OpenMeteoClient(new HttpClient(handler), BuildConfig(apiKey: null));
 
         var ex = await Assert.ThrowsAsync<HttpRequestException>(
             () => client.GetForecastAsync(0, 0));
@@ -44,15 +43,56 @@ public class OpenMeteoClientTests
     {
         // "null" is valid JSON and deserializes to a null OpenMeteoResponse
         var handler = new StubHandler(HttpStatusCode.OK, "null");
-        var httpClient = new HttpClient(handler);
-        var client = new OpenMeteoClient(httpClient);
+        var client = new OpenMeteoClient(new HttpClient(handler), BuildConfig(apiKey: null));
 
         await Assert.ThrowsAsync<JsonException>(() => client.GetForecastAsync(0, 0));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetForecastAsync_NoApiKey_UsesFreeHostWithoutApiKeyParam(string? apiKey)
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "null");
+        var client = new OpenMeteoClient(new HttpClient(handler), BuildConfig(apiKey));
+
+        try { await client.GetForecastAsync(52.52, 13.41); } catch (JsonException) { }
+
+        Assert.NotNull(handler.LastUrl);
+        Assert.StartsWith("https://api.open-meteo.com/v1/forecast?", handler.LastUrl);
+        Assert.DoesNotContain("apikey=", handler.LastUrl);
+    }
+
+    [Fact]
+    public async Task GetForecastAsync_ApiKeyConfigured_UsesCustomerHostWithApiKeyParam()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "null");
+        var client = new OpenMeteoClient(new HttpClient(handler), BuildConfig("secret-key-1"));
+
+        try { await client.GetForecastAsync(52.52, 13.41); } catch (JsonException) { }
+
+        Assert.NotNull(handler.LastUrl);
+        Assert.StartsWith("https://customer-api.open-meteo.com/v1/forecast?", handler.LastUrl);
+        Assert.EndsWith("&apikey=secret-key-1", handler.LastUrl);
+        Assert.Contains("latitude=52.52&longitude=13.41", handler.LastUrl);
+    }
+
+    private static IConfiguration BuildConfig(string? apiKey)
+    {
+        var dict = new Dictionary<string, string?>();
+        if (apiKey is not null) dict[OpenMeteoClient.ApiKeySettingName] = apiKey;
+        return new ConfigurationBuilder().AddInMemoryCollection(dict).Build();
+    }
+
     private sealed class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+        public string? LastUrl { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastUrl = request.RequestUri?.ToString();
+            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+        }
     }
 }

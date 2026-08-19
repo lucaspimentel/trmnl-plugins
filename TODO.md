@@ -33,10 +33,12 @@ Improvements identified during a review of the caching and fallback workflow in 
   - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:40`), so the null-default is dead code.
   - Make the parameter required; drop the null coalesce.
 
-- [ ] **P1 — Escape upstream per-IP daily quotas (Open-Meteo paid key or self-host)**
+- [x] **P1 — Escape upstream per-IP daily quotas (Open-Meteo paid key or self-host)**
   - Diagnosed 2026-08-19: prod Function App's outbound IP hit Open-Meteo's per-IP daily limit — `meta.upstream` on `stale_served` responses showed `Open-Meteo returned 429 TooManyRequests: {"reason":"Daily API request limit exceeded. Please try again tomorrow."}`. Resets at UTC midnight. Pirate Weather was also 429'd (`"API rate limit exceeded"`), so neither provider was usable and the orchestrator correctly returned 502.
   - Options: (a) sign up for an Open-Meteo API key on a paid tier (no daily limit, higher quota), or (b) self-host Open-Meteo (it's open source) to escape per-IP limits entirely. Also verify the Pirate Weather key's plan/limits.
   - This is the root-cause fix for the 502s; the cache/fallback items above only mask it.
+  - **Resolved 2026-08-19** via option (a): subscribed to Open-Meteo's paid tier. `OpenMeteoClient` now sends requests to `customer-api.open-meteo.com` with `&apikey=` when the `OPEN_METEO_API_KEY` app setting is present, falling back to the free host when it is not. Key set in both prod and staging; deployed and verified (`meta.cache: fresh_fetch`, `meta.provider: open-meteo`). The customer host rejects unkeyed requests with 401 and invalid keys with 400, so a successful fetch confirms the key is in use.
+  - Still open: Pirate Weather remains on its free tier and was observed 429ing on 2026-08-19; its plan/limits have not been verified. It is now the fallback rather than the primary, so this is lower impact.
 
 - [ ] **P2 — Dedicated outbound IP (NAT Gateway) for prod Function App**
   - Open-Meteo's daily quota is per source IP. A dedicated/consistent outbound IP (Azure NAT Gateway) prevents prod's limit from being shared with other Azure tenants and gives a stable IP to reason about / allowlist.
