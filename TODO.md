@@ -33,6 +33,19 @@ Improvements identified during a review of the caching and fallback workflow in 
   - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:40`), so the null-default is dead code.
   - Make the parameter required; drop the null coalesce.
 
+- [ ] **P1 — Escape upstream per-IP daily quotas (Open-Meteo paid key or self-host)**
+  - Diagnosed 2026-08-19: prod Function App's outbound IP hit Open-Meteo's per-IP daily limit — `meta.upstream` on `stale_served` responses showed `Open-Meteo returned 429 TooManyRequests: {"reason":"Daily API request limit exceeded. Please try again tomorrow."}`. Resets at UTC midnight. Pirate Weather was also 429'd (`"API rate limit exceeded"`), so neither provider was usable and the orchestrator correctly returned 502.
+  - Options: (a) sign up for an Open-Meteo API key on a paid tier (no daily limit, higher quota), or (b) self-host Open-Meteo (it's open source) to escape per-IP limits entirely. Also verify the Pirate Weather key's plan/limits.
+  - This is the root-cause fix for the 502s; the cache/fallback items above only mask it.
+
+- [ ] **P2 — Dedicated outbound IP (NAT Gateway) for prod Function App**
+  - Open-Meteo's daily quota is per source IP. A dedicated/consistent outbound IP (Azure NAT Gateway) prevents prod's limit from being shared with other Azure tenants and gives a stable IP to reason about / allowlist.
+  - Lower priority than the paid-key fix above (which removes the quota ceiling entirely), but worth pairing with it for predictability.
+
+- [ ] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
+  - `plugins/weather/src/settings.yml` sets `refresh_interval: 30` (minutes). Every TRMNL device × poll hits the API and counts against upstream per-IP quotas. Raising it directly cuts upstream call volume.
+  - Trade-off: less fresh on-screen data. Consider 30 → 60 as a low-risk middle ground, or make it adaptive once the shared L2 cache (P1 above) is in place.
+
 ## Weather display & accuracy
 
 - [x] **Show clock time instead of "Now" for the first hourly entry**
