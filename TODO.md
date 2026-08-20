@@ -48,6 +48,31 @@ Improvements identified during a review of the caching and fallback workflow in 
   - `plugins/weather/src/settings.yml` sets `refresh_interval: 30` (minutes). Every TRMNL device × poll hits the API and counts against upstream per-IP quotas. Raising it directly cuts upstream call volume.
   - Trade-off: less fresh on-screen data. Consider 30 → 60 as a low-risk middle ground, or make it adaptive once the shared L2 cache (P1 above) is in place.
 
+- [ ] **P2 — Tighten resilience handler: circuit breaker + jittered exponential backoff**
+  - `api/src/TrmnlApi/Services/WeatherResilience.cs` only customizes the retry *predicate* (`ShouldRetry` skips 429 so the orchestrator falls back fast). The rest of `AddStandardResilienceHandler` uses Polly defaults — circuit breaker `MinimumThroughput=100` is too high to ever trip at this app's traffic (noted in the negative-caching item above), and the retry backoff is the default non-jittered exponential.
+  - Add jitter to the retry backoff and lower the circuit-breaker thresholds (or switch to a custom `AddResilienceHandler`) so a sustained upstream failure trips the breaker instead of every request eating the full retry budget.
+  - Pairs well with the negative-caching item (P2 above); both reduce wasted upstream calls when a provider is down.
+
+- [ ] **P2 — Lengthen forecast cache TTLs so 429s don't surface as customer-visible 502s**
+  - `api/src/TrmnlApi/Services/WeatherCache.cs` keys on `FreshTtl`/`StaleTtl` (absolute expiration set to `StaleTtl`). When both providers are rate-limited (as on 2026-08-19), once the stale entry expires the orchestrator returns 502.
+  - Raising `StaleTtl` (and optionally `FreshTtl`) widens the window during which a rate-limited provider is masked by a stale-served response instead of surfacing a 502.
+  - Trade-off: staler on-screen data during prolonged outages. Depends on P1B (shared L2 cache) for the longer TTL to actually help across instances/cold starts.
+
+- [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
+  - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
+  - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
+  - Likely via Application Insights / Azure Monitor custom metrics emitted from `WeatherForecastOrchestrator` or the resilience handler.
+
+- [ ] **P3 — Verify graceful stale-cache response when both providers are unavailable**
+  - `WeatherForecastOrchestrator.GetAsync` serves stale entries when a provider fails (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), but the behavior when *both* providers are down and the stale entry has expired (502) is the customer-visible failure mode seen on 2026-08-19.
+  - Confirm via test or manual repro that the fallback path serves the freshest stale entry while any non-expired one exists, and that the 502 returned after expiry is well-formed (not a raw exception/500). Add a regression test if none covers the both-providers-down path.
+  - Related to the resolved P1 "Pick freshest stale entry" item; this is the verification/coverage counterpart.
+
+- [ ] **Remove the `WeatherProviders` config — always default to open-meteo first**
+  - `api/src/TrmnlApi/Program.cs:29` reads `builder.Configuration["WeatherProviders"]` and `ParseWeatherProviders` (Program.cs:39-58) throws if it's missing/empty. The order from this setting defines the default + fallback order in `WeatherProviderResolver` (`api/src/TrmnlApi/Providers/WeatherProviderResolver.cs`).
+  - Goal: drop the config entirely and hardcode open-meteo as the primary (default), with pirate-weather as the only fallback. This removes a required app setting and a startup-failure mode (app refuses to start if `WeatherProviders` is unset).
+  - Touch points: remove `ParseWeatherProviders` + the `configuredProviders` local in Program.cs; pass a fixed `[OpenMeteoProvider.ProviderName, PirateWeatherProvider.ProviderName]` order to `WeatherProviderResolver` (or simplify the resolver to derive order from DI registration). Update `WeatherProviderResolverTests` (several tests assert on `configuredOrder` behavior — e.g. `Resolve_NullOrEmptyName_ReturnsFirstConfiguredProvider`, `ResolveChain_FollowsConfiguredOrderNotRegistrationOrder`, `Resolve_NameRegisteredButNotConfigured_ThrowsArgumentException`). Also remove `WeatherProviders` from `local.settings.json` / app settings in prod & staging.
+
 ## Weather display & accuracy
 
 - [x] **Show clock time instead of "Now" for the first hourly entry**
