@@ -85,6 +85,16 @@ Improvements identified during a review of the caching and fallback workflow in 
   - "Adjust layout accordingly" is the meatier part: when one or two subviews are disabled, the remaining view(s) should expand to fill the freed space rather than leave a gap — e.g. with only current+hourly enabled, the hourly chart should widen to full width; with only daily enabled, the daily bars should span the whole screen. Likely needs per-combination layout branches (or a flex container that reflows) and may require touching the Highcharts `chart_height`/width and the daily bars' vertical-vs-horizontal orientation.
   - Consider which layouts make sense for each combination (full vs half vs quadrant) and whether to gate some combinations as invalid.
 
+- [ ] **Add a 24-hour clock format option (am/pm vs 24h)**
+  - User feedback via Discord (MischaBoender, 2026-06-16): wants times shown as 24h instead of am/pm.
+  - Hour labels are formatted server-side in `api/src/TrmnlApi/Mappings/HourLabel.cs:5-15` (`HourLabel.Format`), used for the hourly chart's x-axis labels. Sunrise/sunset times and the "Updated"/"Cached" timestamp in `title_bar` may also need the same treatment; audit all places times are rendered.
+  - Needs a new setting (e.g. `time_format` select: `12h` / `24h`) in `plugins/weather/src/settings.yml`, passed through `polling_url` to the API, and a second format branch in `HourLabel.Format` (or an overload taking the format).
+
+- [ ] **Investigate the 6-day forecast limit on TRMNL X (user feedback: more days requested)**
+  - User feedback via Discord (MischaBoender, 2026-06-16): TRMNL X has visible space for more than 6 days of forecast, wants the limit raised.
+  - Currently hardcoded at 6: `plugins/weather/src/settings.yml:58-66` (`days` field, `max: 6`) and the API's `days` query param is capped 1-6 (per `plugins/weather/CLAUDE.md`). Need to check whether Open-Meteo's daily response actually supports more than 6 days (it does, typically up to 16) — the 6-day cap looks like a plugin/API design choice, not a data source limitation.
+  - `weather_daily_bars_vertical` (`plugins/weather/src/shared.liquid`) renders a fixed count per layout (full: 6, half_horizontal: 4, half_vertical: 5, quadrant: 3) — raising the max would need layout/width testing on the TRMNL X's larger canvas (`screen--lg`) specifically, since OG may not have room.
+
 - [ ] **Investigate new TRMNL framework features and assess what could improve the weather plugin**
   - The TRMNL UI framework is now open-source at https://github.com/usetrmnl/trmnl-framework ("TRMNL ePaper design system", a Rails engine), with updated docs at https://trmnl.com/framework. The plugin currently pins `framework_version: 2.3.7` in `plugins/weather/src/settings.yml`.
   - Research scope: review recent framework releases/commits (the repo went open-source ~2026-08, latest commits reference a 3.x line and a 3.2.0 re-cut) and the updated docs (Guides, Arrangement, Responsive utilities, Styling, Typography, Runtime, Paint, Sass, Themes, Variables, Foundation, Elements, Components) for new components/utilities that the weather plugin could adopt.
