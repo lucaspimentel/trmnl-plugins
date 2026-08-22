@@ -166,43 +166,38 @@ All items complete on branch `lpimentel/railway-migration` (commits `bf02e5f`, `
    directly and have no Azure Functions Worker dependency.
    Result: 206 tests passed, 0 failed, 0 skipped.
 
-### Phase 3 — Datadog APM (decision needed before Phase 4)
+### Phase 3 — Datadog APM (skipped)
 
-The current Windows/App-Service-specific Datadog wiring (`dd-appsettings.*.json`) doesn't apply
-to a Linux container. `Datadog.Trace` (already in `TrmnlApi.csproj`, hard-depended on by
-`WeatherForecastOrchestrator` for `ISpan`) auto-instruments ASP.NET Core without Azure-specific
-setup — but it needs a reachable Datadog Agent to export traces. Without an agent, the tracer
-no-ops gracefully (spans are created locally but discarded; the app compiles and runs fine).
+Skipped per user decision. Ship without the Datadog Agent sidecar; the `Datadog.Trace` tracer
+no-ops gracefully without a reachable agent. Add the Agent sidecar as a fast-follow once the
+migration is stable if trace visibility is needed.
 
-Realistic options on Railway:
-- **Datadog Agent sidecar**: run the Agent as a second service in the same Railway project,
-  reachable via Railway's private networking (each service gets an internal hostname). The
-  tracer auto-detects the agent via its default URL; no `DD_SERVICE`/`DD_ENV`/
-  `DD_TRACE_AGENT_URL` configuration is required (the tracer has sensible defaults: service
-  name from the application, env unset, agent URL defaults to `http://127.0.0.1:8126`). Adds a
-  second container to operate and pay for.
-- **Ship without traces**: rely on Railway's built-in logs/metrics initially, then add the
-  Agent sidecar as a fast-follow. Zero extra cost; the `Datadog.Trace` dependency stays in
-  place and resumes exporting once an agent is reachable.
+### Phase 4 — Railway setup (done)
 
-Recommendation: ship without the Agent sidecar initially (Phase 4), add it as a fast-follow
-once the migration is stable. The tracer no-ops gracefully in the interim.
-
-### Phase 4 — Railway setup
-
-1. Create the Railway project, connect the GitHub repo, set the service root to `api/` (or
-   point it at the Dockerfile directly — check whether Railway needs a root-relative Dockerfile
-   path or a `railway.toml` build config).
-2. Set environment variables to mirror current Azure App Settings (see Target architecture
+1. [x] Create the Railway project, connect the GitHub repo, set the service root to `/api`.
+   Done: project `trmnl-weather`, service `trmnl-plugins`, repo `lucaspimentel/trmnl-plugins`,
+   branch `lpimentel/railway-migration`, `dockerfilePath: /api/Dockerfile`,
+   `rootDirectory: /api`. Initial build failed because the Dockerfile uses paths relative to
+   `api/` but Railway defaulted to the repo root as build context; fixed by setting
+   `rootDirectory: /api`.
+2. [x] Set environment variables to mirror current Azure App Settings (see Target architecture
    above). **`WeatherProviders` is required** — `ParseWeatherProviders` throws
    `InvalidOperationException` at startup if it's missing (set it to `open-meteo,pirate-weather`).
    Use `hh:mm:ss` form for `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` (see the TimeSpan
    pitfall in Target architecture above). Note: per the `TODO.md` P0 plan, don't set
    `OPEN_METEO_API_KEY` here at all if the free-tier reversion happens as part of this
    migration — `OpenMeteoClient` already falls back to the free host when it's unset.
-3. Pin the service to 1 replica explicitly (confirm Railway's default doesn't autoscale a
+   Set: `WeatherProviders=open-meteo,pirate-weather`, `PIRATE_WEATHER_API_KEY` (copied from
+   Azure), `WeatherCache__FreshTtl=00:35:00`, `WeatherCache__StaleTtl=03:00:00`.
+   `OPEN_METEO_API_KEY` intentionally not set (free-tier reversion).
+3. [x] Pin the service to 1 replica explicitly (confirm Railway's default doesn't autoscale a
    simple web service by default — verify before relying on it).
-4. Deploy to a Railway *staging* environment first (Railway supports environments per project).
+   Confirmed: service config shows `numReplicas: 1` in `multiRegionConfig`. No autoscaling.
+4. [x] Deploy to a Railway *staging* environment first (Railway supports environments per project).
+   Deployed to staging: `https://trmnl-plugins-staging.up.railway.app`. All endpoints verified:
+   health (200), success (200 with JSON weather data), error paths (400 with correct body text
+   for missing coords, bad units, bad provider). 502 path observed transiently when Open-Meteo
+   upstream was briefly unavailable — correct behavior.
 
 ### Phase 5 — Staging validation
 
@@ -248,14 +243,15 @@ single cutover switch — reverting it to the `azurewebsites.net` host and re-ru
 push --force` fully reverts traffic to Azure with no code rollback needed. Don't decommission
 Azure (Phase 7) until Railway has proven stable in prod.
 
-## Open questions to resolve before Phase 4
+## Open questions (resolved before Phase 4)
 
-- [ ] Datadog APM story on Railway (Phase 3) — Agent sidecar vs. shipping without traces.
+- [x] ~~Datadog APM story on Railway (Phase 3)~~ — skipped; ship without traces, add Agent
+      sidecar as fast-follow if needed.
 - [ ] Custom domain vs. Railway's default domain for the cutover.
 - [x] ~~Railway's port-binding convention~~ — resolved in Phase 1 step 4: Railway injects
       `PORT`, read it in `Program.cs` via `builder.WebHost.UseUrls`.
-- [ ] Confirm whether a Railway "service" defaults to 1 replica or needs explicit pinning, and
-      whether Railway sleeps idle services or has usage limits that could restart the container
-      (the whole premise is one always-on warm process).
+- [x] ~~Replica count~~ — confirmed 1 replica in service config (`numReplicas: 1`), no
+      autoscaling. Railway sleep behavior for idle services still unverified; will surface
+      during Phase 5 soak.
 - [ ] Decide whether the free-tier reversion (`TODO.md` P0) happens as part of this migration or
       as a separate follow-up once Railway's real-world hit rate is confirmed.
