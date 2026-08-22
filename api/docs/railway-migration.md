@@ -33,9 +33,10 @@ target discussed for that reason.
 
 ## Non-goals (for this migration)
 
-- The shared L2 cache (Azure Table Storage) TODO item — expected to become unnecessary once a
-  single persistent instance removes the fragmentation. Revisit only if post-migration metrics
-  show the hit rate still isn't high enough.
+- The shared L2 cache TODO item is **not ruled out**. A single persistent instance fixes
+  fragmentation but not restart-driven cache loss (see "L2 cache contingency" below). Build
+  the initial migration without L2; add it as a contingency if Phase 5 shows restart-driven
+  cold bursts materially degrading the hit rate.
 - Negative caching, background refresh, circuit breaker tuning — independent TODO items, not
   blocking this migration.
 - Multi-region / edge deployment — traffic is low and single-region is fine.
@@ -57,7 +58,7 @@ target discussed for that reason.
   no CI/CD workflow deploys this today (`.github/workflows/tests.yml` only builds and tests).
 - Config: Azure App Settings (`WeatherProviders`, `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`,
   `WeatherCache:FreshTtl`/`StaleTtl`).
-- Base URL is hardcoded in three places: `plugins/weather/src/settings.yml` (`polling_url`),
+- Base URL is hardcoded in five places: `plugins/weather/src/settings.yml` (`polling_url`),
   `plugins/weather/README.md`, `plugins/weather/CLAUDE.md`, `plugins/weather/fields.txt`, and
   root `README.md`.
 
@@ -70,11 +71,44 @@ target discussed for that reason.
 - `Functions/WeatherFunction.cs` becomes `Endpoints/WeatherEndpoint.cs`: same validation
   (`RequestValidator`) and orchestrator call, `HttpRequestData`/`HttpResponseData` swapped for
   ASP.NET Core's `HttpRequest`/`IResult`.
-- `Functions/RequestValidator.cs` moves alongside it unchanged (it has no Functions dependency).
+- `Functions/RequestValidator.cs` moves alongside it (it has no Functions dependency). Keep the
+  `TrmnlApi.Functions` namespace to avoid touching `RequestValidatorTests` (`using
+  TrmnlApi.Functions;`) — the folder/namespace mismatch is cosmetic and not worth a test-file
+  change in this migration.
 - New `GET /health` endpoint for Railway's health checks.
 - Config via environment variables (Railway's equivalent of Azure App Settings) — same names,
   no renaming needed (`WeatherProviders`, `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`,
   `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` using ASP.NET Core's `__` section separator).
+  **Pitfall**: `WeatherCacheOptions.FreshTtl`/`StaleTtl` are `TimeSpan` — a bare value like `35`
+  parses as 35 **days**, not 35 minutes. Use `hh:mm:ss` form (e.g. `00:35:00`) exactly as the
+  current Azure App Setting does. Verify the value verbatim during migration.
+
+## L2 cache contingency (Redis on Railway)
+
+A single persistent instance fixes fragmentation but not restart-driven cache loss. Every
+restart — deploy, platform maintenance, health-check failure, OOM — wipes the in-memory
+`IMemoryCache`, producing a warm-up burst of upstream calls equal to the distinct
+`(provider, lat, lon, units)` keys polled in the first TTL window. The working set is tiny
+(`SizeLimit=200`, ~600 req/hr) so OOM is unlikely and deploys are user-triggered, keeping the
+practical risk low — but the burst is the same quota-exhaustion failure mode this migration
+exists to prevent, just rarer.
+
+If Phase 5 shows restart-driven cold bursts pushing upstream calls toward the 10,000/day cap,
+add an L2 cache backed by Redis on Railway:
+
+- **Cost**: Railway doesn't offer a fixed-price managed Redis tier; you deploy Redis as a
+  regular service and pay per resource (~$10/GB RAM, ~$20/vCPU). A minimal instance (0.1 vCPU,
+  256 MB RAM) runs ~$5-7/month — well within the Hobby plan ($5/month + $5 usage credit).
+- **Topology**: Redis as a second service in the same Railway project, reachable via Railway's
+  private networking (each service gets an internal hostname). No public exposure needed.
+- **Implementation**: `Microsoft.Extensions.Caching.StackExchangeRedis` for `IDistributedCache`
+  as L2 behind the existing `IMemoryCache` L1. On a restart, L1 is cold but L2 is warm — the
+  first request hits L2, populates L1, subsequent requests hit L1. Redis key TTL set to
+  `StaleTtl` so expired entries evict automatically.
+- **Key schema**: same as `WeatherCache.CacheKey` — `weather:{provider}:{lat:F2}:{lon:F2}:{metric|imperial}`.
+- **When to add**: only if Phase 5's real-world hit rate shows restart-driven cold bursts
+  materially degrading it. Not part of the initial migration — the single instance is the
+  simpler fix and should be validated first.
 
 ## Migration plan
 
@@ -83,16 +117,23 @@ target discussed for that reason.
 1. Rewrite `Program.cs` as a minimal API host; drop
    `Microsoft.Azure.Functions.Worker*`/`Microsoft.Azure.Functions.Worker.Sdk`/
    `Microsoft.Azure.Functions.Worker.ApplicationInsights`/
+   `Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore`/
    `Microsoft.ApplicationInsights.WorkerService` package references from `TrmnlApi.csproj`;
    drop `AzureFunctionsVersion`/`OutputType Exe` properties; delete `host.json`.
+   `local.settings.json` is also Functions-specific (likely gitignored) — note it stale.
 2. Convert `Functions/WeatherFunction.cs` → `Endpoints/WeatherEndpoint.cs`. Keep the exact same
    validation order, error responses (400/502/499), and JSON shaping logic — this is a
-   transport-layer change only, response bytes for a given request should be identical.
+   transport-layer change only. Target is **schema/shape parity** for the success path and
+   matched status codes for error paths. Byte-for-byte parity is impossible: `Meta.ServedAt`
+   and `AgeSeconds` are per-request non-deterministic, and error-path `Content-Type` differs
+   between Azure Functions `WriteStringAsync` and ASP.NET Core `Results.Text`.
 3. Delete `Functions/ScreenFunction.cs` references if any remain (already removed from the repo
    as of 2026-08-22; confirm nothing in this branch resurrects it).
-4. Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime), exposing port
-   8080 (Railway's default `PORT` convention — read `PORT` env var in `Program.cs` via
-   `builder.WebHost.UseUrls` or `ASPNETCORE_URLS` if Railway sets it for you; confirm which).
+4. Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime). Railway injects
+   `PORT` and expects the app to listen on it. Read it in `Program.cs`:
+   `if (Environment.GetEnvironmentVariable("PORT") is { } p) builder.WebHost.UseUrls($"http://*:{p}");`
+   — falls back to the .NET default (8080) if unset. No open question here; this resolves the
+   port-binding item in "Open questions" below.
 5. Update `api/src/TrmnlApi/Properties/launchSettings.json` for local `dotnet run` (drop the
    Functions-specific profile).
 6. Decide what replaces Application Insights. Options: (a) drop it, rely on Datadog.Trace only
@@ -104,26 +145,35 @@ target discussed for that reason.
 
 1. `dotnet run` locally, hit `/api/v1/forecast` with real coordinates for both providers,
    diff the JSON response against the current prod Azure endpoint for the same request
-   (same lat/lon/units/hours/days) to confirm byte-for-byte parity in the response shape.
+   (same lat/lon/units/hours/days) to confirm **schema parity** — same field names, types,
+   nesting, and array lengths. Ignore `Meta.ServedAt`/`AgeSeconds` (per-request non-deterministic).
+   Also verify matched status codes for the 400/502/499 error paths.
 2. `docker build` + `docker run` locally, repeat the same checks through the container.
 3. `dotnet test api/TrmnlApi.slnx` — expect no changes needed; all 13 test files under
    `api/tests/TrmnlApi.Tests/` target `Services/`/`Providers/`/`Mappings/`/`Functions/RequestValidator`
    directly and have no Azure Functions Worker dependency.
 
-### Phase 3 — Datadog APM (open question, needs a decision before Phase 4)
+### Phase 3 — Datadog APM (decision needed before Phase 4)
 
 The current Windows/App-Service-specific Datadog wiring (`dd-appsettings.*.json`) doesn't apply
-to a Linux container. For Datadog APM on a containerized .NET app you typically need either:
-- A Datadog Agent container reachable via `DD_AGENT_HOST` — on Railway this would mean running
-  the Agent as a second service in the same project and using Railway's private networking
-  (each service gets an internal hostname) to point `DD_AGENT_HOST` at it. Adds a second
-  container to operate and pay for.
-- Or submit traces directly via the Datadog Agentless/OTLP-to-Datadog-intake path, if
-  `Datadog.Trace`'s current version supports it without an Agent.
+to a Linux container. `Datadog.Trace` (already in `TrmnlApi.csproj`, hard-depended on by
+`WeatherForecastOrchestrator` for `ISpan`) auto-instruments ASP.NET Core without Azure-specific
+setup — but it needs a reachable Datadog Agent to export traces. Without an agent, the tracer
+no-ops gracefully (spans are created locally but discarded; the app compiles and runs fine).
 
-This needs a decision before deploying to Railway for real — otherwise APM visibility regresses
-silently. Low-effort fallback: ship without Datadog APM initially and rely on Railway's built-in
-logs/metrics, then add tracing back as a fast-follow.
+Realistic options on Railway:
+- **Datadog Agent sidecar**: run the Agent as a second service in the same Railway project,
+  reachable via Railway's private networking (each service gets an internal hostname). The
+  tracer auto-detects the agent via its default URL; no `DD_SERVICE`/`DD_ENV`/
+  `DD_TRACE_AGENT_URL` configuration is required (the tracer has sensible defaults: service
+  name from the application, env unset, agent URL defaults to `http://127.0.0.1:8126`). Adds a
+  second container to operate and pay for.
+- **Ship without traces**: rely on Railway's built-in logs/metrics initially, then add the
+  Agent sidecar as a fast-follow. Zero extra cost; the `Datadog.Trace` dependency stays in
+  place and resumes exporting once an agent is reachable.
+
+Recommendation: ship without the Agent sidecar initially (Phase 4), add it as a fast-follow
+once the migration is stable. The tracer no-ops gracefully in the interim.
 
 ### Phase 4 — Railway setup
 
@@ -131,9 +181,12 @@ logs/metrics, then add tracing back as a fast-follow.
    point it at the Dockerfile directly — check whether Railway needs a root-relative Dockerfile
    path or a `railway.toml` build config).
 2. Set environment variables to mirror current Azure App Settings (see Target architecture
-   above). Note: per the `TODO.md` P0 plan, don't set `OPEN_METEO_API_KEY` here at all if the
-   free-tier reversion happens as part of this migration — `OpenMeteoClient` already falls back
-   to the free host when it's unset.
+   above). **`WeatherProviders` is required** — `ParseWeatherProviders` throws
+   `InvalidOperationException` at startup if it's missing (set it to `open-meteo,pirate-weather`).
+   Use `hh:mm:ss` form for `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` (see the TimeSpan
+   pitfall in Target architecture above). Note: per the `TODO.md` P0 plan, don't set
+   `OPEN_METEO_API_KEY` here at all if the free-tier reversion happens as part of this
+   migration — `OpenMeteoClient` already falls back to the free host when it's unset.
 3. Pin the service to 1 replica explicitly (confirm Railway's default doesn't autoscale a
    simple web service by default — verify before relying on it).
 4. Deploy to a Railway *staging* environment first (Railway supports environments per project).
@@ -152,8 +205,9 @@ logs/metrics, then add tracing back as a fast-follow.
 1. Update `polling_url` in `plugins/weather/src/settings.yml` to the new Railway URL (or a
    custom domain mapped to it — decide whether a custom domain is worth the setup for this
    internal-ish plugin backend, or whether Railway's `*.up.railway.app` default is fine).
-2. Update the other three places the Azure URL is referenced: root `README.md`,
-   `plugins/weather/README.md`, `plugins/weather/CLAUDE.md`, `plugins/weather/fields.txt`.
+2. Update the other four places the Azure URL is referenced: root `README.md`,
+   `plugins/weather/README.md`, `plugins/weather/CLAUDE.md` (both the prod URL at line 24 and
+   the staging URL at line 19), `plugins/weather/fields.txt`.
 3. `trmnlp push --force` to redeploy the plugin with the new `polling_url`.
 4. Update root `CLAUDE.md`'s "API Backend" section: replace the `func azure functionapp
    publish` deploy commands with the Railway deploy flow (likely just "push to the branch,
@@ -161,6 +215,8 @@ logs/metrics, then add tracing back as a fast-follow.
 5. Once the free-tier reversion criteria in `TODO.md` P0 are met, drop `OPEN_METEO_API_KEY` and
    cancel the Open-Meteo paid subscription (can happen same day as cutover or after a short
    soak period — decide based on how confident Phase 5's numbers are).
+6. Decide the branch-to-Railway-environment mapping (e.g. `main` → Railway prod, a staging
+   branch → Railway staging). Confirm Railway auto-deploys on push to the connected branch.
 
 ### Phase 7 — Decommission Azure resources
 
@@ -181,10 +237,12 @@ Azure (Phase 7) until Railway has proven stable in prod.
 
 ## Open questions to resolve before Phase 4
 
-- [ ] Datadog APM story on Railway (Phase 3) — Agent sidecar vs. dropping APM vs. another path.
+- [ ] Datadog APM story on Railway (Phase 3) — Agent sidecar vs. shipping without traces.
 - [ ] Custom domain vs. Railway's default domain for the cutover.
-- [ ] Confirm Railway's port-binding convention (`PORT` env var vs. `ASPNETCORE_URLS`) before
-      writing the Dockerfile's `ENTRYPOINT`/health check.
-- [ ] Confirm whether a Railway "service" defaults to 1 replica or needs explicit pinning.
+- [x] ~~Railway's port-binding convention~~ — resolved in Phase 1 step 4: Railway injects
+      `PORT`, read it in `Program.cs` via `builder.WebHost.UseUrls`.
+- [ ] Confirm whether a Railway "service" defaults to 1 replica or needs explicit pinning, and
+      whether Railway sleeps idle services or has usage limits that could restart the container
+      (the whole premise is one always-on warm process).
 - [ ] Decide whether the free-tier reversion (`TODO.md` P0) happens as part of this migration or
       as a separate follow-up once Railway's real-world hit rate is confirmed.
