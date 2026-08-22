@@ -4,6 +4,12 @@
 
 Improvements identified during a review of the caching and fallback workflow in the Azure Functions weather API. Ordered by impact-to-effort ratio (highest first).
 
+- [ ] **P0 — Drop Open-Meteo back to the free tier once caching is strong enough to cover it**
+  - Decision (2026-08-22): cancel the Open-Meteo paid subscription (see the now-reverted "Escape upstream per-IP daily quotas" item below) and go back to the free host. Compensate for the lost quota headroom with stronger caching instead of paying for quota.
+  - Blocking prerequisites, in order: the **P1 shared L2 cache** item (so cache hits survive cold starts/scale-out and cut live-call volume) and the **P2 longer TTLs** item (so a rate-limited free tier degrades to stale-served instead of 502). Negative caching and background refresh (both P2 below) further reduce live-call volume and are worth doing before the switch too.
+  - Steps to actually revert: remove the `OPEN_METEO_API_KEY` app setting from prod and staging (`OpenMeteoClient` already falls back to the free host when it's absent — no code change needed), then cancel the Open-Meteo paid subscription.
+  - Do not flip this before the caching work lands — the paid tier was the fix for the 2026-08-19 double-429 outage, and reverting without stronger caching in place would likely reproduce it.
+
 - [x] **P1 — Pick freshest stale entry, not first found**
   - `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:94-97` uses `staleFallback ??= (cached, provider.Name)`, which locks in the first stale entry encountered (the requested provider's, since it's `chain[0]`). If the secondary provider has a more recent stale entry, we still serve the older one.
   - Fix: track all stale entries seen in the loop and pick the one with the highest `FetchedAt`.
@@ -39,10 +45,12 @@ Improvements identified during a review of the caching and fallback workflow in 
   - This is the root-cause fix for the 502s; the cache/fallback items above only mask it.
   - **Resolved 2026-08-19** via option (a): subscribed to Open-Meteo's paid tier. `OpenMeteoClient` now sends requests to `customer-api.open-meteo.com` with `&apikey=` when the `OPEN_METEO_API_KEY` app setting is present, falling back to the free host when it is not. Key set in both prod and staging; deployed and verified (`meta.cache: fresh_fetch`, `meta.provider: open-meteo`). The customer host rejects unkeyed requests with 401 and invalid keys with 400, so a successful fetch confirms the key is in use.
   - Still open: Pirate Weather remains on its free tier and was observed 429ing on 2026-08-19; its plan/limits have not been verified. It is now the fallback rather than the primary, so this is lower impact.
+  - **Being reverted (2026-08-22):** decided to drop back to the free tier and rely on stronger caching instead of paying for quota headroom. See the new P0 item above for the reversal plan and its prerequisites.
 
-- [ ] **P2 — Dedicated outbound IP (NAT Gateway) for prod Function App**
+- [ ] **P2 — Dedicated outbound IP (NAT Gateway) for prod Function App (on hold — premised on staying on a paid/quota-sensitive tier)**
   - Open-Meteo's daily quota is per source IP. A dedicated/consistent outbound IP (Azure NAT Gateway) prevents prod's limit from being shared with other Azure tenants and gives a stable IP to reason about / allowlist.
   - Lower priority than the paid-key fix above (which removes the quota ceiling entirely), but worth pairing with it for predictability.
+  - On hold pending the free-tier reversion above: if caching brings live-call volume down enough, a dedicated IP may not be worth the Azure NAT Gateway cost. Revisit only if the free tier proves insufficient even with stronger caching.
 
 - [ ] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
   - `plugins/weather/src/settings.yml` sets `refresh_interval: 30` (minutes). Every TRMNL device × poll hits the API and counts against upstream per-IP quotas. Raising it directly cuts upstream call volume.
