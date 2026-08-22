@@ -23,7 +23,6 @@ The [Weather](./plugins/weather) plugin polls a custom Azure Functions backend i
 Endpoints (base `https://trmnl-plugins-api.azurewebsites.net`):
 
 - `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — normalized weather forecast (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
-- `GET /api/v1/screen` — redirects to the current screen image of the configured TRMNL device
 
 Build and test locally (.NET 10 SDK required):
 

@@ -61,9 +61,9 @@ cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api         
 cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api-staging  # staging
 ```
 
-- Routes: `GET /api/v1/forecast` (anonymous), `GET /api/v1/screen` (redirects to the device's current screen image)
+- Routes: `GET /api/v1/forecast` (anonymous)
 - `WeatherProviders` app setting is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
-- Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`; screen route needs `TRMNL_DEVICE_ID`/`TRMNL_DEVICE_API_KEY`
+- Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`
 - Round latitude/longitude to `F1` before logging (coordinates are PII)
 
 ## Credentials
