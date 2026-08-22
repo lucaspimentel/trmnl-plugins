@@ -1,18 +1,16 @@
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using TrmnlApi.Functions;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
-var builder = FunctionsApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-builder.ConfigureFunctionsWebApplication();
-
-builder.Services
-    .AddApplicationInsightsTelemetryWorkerService()
-    .ConfigureFunctionsApplicationInsights();
+// Railway injects PORT; fall back to the .NET default (8080) when unset.
+if (Environment.GetEnvironmentVariable("PORT") is { } port)
+{
+    builder.WebHost.UseUrls($"http://*:{port}");
+}
 
 builder.Services.AddMemoryCache(options => options.SizeLimit = 200);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
@@ -34,7 +32,12 @@ builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton<WeatherForecastOrchestrator>();
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Build().Run();
+var app = builder.Build();
+
+app.MapGet("/api/v1/forecast", WeatherEndpoint.Handle);
+app.MapGet("/health", () => Results.Ok());
+
+app.Run();
 
 static IReadOnlyList<string> ParseWeatherProviders(string? raw)
 {

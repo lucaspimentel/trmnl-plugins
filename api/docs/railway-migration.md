@@ -112,46 +112,59 @@ add an L2 cache backed by Redis on Railway:
 
 ## Migration plan
 
-### Phase 1 — Code changes (this branch)
+### Phase 1 — Code changes (done)
 
-1. Rewrite `Program.cs` as a minimal API host; drop
+All items complete on branch `lpimentel/railway-migration` (commits `bf02e5f`, `ff4c0ac`).
+
+1. [x] Rewrite `Program.cs` as a minimal API host; drop
    `Microsoft.Azure.Functions.Worker*`/`Microsoft.Azure.Functions.Worker.Sdk`/
    `Microsoft.Azure.Functions.Worker.ApplicationInsights`/
    `Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore`/
    `Microsoft.ApplicationInsights.WorkerService` package references from `TrmnlApi.csproj`;
    drop `AzureFunctionsVersion`/`OutputType Exe` properties; delete `host.json`.
-   `local.settings.json` is also Functions-specific (likely gitignored) — note it stale.
-2. Convert `Functions/WeatherFunction.cs` → `Endpoints/WeatherEndpoint.cs`. Keep the exact same
+   `local.settings.json` is also Functions-specific (likely gitignored) — noted stale; does not exist in repo.
+2. [x] Convert `Functions/WeatherFunction.cs` → `Endpoints/WeatherEndpoint.cs`. Keep the exact same
    validation order, error responses (400/502/499), and JSON shaping logic — this is a
    transport-layer change only. Target is **schema/shape parity** for the success path and
    matched status codes for error paths. Byte-for-byte parity is impossible: `Meta.ServedAt`
    and `AgeSeconds` are per-request non-deterministic, and error-path `Content-Type` differs
    between Azure Functions `WriteStringAsync` and ASP.NET Core `Results.Text`.
-3. Delete `Functions/ScreenFunction.cs` references if any remain (already removed from the repo
-   as of 2026-08-22; confirm nothing in this branch resurrects it).
-4. Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime). Railway injects
+   Note: `WeatherEndpoint` is a non-static class (not `static class` as originally planned)
+   because `ILogger<WeatherEndpoint>` cannot use a static type as a type argument. All methods
+   remain `static`; the class has no instance members.
+3. [x] Delete `Functions/ScreenFunction.cs` references if any remain (already removed from the repo
+   as of 2026-08-22; confirmed zero code references in this branch).
+4. [x] Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime). Railway injects
    `PORT` and expects the app to listen on it. Read it in `Program.cs`:
    `if (Environment.GetEnvironmentVariable("PORT") is { } p) builder.WebHost.UseUrls($"http://*:{p}");`
    — falls back to the .NET default (8080) if unset. No open question here; this resolves the
    port-binding item in "Open questions" below.
-5. Update `api/src/TrmnlApi/Properties/launchSettings.json` for local `dotnet run` (drop the
+5. [x] Update `api/src/TrmnlApi/Properties/launchSettings.json` for local `dotnet run` (drop the
    Functions-specific profile).
-6. Decide what replaces Application Insights. Options: (a) drop it, rely on Datadog.Trace only
+6. [x] Decide what replaces Application Insights. Decision: (a) drop it, rely on Datadog.Trace only
    (it already auto-instruments ASP.NET Core, not just Functions); (b) add OpenTelemetry +
    Railway/Grafana/whatever if App Insights parity is wanted. Recommendation: (a), since
    Datadog is already the primary observability tool per `CLAUDE.md` conventions.
 
-### Phase 2 — Local validation
+### Phase 2 — Local validation (done)
 
-1. `dotnet run` locally, hit `/api/v1/forecast` with real coordinates for both providers,
+1. [x] `dotnet run` locally, hit `/api/v1/forecast` with real coordinates for both providers,
    diff the JSON response against the current prod Azure endpoint for the same request
    (same lat/lon/units/hours/days) to confirm **schema parity** — same field names, types,
    nesting, and array lengths. Ignore `Meta.ServedAt`/`AgeSeconds` (per-request non-deterministic).
    Also verify matched status codes for the 400/502/499 error paths.
-2. `docker build` + `docker run` locally, repeat the same checks through the container.
-3. `dotnet test api/TrmnlApi.slnx` — expect no changes needed; all 13 test files under
-   `api/tests/TrmnlApi.Tests/` target `Services/`/`Providers/`/`Mappings/`/`Functions/RequestValidator`
+   Result: schema parity PASS (identical keys, types, nesting, array lengths). Error path parity
+   PASS (6 cases: missing coords, bad units, bad provider, bad coord range, bad hours, bad days;
+   all 400 with identical body text). `fake=true` path: PASS (structure matches, randomized
+   precipitation values differ as expected, last-day `high == low` transformation confirmed).
+   502/499 not directly testable without simulating upstream failure or mid-request cancellation.
+2. [x] `docker build` + `docker run` locally, repeat the same checks through the container.
+   Result: Docker image built successfully; container started on port 8080; all endpoints
+   (health, success, error paths) return identical results to local `dotnet run`.
+3. [x] `dotnet test api/TrmnlApi.slnx` — expect no changes needed; all 13 test files under
+   `api/tests/TrmnlApi.Tests/` target `Services`/`Providers`/`Mappings`/`Functions/RequestValidator`
    directly and have no Azure Functions Worker dependency.
+   Result: 206 tests passed, 0 failed, 0 skipped.
 
 ### Phase 3 — Datadog APM (decision needed before Phase 4)
 

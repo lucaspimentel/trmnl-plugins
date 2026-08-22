@@ -1,19 +1,14 @@
 using System.Globalization;
-using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using TrmnlApi.Models;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Functions;
 
-public class WeatherFunction(
-    WeatherForecastOrchestrator orchestrator,
-    TimeProvider timeProvider,
-    ILogger<WeatherFunction> logger)
+public class WeatherEndpoint
 {
     private const int MaxHours = 25;
     private const int MaxDays = 6;
@@ -24,41 +19,43 @@ public class WeatherFunction(
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    [Function("forecast")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "v1/forecast")] HttpRequestData req,
+    public static async Task<IResult> Handle(
+        HttpRequest req,
+        WeatherForecastOrchestrator orchestrator,
+        TimeProvider timeProvider,
+        ILogger<WeatherEndpoint> logger,
         CancellationToken cancellationToken)
     {
-        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        var query = req.Query;
 
-        if (!RequestValidator.TryParseCoordinates(query["latitude"], query["longitude"], out var latitude, out var longitude))
+        if (!RequestValidator.TryParseCoordinates(query["latitude"].FirstOrDefault(), query["longitude"].FirstOrDefault(), out var latitude, out var longitude))
         {
-            return await BadRequest(req, "latitude and longitude query parameters are required and must be valid numbers.", cancellationToken);
+            return BadRequest("latitude and longitude query parameters are required and must be valid numbers.");
         }
 
         if (!RequestValidator.AreCoordinatesInRange(latitude, longitude))
         {
-            return await BadRequest(req, "latitude must be between -90 and 90, longitude must be between -180 and 180.", cancellationToken);
+            return BadRequest("latitude must be between -90 and 90, longitude must be between -180 and 180.");
         }
 
-        var unitsParam = query["units"];
+        var unitsParam = query["units"].FirstOrDefault();
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
-            return await BadRequest(req, "units must be 'imperial' or 'metric'.", cancellationToken);
+            return BadRequest("units must be 'imperial' or 'metric'.");
         }
         var metric = unitsParam is "metric";
 
-        if (!RequestValidator.TryParseRangeParam(query["hours"], 1, MaxHours, out var hours))
+        if (!RequestValidator.TryParseRangeParam(query["hours"].FirstOrDefault(), 1, MaxHours, out var hours))
         {
-            return await BadRequest(req, $"hours must be an integer between 1 and {MaxHours}.", cancellationToken);
+            return BadRequest($"hours must be an integer between 1 and {MaxHours}.");
         }
 
-        if (!RequestValidator.TryParseRangeParam(query["days"], 1, MaxDays, out var days))
+        if (!RequestValidator.TryParseRangeParam(query["days"].FirstOrDefault(), 1, MaxDays, out var days))
         {
-            return await BadRequest(req, $"days must be an integer between 1 and {MaxDays}.", cancellationToken);
+            return BadRequest($"days must be an integer between 1 and {MaxDays}.");
         }
 
-        var requestedProvider = query["provider"];
+        var requestedProvider = query["provider"].FirstOrDefault();
 
         ForecastOutcome outcome;
         try
@@ -71,11 +68,11 @@ public class WeatherFunction(
                 "Client cancelled forecast request for {Latitude},{Longitude}",
                 latitude.ToString("F1", CultureInfo.InvariantCulture),
                 longitude.ToString("F1", CultureInfo.InvariantCulture));
-            return req.CreateResponse((HttpStatusCode)499);
+            return Results.StatusCode(499);
         }
         catch (ArgumentException)
         {
-            return await BadRequest(req, $"provider '{requestedProvider}' is not a known weather provider.", cancellationToken);
+            return BadRequest($"provider '{requestedProvider}' is not a known weather provider.");
         }
         catch (UpstreamUnavailableException ex)
         {
@@ -84,9 +81,7 @@ public class WeatherFunction(
                 "All weather providers failed for {Latitude},{Longitude}",
                 latitude.ToString("F1", CultureInfo.InvariantCulture),
                 longitude.ToString("F1", CultureInfo.InvariantCulture));
-            var error = req.CreateResponse(HttpStatusCode.BadGateway);
-            await error.WriteStringAsync("Failed to fetch weather forecast from upstream provider.", cancellationToken);
-            return error;
+            return Results.Text("Failed to fetch weather forecast from upstream provider.", statusCode: 502);
         }
 
         var weatherResponse = outcome.Response;
@@ -100,7 +95,7 @@ public class WeatherFunction(
             };
         }
 
-        if (query["fake"] is "true" or "1")
+        if (query["fake"].FirstOrDefault() is "true" or "1")
         {
             weatherResponse = FakePrecipitation(weatherResponse);
         }
@@ -118,18 +113,10 @@ public class WeatherFunction(
 
         weatherResponse = weatherResponse with { Meta = meta };
 
-        var ok = req.CreateResponse(HttpStatusCode.OK);
-        ok.Headers.Add("Content-Type", "application/json; charset=utf-8");
-        await ok.WriteStringAsync(JsonSerializer.Serialize(weatherResponse, JsonOptions), cancellationToken);
-        return ok;
+        return Results.Json(weatherResponse, JsonOptions);
     }
 
-    private static async Task<HttpResponseData> BadRequest(HttpRequestData req, string message, CancellationToken cancellationToken)
-    {
-        var response = req.CreateResponse(HttpStatusCode.BadRequest);
-        await response.WriteStringAsync(message, cancellationToken);
-        return response;
-    }
+    private static IResult BadRequest(string message) => Results.Text(message, statusCode: 400);
 
     private static WeatherResponse FakePrecipitation(WeatherResponse response)
     {

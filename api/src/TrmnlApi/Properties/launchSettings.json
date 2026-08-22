@@ -2,8 +2,8 @@
   "profiles": {
     "TrmnlApi": {
       "commandName": "Project",
-      "commandLineArgs": "--port 7089",
-      "launchBrowser": false
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:7089"
     }
   }
 }
