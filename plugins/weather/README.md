@@ -15,11 +15,11 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally choose a **Weather Data Provider** (Open-Meteo (default) or Pirate Weather) and override the **Units**, **Hours**, and **Days** fields. The plugin polls the API every 30 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally choose a **Weather Data Provider** (Open-Meteo (default) or Pirate Weather) and override the **Units**, **Hours**, and **Days** fields. The plugin polls the API every 60 minutes.
 
 ## Data Source
 
-Weather data is fetched via a custom Azure Functions proxy (`api/` in this repo) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Open-Meteo](https://open-meteo.com/) (default) and [Pirate Weather](https://pirateweather.net/). If the selected provider fails, the proxy automatically falls back to the other one and reports which provider actually served the data.
+Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, deployed to Railway) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Open-Meteo](https://open-meteo.com/) (default) and [Pirate Weather](https://pirateweather.net/). If the selected provider fails, the backend automatically falls back to the other one and reports which provider actually served the data.
 
 ### Attribution
 

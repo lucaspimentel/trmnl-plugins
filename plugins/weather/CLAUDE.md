@@ -49,7 +49,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
     "entries": [
       {
         "time": "2026-02-25T14:00",
-        "label": "Now",
+        "label": "2pm",
         "temperature": 35,
         "precipitation_probability": 10,
         "icon_class": "wi-wmo4680-3",

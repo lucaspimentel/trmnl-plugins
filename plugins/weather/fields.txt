@@ -10,7 +10,7 @@ Query parameters:
     units       — "imperial" (default) or "metric"
     hours       — number of hourly entries (1–25, default 25)
     days        — number of daily entries (1–6, default 6)
-    provider    — "pirate-weather" (default) or "open-meteo"
+    provider    — "open-meteo" (default) or "pirate-weather"
     fake        — "true" or "1" to inject randomized precipitation (testing)
 
 data.
@@ -29,7 +29,7 @@ data.
     hourly.
         entries                 (array of up to 25 objects, current hour + next 24h)
             time                (ISO 8601)
-            label               (string, e.g. "Now", "3pm")
+            label               (string, e.g. "2pm", "3pm")
             temperature         (integer)
             precipitation_probability (%, 0–100)
             icon_class          (CSS class, day/night variant pre-computed)
