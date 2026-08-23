@@ -6,11 +6,11 @@ namespace TrmnlApi.Services;
 
 public class WeatherTransformer : IWeatherTransformer
 {
-    public WeatherResponse Transform(OpenMeteoResponse raw, int hours = 25, int days = 6)
+    public WeatherResponse Transform(OpenMeteoResponse raw)
     {
         var current = TransformCurrent(raw.Current);
-        var hourly = TransformHourly(raw.Hourly, raw.Current.Time, raw.Daily, hours);
-        var daily = TransformDaily(raw.Daily, days);
+        var hourly = TransformHourly(raw.Hourly, raw.Current.Time, raw.Daily);
+        var daily = TransformDaily(raw.Daily);
 
         return new WeatherResponse(current, hourly, daily);
     }
@@ -33,15 +33,14 @@ public class WeatherTransformer : IWeatherTransformer
         );
     }
 
-    internal static HourlyForecast TransformHourly(OpenMeteoHourly hourly, string currentTime, OpenMeteoDaily daily, int hours)
+    internal static HourlyForecast TransformHourly(OpenMeteoHourly hourly, string currentTime, OpenMeteoDaily daily)
     {
         var currentHour = currentTime[..13];
         var startIndex = hourly.Time.FindIndex(t => t.StartsWith(currentHour, StringComparison.Ordinal));
         if (startIndex < 0) startIndex = 0;
 
-        var count = Math.Min(hours, hourly.Time.Count - startIndex);
         var entries = new List<HourlyEntry>();
-        for (int i = startIndex; i < startIndex + count; i++)
+        for (int i = startIndex; i < hourly.Time.Count; i++)
         {
             var time = hourly.Time[i];
             var isDay = IsNightHour(time, daily) == false;
@@ -60,11 +59,10 @@ public class WeatherTransformer : IWeatherTransformer
         return new HourlyForecast(entries);
     }
 
-    internal static DailyForecast TransformDaily(OpenMeteoDaily daily, int days)
+    internal static DailyForecast TransformDaily(OpenMeteoDaily daily)
     {
-        var count = Math.Min(days, daily.Time.Count);
         var entries = new List<DailyEntry>();
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < daily.Time.Count; i++)
         {
             var wc = daily.WeatherCode[i];
             entries.Add(new DailyEntry(

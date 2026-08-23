@@ -25,7 +25,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6; Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, defaults to 14 when omitted; the plugin sends 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting; `src/settings.yml` always sends `provider`, defaulting to `open-meteo`
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 

@@ -91,14 +91,7 @@ public class WeatherEndpoint
 
         var weatherResponse = outcome.Response;
 
-        if (hours < MaxHours || days < MaxDays)
-        {
-            weatherResponse = weatherResponse with
-            {
-                Hourly = new HourlyForecast(weatherResponse.Hourly.Entries.Take(hours).ToList()),
-                Daily = new DailyForecast(weatherResponse.Daily.Entries.Take(days).ToList())
-            };
-        }
+        weatherResponse = ForecastTrimmer.Trim(weatherResponse, hours, days);
 
         if (use24Hour)
         {

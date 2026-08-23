@@ -226,7 +226,7 @@ public class WeatherProviderResolverTests
 
     private sealed class StubWeatherTransformer : IWeatherTransformer
     {
-        public WeatherResponse Transform(OpenMeteoResponse raw, int hours = 25, int days = 6) =>
+        public WeatherResponse Transform(OpenMeteoResponse raw) =>
             throw new NotSupportedException();
     }
 }

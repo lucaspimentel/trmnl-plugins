@@ -88,34 +88,27 @@ public class WeatherTransformerTests
         Assert.Equal("wi-night-clear", entry20.IconClass);
     }
 
+    // The transformer never truncates: the cache stores its output and is not keyed on
+    // hours/days, so trimming here would cap every later request. See ForecastTrimmerTests.
     [Fact]
-    public void Transform_Hourly_LimitsEntryCount()
-    {
-        var raw = LoadFixture();
-        var result = new WeatherTransformer().Transform(raw, hours: 12);
-
-        Assert.Equal(12, result.Hourly.Entries.Count);
-        Assert.Equal("2pm", result.Hourly.Entries[0].Label);
-    }
-
-    [Fact]
-    public void Transform_Daily_HasFiveDays()
+    public void Transform_Hourly_ReturnsEveryEntryFromCurrentHourOnward()
     {
         var raw = LoadFixture();
         var result = new WeatherTransformer().Transform(raw);
 
-        Assert.Equal(5, result.Daily.Entries.Count);
+        var startIndex = raw.Hourly.Time.FindIndex(t => t.StartsWith("2026-02-25T14", StringComparison.Ordinal));
+        Assert.Equal(raw.Hourly.Time.Count - startIndex, result.Hourly.Entries.Count);
+        Assert.Equal("2pm", result.Hourly.Entries[0].Label);
     }
 
     [Fact]
-    public void Transform_Daily_LimitsEntryCount()
+    public void Transform_Daily_ReturnsEveryUpstreamEntry()
     {
         var raw = LoadFixture();
-        var result = new WeatherTransformer().Transform(raw, days: 3);
+        var result = new WeatherTransformer().Transform(raw);
 
-        Assert.Equal(3, result.Daily.Entries.Count);
+        Assert.Equal(raw.Daily.Time.Count, result.Daily.Entries.Count);
         Assert.Equal("2026-02-25", result.Daily.Entries[0].Date);
-        Assert.Equal("2026-02-27", result.Daily.Entries[^1].Date);
     }
 
     [Fact]

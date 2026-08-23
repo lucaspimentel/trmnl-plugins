@@ -64,10 +64,14 @@ public class PirateWeatherProviderTests
     }
 
     [Fact]
-    public void Transform_Hourly_SlicesToCurrentHourPlus24()
+    public void Transform_Hourly_StartsAtCurrentHour()
     {
-        var result = PirateWeatherProvider.Transform(LoadFixture());
-        Assert.Equal(25, result.Hourly.Entries.Count);
+        var raw = LoadFixture();
+        var result = PirateWeatherProvider.Transform(raw);
+
+        var currentHour = raw.Currently.Time - (raw.Currently.Time % 3600);
+        var startIndex = raw.Hourly.Data.FindIndex(h => h.Time == currentHour);
+        Assert.Equal(raw.Hourly.Data.Count - startIndex, result.Hourly.Entries.Count);
         Assert.Matches(@"^\d{1,2}(am|pm)$", result.Hourly.Entries[0].Label);
         Assert.Matches(@"^\d{1,2}(am|pm)$", result.Hourly.Entries[1].Label);
     }
@@ -80,14 +84,6 @@ public class PirateWeatherProviderTests
         var first = result.Hourly.Entries[0];
         var expectedPercent = (int)Math.Round(raw.Hourly.Data[0].PrecipProbability * 100);
         Assert.Equal(expectedPercent, first.PrecipitationProbability);
-    }
-
-    [Fact]
-    public void Transform_Daily_DefaultsToAllAvailableEntries()
-    {
-        var raw = LoadFixture();
-        var result = PirateWeatherProvider.Transform(raw);
-        Assert.Equal(raw.Daily.Data.Count, result.Daily.Entries.Count);
     }
 
     [Fact]
@@ -119,12 +115,18 @@ public class PirateWeatherProviderTests
         Assert.Equal((int)Math.Round(raw.Daily.Data[0].TemperatureLow), first.Low);
     }
 
+    // The transformer never truncates: the cache stores its output and is not keyed on
+    // hours/days, so trimming here would cap every later request. See ForecastTrimmerTests.
     [Fact]
-    public void Transform_HonorsHoursAndDaysLimits()
+    public void Transform_ReturnsEveryUpstreamEntry()
     {
-        var result = PirateWeatherProvider.Transform(LoadFixture(), hours: 10, days: 3);
-        Assert.Equal(10, result.Hourly.Entries.Count);
-        Assert.Equal(3, result.Daily.Entries.Count);
+        var raw = LoadFixture();
+        var result = PirateWeatherProvider.Transform(raw);
+
+        var currentHour = raw.Currently.Time - (raw.Currently.Time % 3600);
+        var startIndex = raw.Hourly.Data.FindIndex(h => h.Time == currentHour);
+        Assert.Equal(raw.Hourly.Data.Count - startIndex, result.Hourly.Entries.Count);
+        Assert.Equal(raw.Daily.Data.Count, result.Daily.Entries.Count);
     }
 
     [Fact]
@@ -140,7 +142,7 @@ public class PirateWeatherProviderTests
         Assert.Equal(-71.06, stub.LastLongitude);
         Assert.False(stub.LastMetric);
         Assert.NotNull(result);
-        Assert.Equal(25, result.Hourly.Entries.Count);
+        Assert.NotEmpty(result.Hourly.Entries);
     }
 
     private sealed class StubClient : Services.IPirateWeatherClient

@@ -64,6 +64,7 @@ dotnet run --project api/src/TrmnlApi             # local run (http://localhost:
 - `WeatherProviders` env var is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
 - Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`
 - Cache TTL env vars use the `__` separator: `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` in `hh:mm:ss` form (a bare number parses as days, not minutes)
+- **Providers must never trim their forecast to a caller's requested `hours`/`days`.** `WeatherCache` keys on `(provider, latitude, longitude, metric)` only, so a trimmed response becomes the ceiling for every later request at that location. Transform everything upstream returns; `ForecastTrimmer` applies per-request limits in `WeatherEndpoint`, after the cache.
 - Round latitude/longitude to `F1` before logging (coordinates are PII)
 
 ## Credentials

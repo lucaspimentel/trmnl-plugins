@@ -17,12 +17,12 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
         return Transform(raw);
     }
 
-    public static WeatherResponse Transform(PirateWeatherResponse raw, int hours = 25, int days = 14)
+    public static WeatherResponse Transform(PirateWeatherResponse raw)
     {
         var tz = TimeZoneInfo.FindSystemTimeZoneById(raw.Timezone);
-        var daily = TransformDaily(raw.Daily, tz, days);
+        var daily = TransformDaily(raw.Daily, tz);
         var current = TransformCurrent(raw.Currently, tz, daily);
-        var hourly = TransformHourly(raw.Hourly, raw.Currently.Time, tz, daily, hours);
+        var hourly = TransformHourly(raw.Hourly, raw.Currently.Time, tz, daily);
         return new WeatherResponse(current, hourly, daily);
     }
 
@@ -45,15 +45,14 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
         );
     }
 
-    internal static HourlyForecast TransformHourly(PirateHourly hourly, long currentTime, TimeZoneInfo tz, DailyForecast daily, int hours)
+    internal static HourlyForecast TransformHourly(PirateHourly hourly, long currentTime, TimeZoneInfo tz, DailyForecast daily)
     {
         var currentHour = currentTime - (currentTime % 3600);
         var startIndex = hourly.Data.FindIndex(h => h.Time == currentHour);
         if (startIndex < 0) startIndex = 0;
-        var count = Math.Min(hours, hourly.Data.Count - startIndex);
 
         var entries = new List<HourlyEntry>();
-        for (int i = startIndex; i < startIndex + count; i++)
+        for (int i = startIndex; i < hourly.Data.Count; i++)
         {
             var pe = hourly.Data[i];
             var time = FormatLocalTime(pe.Time, tz);
@@ -72,11 +71,10 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
         return new HourlyForecast(entries);
     }
 
-    internal static DailyForecast TransformDaily(PirateDaily daily, TimeZoneInfo tz, int days)
+    internal static DailyForecast TransformDaily(PirateDaily daily, TimeZoneInfo tz)
     {
-        var count = Math.Min(days, daily.Data.Count);
         var entries = new List<DailyEntry>();
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < daily.Data.Count; i++)
         {
             var d = daily.Data[i];
             // Pirate sometimes returns -night suffixed icons for the daily summary

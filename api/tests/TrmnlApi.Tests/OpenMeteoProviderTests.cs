@@ -81,7 +81,7 @@ public class OpenMeteoProviderTests
         public WeatherResponse Result { get; set; } = default!;
         public OpenMeteoResponse? LastInput { get; private set; }
 
-        public WeatherResponse Transform(OpenMeteoResponse raw, int hours = 25, int days = 6)
+        public WeatherResponse Transform(OpenMeteoResponse raw)
         {
             LastInput = raw;
             return Result;
