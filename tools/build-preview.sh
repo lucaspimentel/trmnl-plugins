@@ -108,12 +108,19 @@ for variant in "${VARIANTS[@]}"; do
   for file in "$BUILD_DIR"/*.html; do
     base="$(basename "$file")"
     cp "$file" "$variant_dir/$base"
-    sed -i "s|<div class=\"\">|<div class=\"${classes}\">|" "$variant_dir/$base"
+    # trmnlp emits the bare wrapper as <div class="screen">; older versions emitted
+    # <div class="">. Match either, and fail loudly rather than silently leaving an
+    # unwrapped OG-sized screen behind if the markup changes again.
+    if ! grep -qE '<div class="(screen)?">' "$variant_dir/$base"; then
+      echo "Could not find the screen wrapper in $base: trmnlp output format changed." >&2
+      exit 1
+    fi
+    sed -i -E "s|<div class=\"(screen)?\">|<div class=\"${classes}\">|" "$variant_dir/$base"
   done
   echo "Wrapped: $name/"
 done
 
-# Clean up base HTML files (they still have empty class="")
+# Clean up base HTML files (they still have the unwrapped class)
 rm -f "$BUILD_DIR"/*.html
 
 echo "Done. Variants: $(printf '%s ' "${VARIANTS[@]%%|*}")"
