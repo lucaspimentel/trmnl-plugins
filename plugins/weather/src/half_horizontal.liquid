@@ -9,7 +9,7 @@
     <div class="hh-left flex flex--col flex--stretch-x flex--between gap--none pt--4 lg:pt--8" style="flex:64;">
       {% render "weather_current_compact", current: current %}
       <div class="hidden lg:flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1;">
-        {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 200 %}
+        {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 200, time_format: trmnl.plugin_settings.time_format %}
       </div>
     </div>
     <div class="hh-right flex flex--col flex--stretch-x pt--2 lg:pt--4 pr--1.5 pb--2 lg:pb--4 gap--none" style="flex:36;">
@@ -22,5 +22,5 @@
     <div class="title mt--3" data-pixel-perfect="true">No weather data available.</div>
   </div>
   {% endif %}
-  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache %}
+  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache, time_format: trmnl.plugin_settings.time_format %}
 </div>

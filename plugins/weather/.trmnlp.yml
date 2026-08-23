@@ -10,6 +10,7 @@ watch:
 custom_fields:
   latitude: "42.36"
   longitude: "-71.06"
+  time_format: "12h"
 
 # override variables
 variables:

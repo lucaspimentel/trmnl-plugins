@@ -147,6 +147,7 @@
 <script>
 var iconClasses = [{{ icon_classes }}];
 var hourTimes = [{{ hour_times }}];
+var timeFormat = "{{ time_format }}";
 var sunEvents = [
   {% for entry in daily.entries %}{% if forloop.first == false %},{% endif %}{ rise: "{{ entry.sunrise }}", set: "{{ entry.sunset }}" }{% endfor %}
 ];
@@ -165,9 +166,14 @@ function sunPlotLines() {
           if (hourTimes[k].slice(0, 13) === tHour) {
             var mins = parseInt(t.slice(14, 16), 10);
             var h = parseInt(t.slice(11, 13), 10);
-            var ampm = h < 12 ? 'am' : 'pm';
-            var h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
-            var timeStr2 = h12 + ':' + (mins < 10 ? '0' : '') + mins + ampm;
+            var timeStr2;
+            if (timeFormat === '24h') {
+              timeStr2 = (h < 10 ? '0' : '') + h + ':' + (mins < 10 ? '0' : '') + mins;
+            } else {
+              var ampm = h < 12 ? 'am' : 'pm';
+              var h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+              timeStr2 = h12 + ':' + (mins < 10 ? '0' : '') + mins + ampm;
+            }
             lines.push({ value: k + mins / 60, label: timeStr2, icon: events[j].icon });
             break;
           }
@@ -446,9 +452,17 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   <span class="title">{{ plugin_name }}</span>
   {% if updated_at %}
   {% if provider_label %}
+  {% if time_format == "24h" %}
+  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %H:%M" }} from {{ provider_label }}</span>
+  {% else %}
   <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %-I:%M %p" }} from {{ provider_label }}</span>
+  {% endif %}
+  {% else %}
+  {% if time_format == "24h" %}
+  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%a %H:%M" }}</span>
   {% else %}
   <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%a %-I:%M %p" }}</span>
+  {% endif %}
   {% endif %}
   {% endif %}
 </div>

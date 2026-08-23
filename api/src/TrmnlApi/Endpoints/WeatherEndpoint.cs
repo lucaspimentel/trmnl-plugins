@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using TrmnlApi.Mappings;
 using TrmnlApi.Models;
 using TrmnlApi.Services;
 
@@ -55,6 +56,8 @@ public class WeatherEndpoint
         {
             return BadRequest($"days must be an integer between 1 and {MaxDays}.");
         }
+        var use24Hour = query["time_format"].FirstOrDefault() is "24h";
+
 
         var requestedProvider = query["provider"].FirstOrDefault();
 
@@ -96,6 +99,18 @@ public class WeatherEndpoint
                 Daily = new DailyForecast(weatherResponse.Daily.Entries.Take(days).ToList())
             };
         }
+
+        if (use24Hour)
+        {
+            weatherResponse = weatherResponse with
+            {
+                Hourly = new HourlyForecast(
+                    weatherResponse.Hourly.Entries
+                        .Select(e => e with { Label = HourLabel.Format(e.Time, use24Hour: true) })
+                        .ToList())
+            };
+        }
+
 
         if (query["fake"].FirstOrDefault() is "true" or "1")
         {

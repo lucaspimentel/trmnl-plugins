@@ -24,7 +24,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–6, default 6), `provider` (`open-meteo` / `pirate-weather`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–6, default 6), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting; `src/settings.yml` always sends `provider`, defaulting to `open-meteo`
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 
@@ -49,7 +49,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
     "entries": [
       {
         "time": "2026-02-25T14:00",
-        "label": "2pm",
+        "label": "2pm",          // "14:00" when time_format=24h
         "temperature": 35,
         "precipitation_probability": 10,
         "icon_class": "wi-wmo4680-3",
