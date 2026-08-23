@@ -10,6 +10,7 @@ public record Meta(
     [property: JsonPropertyName("data_time")] string DataTime,
     [property: JsonPropertyName("served_at")] DateTimeOffset ServedAt,
     [property: JsonPropertyName("age_seconds")] long AgeSeconds,
+    [property: JsonPropertyName("time_format")] string TimeFormat,
     Upstream? Upstream
 );
 

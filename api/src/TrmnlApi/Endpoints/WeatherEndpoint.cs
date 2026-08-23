@@ -126,6 +126,7 @@ public class WeatherEndpoint
             DataTime: weatherResponse.Current.Time,
             ServedAt: servedAt,
             AgeSeconds: (long)(servedAt - outcome.FetchedAt).TotalSeconds,
+            TimeFormat: use24Hour ? "24h" : "12h",
             Upstream: outcome.Upstream);
 
         weatherResponse = weatherResponse with { Meta = meta };

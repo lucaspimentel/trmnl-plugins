@@ -7,7 +7,7 @@
   <div class="flex portrait:flex--col gap--[16px] lg:gap--large" style="flex:1;">
     <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8 lg:pt--12 w--[64cqw] portrait:w--full">
       {% render "weather_current", current: current %}
-      {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230, time_format: trmnl.plugin_settings.time_format %}
+      {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230, time_format: meta.time_format %}
     </div>
     <div class="flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none w--[36cqw] portrait:w--[75cqw] portrait:flex-auto">
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
@@ -19,5 +19,5 @@
     <div class="title mt--4" data-pixel-perfect="true">No weather data available.</div>
   </div>
   {% endif %}
-  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache, time_format: trmnl.plugin_settings.time_format %}
+  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache, time_format: meta.time_format %}
 </div>

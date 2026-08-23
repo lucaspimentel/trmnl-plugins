@@ -81,6 +81,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
     "data_time": "2026-02-25T14:00",
     "served_at": "2026-02-25T14:00:01+00:00",
     "age_seconds": 1,
+    "time_format": "12h",            // 12h | 24h
     "upstream": null                  // populated with { status, error } when stale_served or fallback used
   }
 }
