@@ -74,6 +74,18 @@ How API data is exposed to templates depends on the shape of the JSON response:
 
 **Plugin settings**: `trmnl.plugin_settings.instance_name` gives the user-configured instance name.
 
+**Custom fields are NOT readable from templates.** `trmnl.plugin_settings.instance_name` works, but a
+custom field defined in `settings.yml` does not resolve under `trmnl.plugin_settings.<keyname>` when the
+server renders the plugin (nor under `custom_fields.<keyname>` or `custom_fields_values.<keyname>` —
+that last form is the JS sandbox only). It silently renders empty, so a conditional on it always takes
+the else branch. Confirmed on a device Aug 2026 (Weather plugin `time_format`); local `trmnlp serve`
+behavior was not checked, so verify on a real device rather than in preview.
+
+The custom field's real job is `polling_url` interpolation. To get its value into a template, send it to
+your API as a query param and **echo it back in the response body** — response keys are injected as
+template variables, so `meta.my_setting` is reliably readable where `trmnl.plugin_settings.my_setting`
+is not. If you do not control the API, a `{% assign %}` default in `shared.liquid` is the fallback.
+
 **Liquid filters**: Standard Shopify Liquid filters work (e.g., `| date: "%b %-d"`, `| upcase`).
 TRMNL also provides custom filters via the trmnl-liquid gem.
 For the full Liquid language reference (all filters, tags, operators, types), see `references/liquid.md`.
@@ -158,6 +170,7 @@ Key principles:
 
 - **Blank screen / zero values**: Check that `data` is populated — add `{{ data | json }}` temporarily to see raw data. Zero values usually mean the template is receiving empty structs, not actual API data — check that `settings.yml` is in `src/`.
 - **Poll not working / empty data**: Verify `settings.yml` is at `src/settings.yml`. trmnlp reads `src/settings.yml` exclusively — a `settings.yml` at the plugin root will be ignored for polling.
+- **Custom field setting has no effect on the device**: templates cannot read `trmnl.plugin_settings.<keyname>` — it renders empty server-side. Route the value through the API response instead. See **Plugin settings** under Data Access in Templates.
 - **Content overflow**: Adjust `data-list-max-height` or add `data-list-limit="true"`
 - **Layout not full-width**: The `.layout` class does not automatically stretch to fill its container. Add `style="width:100%"` on the layout div, or use a plain `<div style="display:flex; ...">` for custom layouts.
 - **Highcharts not defined**: trmnlp's bundled `plugins.js` does not include Highcharts. Add a `<script src="...highcharts.js"></script>` tag inside the template block that uses it. Avoid `code.highcharts.com` — it rate-limits automated/headless requests (429); self-host the file instead.
