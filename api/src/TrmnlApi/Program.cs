@@ -20,13 +20,14 @@ builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>()
     .AddStandardResilienceHandler(WeatherResilience.Configure);
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
-// Registration order defines the fallback order: requested provider first, then the others in this order.
-builder.Services.AddSingleton<IWeatherProvider, PirateWeatherProvider>();
-builder.Services.AddSingleton<IWeatherProvider, OpenMeteoProvider>();
+// Keyed so that only the providers named in WeatherProviders are ever constructed: a provider
+// left out of the list must not need its API key configured.
+builder.Services.AddKeyedSingleton<IWeatherProvider, PirateWeatherProvider>(PirateWeatherProvider.ProviderName);
+builder.Services.AddKeyedSingleton<IWeatherProvider, OpenMeteoProvider>(OpenMeteoProvider.ProviderName);
 
 var configuredProviders = ParseWeatherProviders(builder.Configuration["WeatherProviders"]);
 builder.Services.AddSingleton<WeatherProviderResolver>(sp => new WeatherProviderResolver(
-    sp.GetRequiredService<IEnumerable<IWeatherProvider>>(),
+    ResolveConfiguredProviders(sp, configuredProviders),
     configuredProviders));
 builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton<WeatherForecastOrchestrator>();
@@ -35,11 +36,19 @@ builder.Services.AddSingleton<ForecastMetrics>();
 
 var app = builder.Build();
 
+// Build the resolver eagerly so a missing provider API key fails at startup with a clear
+// message instead of 500ing the first forecast request.
+app.Services.GetRequiredService<WeatherProviderResolver>();
+
 app.MapGet("/api/v1/forecast", WeatherEndpoint.Handle);
 app.MapGet("/health", () => Results.Ok());
 app.MapGet("/metrics", (ForecastMetrics metrics) => Results.Json(metrics.Snapshot(), WeatherEndpoint.JsonOptions));
 
 app.Run();
+
+static IEnumerable<IWeatherProvider> ResolveConfiguredProviders(IServiceProvider sp, IReadOnlyList<string> configuredOrder) =>
+    configuredOrder.Select(name => sp.GetKeyedService<IWeatherProvider>(name)
+        ?? throw new InvalidOperationException($"Configured weather provider '{name}' is not registered."));
 
 static IReadOnlyList<string> ParseWeatherProviders(string? raw)
 {

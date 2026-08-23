@@ -138,17 +138,7 @@ public class WeatherProviderResolverTests
     [Fact]
     public void Resolve_UsingProductionRegistrations_ReturnsCorrectConcreteType()
     {
-        var services = new ServiceCollection();
-        services.AddSingleton<IOpenMeteoClient, StubOpenMeteoClient>();
-        services.AddSingleton<IWeatherTransformer, StubWeatherTransformer>();
-        services.AddSingleton<IPirateWeatherClient, StubPirateWeatherClient>();
-        services.AddSingleton<IWeatherProvider, PirateWeatherProvider>();
-        services.AddSingleton<IWeatherProvider, OpenMeteoProvider>();
-        services.AddSingleton<WeatherProviderResolver>(sp => new WeatherProviderResolver(
-            sp.GetRequiredService<IEnumerable<IWeatherProvider>>(),
-            [PirateWeatherProvider.ProviderName, OpenMeteoProvider.ProviderName]));
-
-        var resolver = services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
+        var resolver = BuildProductionResolver([PirateWeatherProvider.ProviderName, OpenMeteoProvider.ProviderName]);
 
         Assert.IsType<OpenMeteoProvider>(resolver.Resolve(OpenMeteoProvider.ProviderName));
         Assert.IsType<PirateWeatherProvider>(resolver.Resolve(PirateWeatherProvider.ProviderName));
@@ -157,6 +147,61 @@ public class WeatherProviderResolverTests
         Assert.Equal(2, chain.Count);
         Assert.IsType<OpenMeteoProvider>(chain[0]);
         Assert.IsType<PirateWeatherProvider>(chain[1]);
+    }
+
+    // A provider left out of WeatherProviders must never be constructed: its client may throw
+    // for a missing API key that the deployment deliberately does not configure.
+    [Theory]
+    [InlineData(OpenMeteoProvider.ProviderName)]
+    [InlineData(PirateWeatherProvider.ProviderName)]
+    public void Resolve_UnconfiguredProviderIsNeverConstructed(string configuredProvider)
+    {
+        var resolver = BuildProductionResolver([configuredProvider], throwOnUnconfiguredClient: true);
+
+        var chain = resolver.ResolveChain(null);
+
+        Assert.Single(chain);
+        Assert.Equal(configuredProvider, chain[0].Name);
+    }
+
+    // Mirrors the keyed registrations in Program.cs. When throwOnUnconfiguredClient is set, each
+    // provider's client throws on construction, so resolving one that was not configured fails
+    // the test rather than passing silently.
+    private static WeatherProviderResolver BuildProductionResolver(
+        IReadOnlyList<string> configuredOrder,
+        bool throwOnUnconfiguredClient = false)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IWeatherTransformer, StubWeatherTransformer>();
+
+        var failOpenMeteo = throwOnUnconfiguredClient && !configuredOrder.Contains(OpenMeteoProvider.ProviderName);
+        var failPirate = throwOnUnconfiguredClient && !configuredOrder.Contains(PirateWeatherProvider.ProviderName);
+
+        if (failOpenMeteo)
+        {
+            services.AddSingleton<IOpenMeteoClient>(_ => throw new InvalidOperationException("open-meteo client must not be constructed."));
+        }
+        else
+        {
+            services.AddSingleton<IOpenMeteoClient, StubOpenMeteoClient>();
+        }
+
+        if (failPirate)
+        {
+            services.AddSingleton<IPirateWeatherClient>(_ => throw new InvalidOperationException("pirate-weather client must not be constructed."));
+        }
+        else
+        {
+            services.AddSingleton<IPirateWeatherClient, StubPirateWeatherClient>();
+        }
+
+        services.AddKeyedSingleton<IWeatherProvider, PirateWeatherProvider>(PirateWeatherProvider.ProviderName);
+        services.AddKeyedSingleton<IWeatherProvider, OpenMeteoProvider>(OpenMeteoProvider.ProviderName);
+        services.AddSingleton<WeatherProviderResolver>(sp => new WeatherProviderResolver(
+            configuredOrder.Select(name => sp.GetRequiredKeyedService<IWeatherProvider>(name)),
+            configuredOrder));
+
+        return services.BuildServiceProvider().GetRequiredService<WeatherProviderResolver>();
     }
 
     private sealed class FakeProvider(string name) : IWeatherProvider
