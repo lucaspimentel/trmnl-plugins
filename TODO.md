@@ -54,7 +54,7 @@ Improvements identified during a review of the caching and fallback workflow in 
   - Lower priority than the paid-key fix above (which removes the quota ceiling entirely), but worth pairing with it for predictability.
   - On hold pending the free-tier reversion above: if caching brings live-call volume down enough, a dedicated IP may not be worth the Azure NAT Gateway cost. Revisit only if the free tier proves insufficient even with stronger caching.
 
-- [ ] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
+  - [x] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
   - `plugins/weather/src/settings.yml` sets `refresh_interval: 30` (minutes). Every TRMNL device × poll hits the API and counts against upstream per-IP quotas. Raising it directly cuts upstream call volume.
   - Trade-off: less fresh on-screen data. Consider 30 → 60 as a low-risk middle ground, or make it adaptive once the shared L2 cache (P1 above) is in place.
 
