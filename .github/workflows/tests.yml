@@ -3,7 +3,13 @@ name: tests
 on:
   push:
     branches: [main, staging]
+    paths:
+      - 'api/**'
+      - '.github/workflows/tests.yml'
   pull_request:
+    paths:
+      - 'api/**'
+      - '.github/workflows/tests.yml'
 
 jobs:
   test:
