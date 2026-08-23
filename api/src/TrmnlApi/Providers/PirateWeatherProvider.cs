@@ -17,7 +17,7 @@ public class PirateWeatherProvider(IPirateWeatherClient client) : IWeatherProvid
         return Transform(raw);
     }
 
-    public static WeatherResponse Transform(PirateWeatherResponse raw, int hours = 25, int days = 6)
+    public static WeatherResponse Transform(PirateWeatherResponse raw, int hours = 25, int days = 14)
     {
         var tz = TimeZoneInfo.FindSystemTimeZoneById(raw.Timezone);
         var daily = TransformDaily(raw.Daily, tz, days);

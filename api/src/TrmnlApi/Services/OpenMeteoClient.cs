@@ -43,7 +43,7 @@ public class OpenMeteoClient : IOpenMeteoClient
                   $"&hourly=temperature_2m,weather_code,precipitation_probability" +
                   $"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset" +
                   $"&temperature_unit={tempUnit}&wind_speed_unit={windUnit}&precipitation_unit={precipUnit}" +
-                  $"&timezone=auto&forecast_hours=25&forecast_days=6";
+                  $"&timezone=auto&forecast_hours=25&forecast_days=14";
 
         if (_apiKey is not null)
         {

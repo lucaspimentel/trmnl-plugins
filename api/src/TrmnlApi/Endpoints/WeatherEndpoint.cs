@@ -12,7 +12,7 @@ namespace TrmnlApi.Functions;
 public class WeatherEndpoint
 {
     private const int MaxHours = 25;
-    private const int MaxDays = 6;
+    private const int MaxDays = 14;
 
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {

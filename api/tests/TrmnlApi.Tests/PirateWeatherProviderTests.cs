@@ -83,10 +83,11 @@ public class PirateWeatherProviderTests
     }
 
     [Fact]
-    public void Transform_Daily_LimitsToSixEntries()
+    public void Transform_Daily_DefaultsToAllAvailableEntries()
     {
-        var result = PirateWeatherProvider.Transform(LoadFixture());
-        Assert.Equal(6, result.Daily.Entries.Count);
+        var raw = LoadFixture();
+        var result = PirateWeatherProvider.Transform(raw);
+        Assert.Equal(raw.Daily.Data.Count, result.Daily.Entries.Count);
     }
 
     [Fact]

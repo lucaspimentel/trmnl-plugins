@@ -58,11 +58,11 @@ custom_fields:
 - keyname: days
   field_type: number
   name: Days
-  description: Number of days to show in the Daily forecast, including today
+  description: Number of days to show in the Daily forecast, including today. Pirate Weather only supplies up to 7 days regardless of this setting.
   placeholder: '6'
   default: 6
   min: 1
-  max: 6
+  max: 14
   step: 1
 - keyname: time_format
   field_type: select

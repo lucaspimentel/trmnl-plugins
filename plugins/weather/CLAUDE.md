@@ -1,8 +1,9 @@
 # Weather Plugin
 
-Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
-using a custom TrmnlApi backend that fetches and normalizes data from
-either Open-Meteo (plugin default) or Pirate Weather.
+Displays current conditions, a 24-hour temperature chart, and a daily forecast
+(up to 14 days, capped at 7 when served by Pirate Weather) using a custom
+TrmnlApi backend that fetches and normalizes data from either Open-Meteo
+(plugin default) or Pirate Weather.
 
 See `README.md` for contributor setup and external dependency details.
 
@@ -24,7 +25,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–6, default 6), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6; Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting; `src/settings.yml` always sends `provider`, defaulting to `open-meteo`
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 
@@ -70,7 +71,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
         "sunrise": "2026-02-25T06:30",
         "sunset": "2026-02-25T17:35"
       }
-      // ... up to 6 entries
+      // ... up to `days` entries (14 max; 7 max when served by Pirate Weather)
     ]
   },
   "meta": {
@@ -96,13 +97,13 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 ```liquid
 {% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
-{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 6, current_temp: current.temperature %}
+{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature %}
 ```
 
 Key access patterns:
 - `current.temperature`, `current.condition`, `current.icon_class`, `current.is_day`
 - `hourly.entries` — array of up to 25 entries (current hour + next 24h)
-- `daily.entries` — array of up to 6 entries (today + next 5 days)
+- `daily.entries` — array of up to `days` entries (today + next N-1 days), max 14 (7 when served by Pirate Weather)
 - `icon_class` already includes day/night variant (e.g. `wi-day-sunny`) — pre-computed by TrmnlApi; templates prepend the `wi` base class
 
 ## Template Architecture
@@ -117,7 +118,7 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 | `weather_daily_bars_vertical` | CSS range bars, weather icons, labels inside/outside bar |
 | `title_bar` | Bottom bar: plugin name, weather icon, "Updated"/"Cached" timestamp, provider label (full/half_horizontal only) |
 
-Daily bars per layout: `full` 6 days, `half_horizontal` 4, `half_vertical` 5, `quadrant` 3 (no hourly chart).
+Daily bars per layout: `full` follows the `days` setting (up to 14, fewer if Pirate Weather serves the response), `half_horizontal` 4, `half_vertical` 5, `quadrant` 3 (no hourly chart) — the latter three are hardcoded to fit their smaller layout space and don't scale with `days`.
 
 `full.liquid` layout structure:
 

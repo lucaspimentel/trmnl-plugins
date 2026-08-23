@@ -34,7 +34,7 @@ Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, 
 | `longitude` | yes | — | Location longitude |
 | `units` | no | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
 | `hours` | no | `25` | Number of hourly forecast entries (1–25) |
-| `days` | no | `6` | Number of daily forecast entries (1–6) |
+| `days` | no | `6` | Number of daily forecast entries (1–14; Pirate Weather only supplies up to 7) |
 | `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather` (the plugin sends `open-meteo` by default) |
 
 ## Development
