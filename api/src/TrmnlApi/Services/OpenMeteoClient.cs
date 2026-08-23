@@ -8,6 +8,13 @@ public class OpenMeteoClient : IOpenMeteoClient
 {
     public const string ApiKeySettingName = "OPEN_METEO_API_KEY";
 
+    /// <summary>
+    /// Open-Meteo's documented ceiling for forecast_days. This is a fact about the
+    /// upstream API, not a product decision: WeatherEndpoint.MaxDays decides how many
+    /// days a caller may request, and must stay at or below this.
+    /// </summary>
+    internal const int MaxForecastDays = 16;
+
     private const string FreeBaseUrl = "https://api.open-meteo.com/v1/forecast";
     private const string CustomerBaseUrl = "https://customer-api.open-meteo.com/v1/forecast";
 
@@ -43,7 +50,7 @@ public class OpenMeteoClient : IOpenMeteoClient
                   $"&hourly=temperature_2m,weather_code,precipitation_probability" +
                   $"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset" +
                   $"&temperature_unit={tempUnit}&wind_speed_unit={windUnit}&precipitation_unit={precipUnit}" +
-                  $"&timezone=auto&forecast_hours=25&forecast_days=14";
+                  $"&timezone=auto&forecast_hours=25&forecast_days={MaxForecastDays}";
 
         if (_apiKey is not null)
         {

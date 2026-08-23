@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.6.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="TrmnlApi.Tests" />
+  </ItemGroup>
+
 </Project>
