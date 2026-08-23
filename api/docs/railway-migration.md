@@ -1,6 +1,8 @@
 # Migrating the Weather API from Azure Functions to Railway
 
-Status: draft, not started. Branch: `lpimentel/railway-migration`.
+Status (2026-08-22): Phases 1-4 done, Phase 5 in progress. Branch: `staging`.
+Staging is live at `trmnl-plugins-staging.lucasp.net`; production is not yet configured and
+prod traffic still goes to Azure.
 
 ## Motivation
 
@@ -192,33 +194,93 @@ migration is stable if trace visibility is needed.
    migration — `OpenMeteoClient` already falls back to the free host when it's unset.
    Set: `WeatherProviders=open-meteo,pirate-weather`, `PIRATE_WEATHER_API_KEY` (copied from
    Azure), `WeatherCache__FreshTtl=00:35:00`, `WeatherCache__StaleTtl=03:00:00`.
-   `OPEN_METEO_API_KEY` intentionally not set (free-tier reversion).
+   Correction (2026-08-22): `OPEN_METEO_API_KEY` was initially left unset for the free-tier
+   reversion, and every forecast request 502'd — Open-Meteo returned 429 "Daily API request
+   limit exceeded" within minutes of deploy, before any real traffic existed. The free tier
+   is rate-limited **per source IP**, and Railway egresses through a shared NAT address whose
+   daily quota other tenants had already consumed. The key was added and the provider
+   recovered immediately. This undercuts the free-tier reversion premise (see Phase 5 step 4
+   and the open question below): on a shared-egress host the free tier may be unusable
+   regardless of how good the cache hit rate gets.
+   Also note: a variable change auto-triggers a redeploy, during which the old container keeps
+   serving for roughly 30-60s. Verify against the new deployment, not immediately after saving.
 3. [x] Pin the service to 1 replica explicitly (confirm Railway's default doesn't autoscale a
    simple web service by default — verify before relying on it).
    Confirmed: service config shows `numReplicas: 1` in `multiRegionConfig`. No autoscaling.
 4. [x] Deploy to a Railway *staging* environment first (Railway supports environments per project).
    Deployed to staging: `https://trmnl-plugins-staging.up.railway.app`. All endpoints verified:
    health (200), success (200 with JSON weather data), error paths (400 with correct body text
-   for missing coords, bad units, bad provider). 502 path observed transiently when Open-Meteo
-   upstream was briefly unavailable — correct behavior.
+   for missing coords, bad units, bad provider).
+   Correction (2026-08-22): the "502 observed transiently" note was wrong — that 502 was the
+   Open-Meteo quota failure described in step 2, which persisted until the API key was set,
+   not a transient upstream blip.
+5. [x] Branch and domain wiring (2026-08-22).
+   - Staging deploys from the `staging` branch (branched off `lpimentel/railway-migration`,
+     which has since been deleted). `.github/workflows/tests.yml` runs on pushes to that
+     branch so CI covers what gets deployed.
+   - Custom domains: `trmnl-plugins-staging.lucasp.net` (staging),
+     `trmnl-plugins-prod.lucasp.net` (production, bound but not yet serving).
+   - `healthcheckPath: /health` set on staging; Railway now gates a deploy on the app
+     reporting ready rather than on the container merely starting.
+   - Caveat: `railway service source connect` silently resets the trigger's `checkSuites`
+     flag to false. Re-enable it via the GraphQL `deploymentTriggerUpdate` mutation (the MCP
+     `update-service` tool does not cover source settings) after any source reconnect.
+   - Not yet verified: whether `checkSuites` actually gates the build. On the 2026-08-22
+     push, Railway created the deployment one second *before* CI started and finished after
+     it, consistent with building concurrently. Settle it with a deliberately failing test
+     if the gate matters.
 
 ### Phase 5 — Staging validation
 
-1. Point a temporary/manual test against the Railway staging URL with the same request matrix
+Scope decision (2026-08-22): the soak runs on the **staging plugin alone** (plugin `316595`,
+one device polling every 30 min). That is ~48 requests/day against a single cache key, so its
+hit rate is arithmetically guaranteed to be high and does **not** project to prod. Phase 5 is
+therefore a *stability and correctness* soak plus an *analytical* projection (step 4); the real
+hit-rate measurement happens after cutover, with `polling_url` as the rollback switch.
+
+1. [x] Instrument the cache outcome — nothing recorded it, so the hit rate this phase exists to
+   measure was unmeasurable. Application Insights was dropped in Phase 1 and Datadog skipped in
+   Phase 3, and `meta.cache` was returned to the client but never logged.
+   Added: a per-request log line (cache status, winning/requested provider, `F1`-rounded
+   coordinates) and `GET /metrics` returning process-lifetime counters — served count, the
+   `fresh_fetch`/`fresh_hit`/`stale_served` split, derived hit rate, upstream failures, and
+   per-provider counts. Uptime in the snapshot resets on restart, which is how restart-driven
+   cache loss is distinguished from a genuinely low hit rate.
+   **The counters are per-process and reset on every deploy.** Avoid deploying to staging during
+   the soak, or snapshot `/metrics` before each deploy.
+2. [ ] Point a temporary/manual test against the Railway staging URL with the same request matrix
    as Phase 2, comparing against Azure staging (`trmnl-plugins-api-staging.azurewebsites.net`).
-2. Let it soak for a few days of real device-like polling (or replay recent request patterns)
-   and check the actual cache hit rate via logs/Datadog — this is the number that validates the
-   whole migration's premise. Target: hit rate high enough that daily upstream calls comfortably
-   clear 10,000/day with headroom for growth (see `TODO.md` P0 for the full target rationale).
+   Partially covered: success path and the 400 error paths were verified against deployed
+   staging, and Phase 2 proved schema parity locally and in-container. The full side-by-side
+   matrix has not been run. The fallback path is untestable until Pirate Weather has its own
+   key — the current key is shared with Azure prod/staging and is returning 429, so a request
+   for `pirate-weather` silently falls back to open-meteo.
+3. [ ] Point staging plugin `316595` at `trmnl-plugins-staging.lucasp.net` and soak for several
+   days. Record: restart count and cause (via `/metrics` uptime resets and deploy history —
+   this is the number that decides the L2 cache contingency), idle sleep behavior, upstream
+   failures, and whether the rendered screen looks right, not just that JSON returns 200.
+4. [ ] Analytical projection, replacing what a single-key soak cannot measure. Expected prod
+   steady state: ~14,400 req/day ÷ 48 polls/device/day ≈ **~300 distinct cache keys** (fewer
+   where devices share coordinates/units/provider). With `FreshTtl=00:35:00` against a 30-min
+   `refresh_interval`, an entry is fresh for exactly one subsequent poll and stale on the next,
+   so each key refetches roughly hourly — ~24/day/key, **~7,200 upstream calls/day even with a
+   perfect single-instance cache**. That clears 10,000/day but with only ~28% headroom against
+   traffic P0 describes as growing. Raising `FreshTtl` past the poll-interval beat (e.g.
+   `01:05:00` → a fetch every ~90 min → ~4,800/day) is the cheap lever.
+   Deliverable: a recommendation on `FreshTtl`, and on whether the free-tier reversion is still
+   viable at all given the shared-egress finding in Phase 4 step 2.
 
 ### Phase 6 — Cutover
 
-1. Update `polling_url` in `plugins/weather/src/settings.yml` to the new Railway URL (or a
-   custom domain mapped to it — decide whether a custom domain is worth the setup for this
-   internal-ish plugin backend, or whether Railway's `*.up.railway.app` default is fine).
+0. **Configure the production environment first** — it is currently empty: no source, no
+   variables, no deployments. Only `trmnl-plugins-prod.lucasp.net` is bound, and it serves 404.
+   Needs repo/branch + `rootDirectory: /api`, all five app variables, `healthcheckPath`,
+   `numReplicas: 1` confirmed, and `checkSuites` re-enabled after connecting the source.
+1. Update `polling_url` in `plugins/weather/src/settings.yml` to `trmnl-plugins-prod.lucasp.net`.
 2. Update the other four places the Azure URL is referenced: root `README.md`,
    `plugins/weather/README.md`, `plugins/weather/CLAUDE.md` (both the prod URL at line 24 and
-   the staging URL at line 19), `plugins/weather/fields.txt`.
+   the staging URL at line 19), `plugins/weather/fields.txt`. Also
+   `.claude/settings.local.json`, which allowlists the Azure host for `WebFetch`.
 3. `trmnlp push --force` to redeploy the plugin with the new `polling_url`.
 4. Update root `CLAUDE.md`'s "API Backend" section: replace the `func azure functionapp
    publish` deploy commands with the Railway deploy flow (likely just "push to the branch,
@@ -226,8 +288,10 @@ migration is stable if trace visibility is needed.
 5. Once the free-tier reversion criteria in `TODO.md` P0 are met, drop `OPEN_METEO_API_KEY` and
    cancel the Open-Meteo paid subscription (can happen same day as cutover or after a short
    soak period — decide based on how confident Phase 5's numbers are).
-6. Decide the branch-to-Railway-environment mapping (e.g. `main` → Railway prod, a staging
-   branch → Railway staging). Confirm Railway auto-deploys on push to the connected branch.
+6. Branch-to-environment mapping: staging deploys from `staging` (done, Phase 4 step 5).
+   Production should deploy from `main`; the migration commits currently live only on `staging`
+   and need a PR into `main` before cutover. Auto-deploy on push is confirmed, subject to the
+   service's `watchPatterns: ["/api/**"]` — a commit touching only plugins or CI is skipped.
 
 ### Phase 7 — Decommission Azure resources
 
@@ -250,11 +314,21 @@ Azure (Phase 7) until Railway has proven stable in prod.
 
 - [x] ~~Datadog APM story on Railway (Phase 3)~~ — skipped; ship without traces, add Agent
       sidecar as fast-follow if needed.
-- [ ] Custom domain vs. Railway's default domain for the cutover.
+- [x] ~~Custom domain vs. Railway's default domain for the cutover~~ — custom domains:
+      `trmnl-plugins-staging.lucasp.net` and `trmnl-plugins-prod.lucasp.net`.
 - [x] ~~Railway's port-binding convention~~ — Railway does not inject `PORT`; the app pins 8080
       via `ASPNETCORE_HTTP_PORTS` in the Dockerfile. See the correction in Phase 1 step 4.
 - [x] ~~Replica count~~ — confirmed 1 replica in service config (`numReplicas: 1`), no
       autoscaling. Railway sleep behavior for idle services still unverified; will surface
       during Phase 5 soak.
 - [ ] Decide whether the free-tier reversion (`TODO.md` P0) happens as part of this migration or
-      as a separate follow-up once Railway's real-world hit rate is confirmed.
+      as a separate follow-up once Railway's real-world hit rate is confirmed. Leaning against
+      it entirely: the free tier is per-IP and Railway's egress IP is shared, so the quota can
+      be exhausted by other tenants regardless of our cache (Phase 4 step 2). Phase 5 step 4
+      also projects ~7,200 calls/day at current traffic even with a perfect cache, leaving
+      thin headroom.
+- [ ] Pirate Weather needs its own API key. The current key is shared across Azure prod, Azure
+      staging, and Railway, and is returning 429, so the fallback provider is unavailable and
+      the fallback path is untestable.
+- [ ] Naming: project `trmnl-weather` contains service `trmnl-plugins` — the narrower name wraps
+      the broader one. Suggest project `trmnl-plugins`, service `weather-api`.
