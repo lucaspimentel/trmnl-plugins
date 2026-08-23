@@ -267,8 +267,10 @@ hit-rate measurement happens after cutover, with `polling_url` as the rollback s
    perfect single-instance cache**. That clears 10,000/day but with only ~28% headroom against
    traffic P0 describes as growing. Raising `FreshTtl` past the poll-interval beat (e.g.
    `01:05:00` → a fetch every ~90 min → ~4,800/day) is the cheap lever.
-   Deliverable: a recommendation on `FreshTtl`, and on whether the free-tier reversion is still
-   viable at all given the shared-egress finding in Phase 4 step 2.
+   Deliverable: a recommendation on `FreshTtl`. The free-tier reversion is already resolved
+   (see open questions) as not viable on Railway — no dedicated egress IP is available, and
+   Railway's Static Outbound IPs are explicitly not guaranteed dedicated. The `FreshTtl` bump
+   is therefore the only remaining cache-side lever for reducing upstream call volume.
 
 ### Phase 6 — Cutover
 
@@ -285,9 +287,10 @@ hit-rate measurement happens after cutover, with `polling_url` as the rollback s
 4. Update root `CLAUDE.md`'s "API Backend" section: replace the `func azure functionapp
    publish` deploy commands with the Railway deploy flow (likely just "push to the branch,
    Railway auto-deploys" — confirm once Railway is set up).
-5. Once the free-tier reversion criteria in `TODO.md` P0 are met, drop `OPEN_METEO_API_KEY` and
-   cancel the Open-Meteo paid subscription (can happen same day as cutover or after a short
-   soak period — decide based on how confident Phase 5's numbers are).
+5. **Keep the paid Open-Meteo customer-API key in production** — do not drop `OPEN_METEO_API_KEY`
+   or cancel the paid subscription. The free-tier reversion is resolved as not viable on Railway
+   (no dedicated egress IP; see open questions and Phase 5 step 4). The paid key stays as a
+   permanent part of the prod config, not a temporary one.
 6. Branch-to-environment mapping: staging deploys from `staging` (done, Phase 4 step 5).
    Production should deploy from `main`; the migration commits currently live only on `staging`
    and need a PR into `main` before cutover. Auto-deploy on push is confirmed, subject to the
@@ -321,12 +324,19 @@ Azure (Phase 7) until Railway has proven stable in prod.
 - [x] ~~Replica count~~ — confirmed 1 replica in service config (`numReplicas: 1`), no
       autoscaling. Railway sleep behavior for idle services still unverified; will surface
       during Phase 5 soak.
-- [ ] Decide whether the free-tier reversion (`TODO.md` P0) happens as part of this migration or
-      as a separate follow-up once Railway's real-world hit rate is confirmed. Leaning against
-      it entirely: the free tier is per-IP and Railway's egress IP is shared, so the quota can
-      be exhausted by other tenants regardless of our cache (Phase 4 step 2). Phase 5 step 4
-      also projects ~7,200 calls/day at current traffic even with a perfect cache, leaving
-      thin headroom.
+- [x] ~~Decide whether the free-tier reversion (`TODO.md` P0) happens as part of this
+      migration or as a separate follow-up once Railway's real-world hit rate is confirmed.~~
+      Resolved (2026-08-22): **the free-tier reversion is out of scope for this migration and
+      not worth pursuing on Railway at all.** Railway offers no dedicated egress IP. Its
+      "Static Outbound IPs" feature (Pro plan, $20/mo) assigns 3 stable IPv4 addresses per
+      service but the docs state verbatim that they "may be shared with other customers" —
+      the same root cause that 429'd staging in Phase 4 step 2, so it does not fix the per-IP
+      quota exhaustion. A true dedicated IP requires egressing through a self-hosted forward
+      proxy on a cheap VPS or Fly.io (~$3-5/mo), which adds operational complexity for a tier
+      that Phase 5 step 4 projects only ~28% headroom against at current traffic anyway.
+      Keep the paid Open-Meteo customer-API key and drop `OPEN_METEO_API_KEY` reversion from
+      the migration scope; the cheaper, host-independent lever is raising `FreshTtl` (Phase 5
+      step 4).
 - [ ] Pirate Weather needs its own API key. The current key is shared across Azure prod, Azure
       staging, and Railway, and is returning 429, so the fallback provider is unavailable and
       the fallback path is untestable.
