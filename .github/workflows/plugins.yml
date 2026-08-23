@@ -1,0 +1,35 @@
+name: plugins
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugins.yml'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugins.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      # Lint every plugin even when one fails, so a single bad plugin
+      # doesn't hide problems in the others.
+      fail-fast: false
+      matrix:
+        plugin: [weather, mbta-alerts]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+
+      # Pinned: a new check in a newer release would turn the repo red
+      # without any change on our side.
+      - run: gem install trmnl_preview -v 0.11.0
+
+      - run: trmnlp lint
+        working-directory: plugins/${{ matrix.plugin }}
