@@ -1,8 +1,10 @@
 # Migrating the Weather API from Azure Functions to Railway
 
-Status (2026-08-22): Phases 1-4 done, Phase 5 in progress. Branch: `staging`.
-Staging is live at `trmnl-plugins-staging.lucasp.net`; production is not yet configured and
-prod traffic still goes to Azure.
+Status (2026-08-23): Phases 1-4 done, Phase 5 soak running, Phase 6 step 0 done. Both
+Railway environments are RUNNING: staging at `trmnl-plugins-staging.lucasp.net` (commit
+`642eaeb`, soak in progress), production at `trmnl-plugins-prod.lucasp.net` (commit
+`63bc139`, deployed and serving 200s but no device traffic yet). Prod traffic still goes to
+Azure, the `polling_url` cutover switch not yet thrown.
 
 ## Motivation
 
@@ -274,10 +276,11 @@ hit-rate measurement happens after cutover, with `polling_url` as the rollback s
 
 ### Phase 6 — Cutover
 
-0. **Configure the production environment first** — it is currently empty: no source, no
-   variables, no deployments. Only `trmnl-plugins-prod.lucasp.net` is bound, and it serves 404.
-   Needs repo/branch + `rootDirectory: /api`, all five app variables, `healthcheckPath`,
-   `numReplicas: 1` confirmed, and `checkSuites` re-enabled after connecting the source.
+0. [x] **Configure the production environment first.** Done (2026-08-23): production deploys
+   from `main` at `63bc139`, `RUNNING`, custom domain `trmnl-plugins-prod.lucasp.net` serving
+   200 on `/health`, `/metrics`, and `/api/v1/forecast` (real weather JSON returned, `Server:
+   railway-hikari`, edge `mia1`). Prod is up but not yet receiving device traffic, the
+   `polling_url` cutover (step 1) is the switch that throws real load at it.
 1. Update `polling_url` in `plugins/weather/src/settings.yml` to `trmnl-plugins-prod.lucasp.net`.
 2. Update the other four places the Azure URL is referenced: root `README.md`,
    `plugins/weather/README.md`, `plugins/weather/CLAUDE.md` (both the prod URL at line 24 and
@@ -291,10 +294,13 @@ hit-rate measurement happens after cutover, with `polling_url` as the rollback s
    or cancel the paid subscription. The free-tier reversion is resolved as not viable on Railway
    (no dedicated egress IP; see open questions and Phase 5 step 4). The paid key stays as a
    permanent part of the prod config, not a temporary one.
-6. Branch-to-environment mapping: staging deploys from `staging` (done, Phase 4 step 5).
-   Production should deploy from `main`; the migration commits currently live only on `staging`
-   and need a PR into `main` before cutover. Auto-deploy on push is confirmed, subject to the
-   service's `watchPatterns: ["/api/**"]` — a commit touching only plugins or CI is skipped.
+6. [x] Branch-to-environment mapping: staging deploys from `staging` (done, Phase 4 step 5);
+   production deploys from `main` (done, 2026-08-23). `main` was fast-forwarded to `staging`
+   (commit `63bc139`) and pushed, satisfying the "PR into `main` before cutover" step via
+   direct FF (solo repo, CI runs on push regardless). Auto-deploy on push confirmed, subject
+   to the service's `watchPatterns: ["/api/**"]`, a commit touching only plugins or CI is
+   skipped. `origin/staging` intentionally left 1 commit behind `main` to avoid redeploying
+   staging and resetting the Phase 5 `/metrics` counters; push it when the soak ends.
 
 ### Phase 7 — Decommission Azure resources
 
