@@ -13,7 +13,7 @@ public class WeatherEndpoint
     private const int MaxHours = 25;
     private const int MaxDays = 6;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -23,6 +23,7 @@ public class WeatherEndpoint
         HttpRequest req,
         WeatherForecastOrchestrator orchestrator,
         TimeProvider timeProvider,
+        ForecastMetrics metrics,
         ILogger<WeatherEndpoint> logger,
         CancellationToken cancellationToken)
     {
@@ -76,6 +77,7 @@ public class WeatherEndpoint
         }
         catch (UpstreamUnavailableException ex)
         {
+            metrics.RecordUpstreamFailure();
             logger.LogError(
                 ex,
                 "All weather providers failed for {Latitude},{Longitude}",
@@ -112,6 +114,15 @@ public class WeatherEndpoint
             Upstream: outcome.Upstream);
 
         weatherResponse = weatherResponse with { Meta = meta };
+
+        metrics.RecordServed(outcome.CacheStatus, outcome.WinningProvider);
+        logger.LogInformation(
+            "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider}",
+            latitude.ToString("F1", CultureInfo.InvariantCulture),
+            longitude.ToString("F1", CultureInfo.InvariantCulture),
+            outcome.CacheStatus,
+            outcome.WinningProvider,
+            outcome.RequestedProvider);
 
         return Results.Json(weatherResponse, JsonOptions);
     }

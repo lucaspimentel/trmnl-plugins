@@ -31,11 +31,13 @@ builder.Services.AddSingleton<WeatherProviderResolver>(sp => new WeatherProvider
 builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton<WeatherForecastOrchestrator>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ForecastMetrics>();
 
 var app = builder.Build();
 
 app.MapGet("/api/v1/forecast", WeatherEndpoint.Handle);
 app.MapGet("/health", () => Results.Ok());
+app.MapGet("/metrics", (ForecastMetrics metrics) => Results.Json(metrics.Snapshot(), WeatherEndpoint.JsonOptions));
 
 app.Run();
 
