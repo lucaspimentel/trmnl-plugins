@@ -54,7 +54,7 @@
 .wi-wmo4680-96:before { content: "\f01e"; }
 .wi-wmo4680-99:before { content: "\f056"; }
 .wi-na:before { content: "\f07b"; }
-.wi-raindrop:before { content: "\f078"; }
+.wi-umbrella:before { content: "\f084"; }
 .wi-strong-wind:before { content: "\f050"; }
 .wi-sunrise:before { content: "\f051"; }
 .wi-sunset:before { content: "\f052"; }
@@ -412,14 +412,9 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
         <div class="day-label shrink-0">
           <div class="description lg:description--large" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
-          {% assign precip_gray_step = entry.precipitation_probability | minus: 10 | times: 13 | divided_by: 90 | times: 5 %}
-          {% assign precip_gray = 75 | minus: precip_gray_step | at_least: 10 %}
-          <div class="rounded--[3px] lg:rounded--full" style="position:relative; overflow:hidden; border:1px solid #000;">
-            <div class="bg--gray-{{ precip_gray }}" style="position:absolute; top:0; left:0; bottom:0; width:{{ entry.precipitation_probability }}%;"></div>
-            <div class="flex flex--row flex--center-x gap--[6px]" style="position:relative;">
-              <i class="wi wi-raindrop text-stroke text-stroke--medium wi-sz-xs"></i>
-              <span class="description text-stroke text-stroke--medium" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
-            </div>
+          <div class="flex flex--row flex--left gap--[6px]">
+            <i class="wi wi-umbrella wi-sz-xs"></i>
+            <span class="description" data-pixel-perfect="true">{{ entry.precipitation_probability }}%</span>
           </div>
           {% endif %}
         </div>

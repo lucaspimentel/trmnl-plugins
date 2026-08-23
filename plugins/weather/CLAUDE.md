@@ -143,7 +143,7 @@ Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X via `isLg` JS flag). Chart
 {% assign left_pct = d_low | minus: overall_min | times: 100 | divided_by: range %}
 {% assign width_pct = d_high | minus: d_low | times: 100 | divided_by: range | at_least: 1 %}
 ```
-Precip bars hidden when chance < 10%; background gray scales with probability (`bg--gray-75` lightest → `bg--gray-10` darkest).
+Precipitation shows as an umbrella icon (`wi-umbrella`) + percentage under the day label, hidden when chance < 10%.
 Temp range bars use `bg--gray-30`.
 
 ## Local Preview
