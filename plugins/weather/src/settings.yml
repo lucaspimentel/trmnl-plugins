@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language: 
-polling_url: https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?provider={{ weather_provider }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}
+polling_url: https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?provider={{ weather_provider }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -65,4 +65,4 @@ custom_fields:
   max: 6
   step: 1
 name: LP Weather
-refresh_interval: 30
+refresh_interval: 60

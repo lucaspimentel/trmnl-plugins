@@ -1,7 +1,7 @@
 # Weather Plugin
 
 Displays current conditions, a 24-hour temperature chart, and a 6-day forecast
-using a custom TrmnlApi Azure Function that fetches and normalizes data from
+using a custom TrmnlApi backend that fetches and normalizes data from
 either Open-Meteo (plugin default) or Pirate Weather.
 
 See `README.md` for contributor setup and external dependency details.
@@ -16,12 +16,12 @@ See `README.md` for contributor setup and external dependency details.
 Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (do not commit them; revert with `git checkout -- src/settings.yml` afterward):
 
 1. `id:` → `316595`
-2. `polling_url` host → `trmnl-plugins-api-staging.azurewebsites.net`
+2. `polling_url` host → `trmnl-plugins-staging.lucasp.net`
 3. `name:` → append ` (staging)` (e.g. `LP Weather (staging)`) so it's distinguishable from prod in the TRMNL UI
 
 ## API: TrmnlApi
 
-- **Deployed URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast?latitude={lat}&longitude={lon}`
+- **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
 - **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–6, default 6), `provider` (`open-meteo` / `pirate-weather`); `fake=true` injects random precipitation for testing

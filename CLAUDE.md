@@ -51,19 +51,19 @@ Use it for fast OG sanity checks while iterating. It is **not** a replacement fo
 
 ## API Backend (`api/`)
 
-.NET 10 Azure Functions app (`TrmnlApi`) behind the Weather plugin. Solution: `api/TrmnlApi.slnx`.
+.NET 10 ASP.NET Core minimal API (`TrmnlApi`) behind the Weather plugin, containerized and deployed to Railway as a single pinned replica (keep it at one replica so the in-memory cache stays warm; do not enable autoscaling). Solution: `api/TrmnlApi.slnx`.
 
 ```bash
 dotnet build api/TrmnlApi.slnx
 dotnet test api/TrmnlApi.slnx                     # also run by .github/workflows/tests.yml
-cd api/src/TrmnlApi && func start                 # local run (Azure Functions Core Tools)
-cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api          # prod
-cd api/src/TrmnlApi && func azure functionapp publish trmnl-plugins-api-staging  # staging
+dotnet run --project api/src/TrmnlApi             # local run (http://localhost:8080)
 ```
 
-- Routes: `GET /api/v1/forecast` (anonymous)
-- `WeatherProviders` app setting is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
+- Deploy: push to `main` (prod) or `staging`; Railway auto-builds from `api/Dockerfile` (service root `/api`) and deploys the single replica. Healthcheck: `GET /health`.
+- Routes: `GET /api/v1/forecast` (anonymous), `GET /health`, `GET /metrics` (process-lifetime cache counters)
+- `WeatherProviders` env var is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
 - Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`
+- Cache TTL env vars use the `__` separator: `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` in `hh:mm:ss` form (a bare number parses as days, not minutes)
 - Round latitude/longitude to `F1` before logging (coordinates are PII)
 
 ## Credentials

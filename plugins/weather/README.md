@@ -26,7 +26,7 @@ Weather data is fetched via a custom Azure Functions proxy (`api/` in this repo)
 - [Open-Meteo](https://open-meteo.com/) data is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This plugin modifies the data: unit normalization, WMO-code-to-icon mapping, day/night variants, condition label simplification, and trimming the response to the fields used by the templates.
 - [Pirate Weather](https://pirateweather.net/) is an open-source weather API built on NOAA forecast data. This plugin modifies the response in the same ways as above.
 
-**Proxy URL**: `https://trmnl-plugins-api.azurewebsites.net/api/v1/forecast`
+**Proxy URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|

@@ -18,9 +18,9 @@ Displays current conditions, an hourly temperature/precipitation chart, and a mu
 
 ## Backend API
 
-The [Weather](./plugins/weather) plugin polls a custom Azure Functions backend in [`api/`](./api) that normalizes responses from upstream weather providers (Open-Meteo, Pirate Weather) into a uniform shape, caches them, and falls back to the other provider when one is unavailable.
+The [Weather](./plugins/weather) plugin polls a custom ASP.NET Core backend in [`api/`](./api) that normalizes responses from upstream weather providers (Open-Meteo, Pirate Weather) into a uniform shape, caches them, and falls back to the other provider when one is unavailable.
 
-Endpoints (base `https://trmnl-plugins-api.azurewebsites.net`):
+Endpoints (base `https://trmnl-plugins-prod.lucasp.net`):
 
 - `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — normalized weather forecast (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
 
@@ -29,7 +29,7 @@ Build and test locally (.NET 10 SDK required):
 ```bash
 dotnet build api/TrmnlApi.slnx
 dotnet test api/TrmnlApi.slnx
-cd api/src/TrmnlApi && func start    # Azure Functions Core Tools
+dotnet run --project api/src/TrmnlApi    # http://localhost:8080
 ```
 
 ## Plugin Structure
