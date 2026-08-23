@@ -1,10 +1,10 @@
 # Migrating the Weather API from Azure Functions to Railway
 
-Status (2026-08-23): Phases 1-4 done, Phase 5 soak running, Phase 6 step 0 done. Both
-Railway environments are RUNNING: staging at `trmnl-plugins-staging.lucasp.net` (commit
-`642eaeb`, soak in progress), production at `trmnl-plugins-prod.lucasp.net` (commit
-`63bc139`, deployed and serving 200s but no device traffic yet). Prod traffic still goes to
-Azure, the `polling_url` cutover switch not yet thrown.
+Status (2026-08-23): Phases 1-4 done, Phase 5 validating on prod, Phase 6 step 0 done.
+Staging plugin `316595` is pointed at the production Railway URL
+(`trmnl-plugins-prod.lucasp.net`) as the test device; prod plugin `249564` still points at
+Azure. The dedicated staging soak was skipped in favor of validating directly on prod with
+the staging plugin as the canary, with `polling_url` as the rollback switch.
 
 ## Motivation
 
@@ -234,11 +234,14 @@ migration is stable if trace visibility is needed.
 
 ### Phase 5 — Staging validation
 
-Scope decision (2026-08-22): the soak runs on the **staging plugin alone** (plugin `316595`,
-one device polling every 30 min). That is ~48 requests/day against a single cache key, so its
-hit rate is arithmetically guaranteed to be high and does **not** project to prod. Phase 5 is
-therefore a *stability and correctness* soak plus an *analytical* projection (step 4); the real
-hit-rate measurement happens after cutover, with `polling_url` as the rollback switch.
+Scope decision (2026-08-22, revised 2026-08-23): the soak was originally scoped to the
+**staging plugin alone** (plugin `316595`, one device polling every 30 min, ~48 req/day
+against a single cache key, a hit rate arithmetically guaranteed to be high and not
+projectable to prod). That made Phase 5 a *stability and correctness* soak plus an
+*analytical* projection (step 4). **Revised:** the dedicated staging soak was skipped in
+favor of validating directly on **prod** Railway with the staging plugin as the canary
+device, the real prod config giving a more honest signal than a per-key staging soak ever
+could. `polling_url` remains the rollback switch.
 
 1. [x] Instrument the cache outcome — nothing recorded it, so the hit rate this phase exists to
    measure was unmeasurable. Application Insights was dropped in Phase 1 and Datadog skipped in
@@ -257,22 +260,30 @@ hit-rate measurement happens after cutover, with `polling_url` as the rollback s
    matrix has not been run. The fallback path is untestable until Pirate Weather has its own
    key — the current key is shared with Azure prod/staging and is returning 429, so a request
    for `pirate-weather` silently falls back to open-meteo.
-3. [ ] Point staging plugin `316595` at `trmnl-plugins-staging.lucasp.net` and soak for several
-   days. Record: restart count and cause (via `/metrics` uptime resets and deploy history —
-   this is the number that decides the L2 cache contingency), idle sleep behavior, upstream
-   failures, and whether the rendered screen looks right, not just that JSON returns 200.
-4. [ ] Analytical projection, replacing what a single-key soak cannot measure. Expected prod
-   steady state: ~14,400 req/day ÷ 48 polls/device/day ≈ **~300 distinct cache keys** (fewer
-   where devices share coordinates/units/provider). With `FreshTtl=00:35:00` against a 30-min
-   `refresh_interval`, an entry is fresh for exactly one subsequent poll and stale on the next,
-   so each key refetches roughly hourly — ~24/day/key, **~7,200 upstream calls/day even with a
-   perfect single-instance cache**. That clears 10,000/day but with only ~28% headroom against
-   traffic P0 describes as growing. Raising `FreshTtl` past the poll-interval beat (e.g.
-   `01:05:00` → a fetch every ~90 min → ~4,800/day) is the cheap lever.
+3. [x] ~~Point staging plugin `316595` at `trmnl-plugins-staging.lucasp.net` and soak for
+   several days.~~ Pivoted (2026-08-23): the dedicated staging soak was skipped in favor of
+   validating directly on **prod** Railway (`trmnl-plugins-prod.lucasp.net`) with the staging
+   plugin as the canary device. The staging soak's per-key hit rate was never going to project
+   to prod anyway (its own scope decision, above), and validating on the real prod endpoint
+   with the real prod config gives a more honest signal. `/metrics` is watched for restart
+   count and cause (uptime resets, the number that decides the L2 cache contingency), upstream
+   failures, and hit rate. The `watchPatterns` were also narrowed to exclude `/api/docs/` so
+   doc-only commits no longer trigger redeploys and reset the `/metrics` counters.
+4. [ ] Analytical projection, retained as a fallback if prod `/metrics` data is insufficient.
+   Expected prod steady state: ~14,400 req/day ÷ 48 polls/device/day ≈ **~300 distinct cache
+   keys** (fewer where devices share coordinates/units/provider). With `FreshTtl=00:35:00`
+   against a 30-min `refresh_interval`, an entry is fresh for exactly one subsequent poll and
+   stale on the next, so each key refetches roughly hourly — ~24/day/key, **~7,200 upstream
+   calls/day even with a perfect single-instance cache**. That clears 10,000/day but with
+   only ~28% headroom against traffic P0 describes as growing. Raising `FreshTtl` past the
+   poll-interval beat (e.g. `01:05:00` → a fetch every ~90 min → ~4,800/day) is the cheap
+   lever.
    Deliverable: a recommendation on `FreshTtl`. The free-tier reversion is already resolved
    (see open questions) as not viable on Railway — no dedicated egress IP is available, and
    Railway's Static Outbound IPs are explicitly not guaranteed dedicated. The `FreshTtl` bump
-   is therefore the only remaining cache-side lever for reducing upstream call volume.
+   is therefore the only remaining cache-side lever for reducing upstream call volume. With
+   the pivot to prod validation (step 3), the real `/metrics` hit rate now informs this
+   recommendation alongside the arithmetic projection, not the projection alone.
 
 ### Phase 6 — Cutover
 
