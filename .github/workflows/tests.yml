@@ -27,3 +27,7 @@ jobs:
 
       - name: Test
         run: dotnet test TrmnlApi.slnx --configuration Release --no-build --verbosity normal
+
+      # Builds from api/ so a Dockerfile break fails here instead of at deploy time.
+      - name: Docker build
+        run: docker build -f Dockerfile .
