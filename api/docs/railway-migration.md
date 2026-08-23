@@ -1,10 +1,13 @@
 # Migrating the Weather API from Azure Functions to Railway
 
-Status (2026-08-23): Phases 1-4 done, Phase 5 validating on prod, Phase 6 step 0 done.
-Staging plugin `316595` is pointed at the production Railway URL
-(`trmnl-plugins-prod.lucasp.net`) as the test device; prod plugin `249564` still points at
-Azure. The dedicated staging soak was skipped in favor of validating directly on prod with
-the staging plugin as the canary, with `polling_url` as the rollback switch.
+Status (2026-08-23): Phases 1-6 done. Prod plugin `249564` is pointed at the production
+Railway URL (`trmnl-plugins-prod.lucasp.net`) and serving live device traffic (cutover
+commit `092ba04`, deployed via `trmnlp push --force`). `refresh_interval` was also bumped
+30 to 60 min in the same cutover. The Azure Function Apps remain running untouched as the
+rollback target; Phase 7 (decommission) is pending a 1-2 week stability window. The staging
+soak and staging-plugin canary described in Phase 5 were superseded by the direct prod
+cutover (correctness was proven in Phase 2; the canary's per-key hit rate was never going
+to project to prod anyway). `polling_url` remains the rollback switch.
 
 ## Motivation
 
@@ -284,6 +287,15 @@ could. `polling_url` remains the rollback switch.
    is therefore the only remaining cache-side lever for reducing upstream call volume. With
    the pivot to prod validation (step 3), the real `/metrics` hit rate now informs this
    recommendation alongside the arithmetic projection, not the projection alone.
+   Correction (2026-08-23): `refresh_interval` was bumped 30 to 60 in the cutover (Phase 6
+   step 1), so the "30-min `refresh_interval`" premise above is stale. At 60-min polling
+   with `FreshTtl=00:35:00`, the per-device fresh_hit pattern described (fresh for one poll,
+   stale on the next) no longer applies: every device poll is stale and refetches, so
+   per-device reuse is dead. The `~7,200/day` figure holds only coincidentally (half the
+   polls at zero per-device reuse vs full polls at 50% reuse cancel out); cross-device key
+   sharing (F2 coords, ~1.1km) is now the sole hit source and is interval-independent. The
+   `FreshTtl` bump (to >= 60 min) remains the only cache-side lever that would restore
+   per-device reuse; not urgent given current volume is far under 10k/day on the paid key.
 
 ### Phase 6 — Cutover
 
@@ -292,19 +304,27 @@ could. `polling_url` remains the rollback switch.
    200 on `/health`, `/metrics`, and `/api/v1/forecast` (real weather JSON returned, `Server:
    railway-hikari`, edge `mia1`). Prod is up but not yet receiving device traffic, the
    `polling_url` cutover (step 1) is the switch that throws real load at it.
-1. Update `polling_url` in `plugins/weather/src/settings.yml` to `trmnl-plugins-prod.lucasp.net`.
-2. Update the other four places the Azure URL is referenced: root `README.md`,
-   `plugins/weather/README.md`, `plugins/weather/CLAUDE.md` (both the prod URL at line 24 and
-   the staging URL at line 19), `plugins/weather/fields.txt`. Also
-   `.claude/settings.local.json`, which allowlists the Azure host for `WebFetch`.
-3. `trmnlp push --force` to redeploy the plugin with the new `polling_url`.
-4. Update root `CLAUDE.md`'s "API Backend" section: replace the `func azure functionapp
-   publish` deploy commands with the Railway deploy flow (likely just "push to the branch,
-   Railway auto-deploys" — confirm once Railway is set up).
-5. **Keep the paid Open-Meteo customer-API key in production** — do not drop `OPEN_METEO_API_KEY`
-   or cancel the paid subscription. The free-tier reversion is resolved as not viable on Railway
-   (no dedicated egress IP; see open questions and Phase 5 step 4). The paid key stays as a
-   permanent part of the prod config, not a temporary one.
+1. [x] Update `polling_url` in `plugins/weather/src/settings.yml` to `trmnl-plugins-prod.lucasp.net`.
+   Done in commit `092ba04`. The same edit also bumped `refresh_interval` 30 to 60 (a
+   separate decision, not part of the original plan; see Phase 5 step 4 for the cache
+   interaction).
+2. [x] Update the other four places the Azure URL is referenced: root `README.md`,
+   `plugins/weather/README.md`, `plugins/weather/CLAUDE.md` (both the prod URL and the
+   staging URL), `plugins/weather/fields.txt`. Done in the same commit `092ba04`.
+   `.claude/settings.local.json` already allowlisted `trmnl-plugins-prod.lucasp.net` for
+   `WebFetch` (no edit needed).
+3. [x] `trmnlp push --force` to redeploy the plugin with the new `polling_url`. Done
+   (2026-08-23): plugin `249564` pushed; server-side settings confirmed via `trmnlp pull`
+   (`polling_url`, `id`, `refresh_interval` all match); `/metrics` went from `served: 0` to
+   live device traffic within minutes.
+4. [x] Update root `CLAUDE.md`'s "API Backend" section: replace the `func azure functionapp
+   publish` deploy commands with the Railway deploy flow. Done in `092ba04`: the section now
+   describes the ASP.NET Core minimal API, the push-to-`main`/`staging` Railway deploy flow,
+   the `/health` and `/metrics` routes, and the `WeatherCache__*` env-var form.
+5. [x] **Keep the paid Open-Meteo customer-API key in production** — do not drop `OPEN_METEO_API_KEY`
+   or cancel the paid subscription. Done: the key was set in Phase 4 step 2 and stays as a
+   permanent part of the prod config (the free-tier reversion is resolved as not viable on
+   Railway; no dedicated egress IP; see open questions and Phase 5 step 4).
 6. [x] Branch-to-environment mapping: staging deploys from `staging` (done, Phase 4 step 5);
    production deploys from `main` (done, 2026-08-23). `main` was fast-forwarded to `staging`
    (commit `63bc139`) and pushed, satisfying the "PR into `main` before cutover" step via
@@ -312,6 +332,11 @@ could. `polling_url` remains the rollback switch.
    to the service's `watchPatterns: ["/api/**"]`, a commit touching only plugins or CI is
    skipped. `origin/staging` intentionally left 1 commit behind `main` to avoid redeploying
    staging and resetting the Phase 5 `/metrics` counters; push it when the soak ends.
+   After the cutover (Phase 6 steps 1-4, commit `092ba04`), `main` was fast-forwarded
+   again to `092ba04` (cutover commit + the two Phase 5/6 doc commits), bringing `main` and
+   `staging` into sync at `092ba04`. Railway skipped the deploy (the commit touches only
+   docs/plugins, no `/api/src` changes match `watchPatterns`), so the Phase 5 `/metrics`
+   counters were preserved and the soak continues uninterrupted.
 
 ### Phase 7 — Decommission Azure resources
 
