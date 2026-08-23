@@ -134,11 +134,14 @@ All items complete on branch `lpimentel/railway-migration` (commits `bf02e5f`, `
    remain `static`; the class has no instance members.
 3. [x] Delete `Functions/ScreenFunction.cs` references if any remain (already removed from the repo
    as of 2026-08-22; confirmed zero code references in this branch).
-4. [x] Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime). Railway injects
-   `PORT` and expects the app to listen on it. Read it in `Program.cs`:
-   `if (Environment.GetEnvironmentVariable("PORT") is { } p) builder.WebHost.UseUrls($"http://*:{p}");`
-   — falls back to the .NET default (8080) if unset. No open question here; this resolves the
-   port-binding item in "Open questions" below.
+4. [x] Add a `Dockerfile` (multi-stage: `sdk:10.0` build → `aspnet:10.0` runtime).
+   Correction (2026-08-22): this step originally had `Program.cs` read a `PORT` env var, on the
+   assumption that Railway injects one. It does not — `PORT` is absent from the service's
+   variables, so that branch never ran. The custom reading was removed; the app now uses the
+   standard ASP.NET Core mechanism, with `ENV ASPNETCORE_HTTP_PORTS=8080` in the Dockerfile
+   making the listening port explicit and matching `EXPOSE 8080` and the custom domain's
+   `targetPort: 8080`. Override with `ASPNETCORE_HTTP_PORTS` or `ASPNETCORE_URLS` if a host
+   ever needs a different port.
 5. [x] Update `api/src/TrmnlApi/Properties/launchSettings.json` for local `dotnet run` (drop the
    Functions-specific profile).
 6. [x] Decide what replaces Application Insights. Decision: (a) drop it, rely on Datadog.Trace only
@@ -248,8 +251,8 @@ Azure (Phase 7) until Railway has proven stable in prod.
 - [x] ~~Datadog APM story on Railway (Phase 3)~~ — skipped; ship without traces, add Agent
       sidecar as fast-follow if needed.
 - [ ] Custom domain vs. Railway's default domain for the cutover.
-- [x] ~~Railway's port-binding convention~~ — resolved in Phase 1 step 4: Railway injects
-      `PORT`, read it in `Program.cs` via `builder.WebHost.UseUrls`.
+- [x] ~~Railway's port-binding convention~~ — Railway does not inject `PORT`; the app pins 8080
+      via `ASPNETCORE_HTTP_PORTS` in the Dockerfile. See the correction in Phase 1 step 4.
 - [x] ~~Replica count~~ — confirmed 1 replica in service config (`numReplicas: 1`), no
       autoscaling. Railway sleep behavior for idle services still unverified; will surface
       during Phase 5 soak.

@@ -6,12 +6,6 @@ using TrmnlApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Railway injects PORT; fall back to the .NET default (8080) when unset.
-if (Environment.GetEnvironmentVariable("PORT") is { } port)
-{
-    builder.WebHost.UseUrls($"http://*:{port}");
-}
-
 builder.Services.AddMemoryCache(options => options.SizeLimit = 200);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
