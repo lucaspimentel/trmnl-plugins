@@ -21,18 +21,65 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Still open as a contingency for **restart-driven** cache loss: every deploy or restart wipes `IMemoryCache` and produces a warm-up burst of upstream calls. Only worth building if `/metrics` shows those bursts materially degrading the hit rate.
   - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey` (`weather:{provider}:{lat:F2}:{lon:F2}:{metric|imperial}`). On a restart L1 is cold but L2 is warm: the first request hits L2 and repopulates L1.
 
-- [ ] **P2 — Negative caching for failing providers**
-  - Today a request to a failing provider still pays a live call before falling back. The retry
-    budget is now bounded to 10s per provider by `WeatherResilience.Configure`, so the payoff is
-    smaller than originally written, but not gone.
-  - Cache a sentinel like `weather:fail:{provider}` for ~60s after a provider returns a failure;
-    skip the live call while the sentinel is present. At the measured ~7 req/min (see the
-    traffic-rate note under the failure-budget item below) a 60s sentinel suppresses roughly seven
-    upstream calls per outage window, so the short TTL is worth having.
-  - Prefer deriving the TTL from the upstream's `Retry-After` header when present, falling back to a
-    fixed ~60s otherwise.
-  - Overlaps heavily with the circuit-breaker item below — a properly tuned breaker does much the
-    same job. Decide between them rather than building both.
+- [ ] **P2 — Tighten the circuit breaker so it can actually trip (recommended next code change)**
+  - The standard handler's defaults are `FailureRatio=0.1`, `MinimumThroughput=100`,
+    `SamplingDuration=30s`, `BreakDuration=5s` (re-verified 2026-08-24 against
+    `Microsoft.Extensions.Http.Resilience` 10.6.0). At the measured ~4 upstream requests per minute,
+    `MinimumThroughput=100` is unreachable, so the breaker never opens and a sustained upstream
+    outage costs a live call on every request. `WeatherResilience.Configure` deliberately leaves the
+    whole `CircuitBreaker` section at defaults today.
+  - **Two facts measured 2026-08-24 that decide the design:**
+    - The breaker's default predicate **does** count 429 as a failure, unlike our retry predicate,
+      which excludes it on purpose (`api/src/TrmnlApi/Services/WeatherResilience.cs:33-38`).
+      Measured: 429, 500 and 408 handled; 400 and 200 not. So a tuned breaker trips on the
+      2026-08-19 double-429, which is the failure that motivated this item.
+    - The standard handler orders strategies Retry -> CircuitBreaker -> AttemptTimeout, so the
+      breaker samples **attempts, not requests**. With the numbers below, a 500 opens the circuit on
+      the *first* failing request (one request produces three failed attempts, so three samples),
+      while a 429 (never retried, one sample per request) needs three requests, roughly 45s at the
+      measured rate. The slow failure mode is suppressed instantly and the cheap fail-fast one within
+      a minute, which is the right way round.
+  - Proposed numbers, lower than the `MinimumThroughput` around 5 this item previously suggested:
+
+    ```csharp
+    options.CircuitBreaker.FailureRatio = 0.5;
+    options.CircuitBreaker.MinimumThroughput = 3;
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);  // must be >= 2 x AttemptTimeout
+    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+    ```
+
+  - Tuning this aggressively is justified by the cost asymmetry: an over-eager open just routes to
+    the next provider, or to stale cache that is 10 minutes to 2 hours old, on a display that devices
+    refresh hourly. A false open is close to harmless; a breaker that never trips is the status quo.
+    The one thing to weigh is that at `MinimumThroughput=3` a single blip request that 500s three
+    times opens the circuit for 30s. If that reads as too twitchy, 4 requires two failing requests
+    instead, but start at 3 and let `/metrics` and the APM spans argue otherwise.
+  - Wiring is already in place: `BrokenCircuitException` is thrown with **zero** upstream calls, is
+    not retried by `ShouldRetry`, and is caught by `WeatherForecastOrchestrator.IsTransient` via
+    `ExecutionRejectedException` (`WeatherForecastOrchestrator.cs:180`), so it falls through to the
+    next provider and then to stale cache.
+  - Two small follow-ons to land in the same change:
+    - Add a `BrokenCircuitException` case to `BuildUpstreamFromException`
+      (`WeatherForecastOrchestrator.cs:183-189`) mapping to 503, so `meta.upstream` reports the open
+      circuit instead of falling through to the generic `null`-status branch.
+    - Extend `WeatherResilienceTests` with the two probes above as real assertions. Both are
+      deterministic and fast (the 500 case ran in 76ms) once `Retry.Delay` is zeroed the way the
+      existing tests do.
+
+- [x] **P2 — Negative caching for failing providers (closed — the tuned circuit breaker does this job)**
+  - Decided 2026-08-24 in favor of tuning the circuit breaker above. The two always overlapped and
+    this list always said to pick one; this is the pick.
+  - The reason to pick the breaker: negative caching *is* a circuit breaker with a threshold of one,
+    hand-rolled one layer up in the orchestrator, while a working one already sits unused in the HTTP
+    pipeline. It would cost roughly 60-100 lines plus new state, tests, its own metrics, and a
+    stale-sentinel failure mode across deploys. The breaker costs about four lines of config.
+  - It buys exactly two things over the tuned breaker: suppression after one failure instead of
+    three (worth about two wasted upstream calls per 429 outage, not worth a subsystem), and
+    honoring the upstream's `Retry-After`, which the breaker genuinely cannot do because
+    `BreakDuration` is fixed.
+  - **Keep the `Retry-After` piece in your pocket.** If 429s recur *and* the provider sends a long
+    `Retry-After`, add just that as a narrow enhancement on top of the breaker. Do not build a
+    general negative cache to get it.
 
 - [ ] **P2 — Background refresh on stale-served**
   - When `WeatherForecastOrchestrator.GetAsync` serves a stale entry (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), the next request still has to wait for live retries again. A fire-and-forget refresh after returning stale would warm the cache.
@@ -69,23 +116,6 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
     durations and short cache TTLs could never span two requests, and dropped both the circuit
     breaker and negative caching on that basis. Recheck `/metrics` rather than assuming either way.
 
-- [ ] **P2 — Tighten the circuit breaker so it can actually trip**
-  - The standard handler's defaults are `FailureRatio=0.1`, `MinimumThroughput=100`,
-    `SamplingDuration=30s`, `BreakDuration=5s`. At the measured ~3.5 requests per 30s window,
-    `MinimumThroughput=100` is unreachable, so the breaker never opens and a sustained upstream
-    outage costs a live call on every request. `WeatherResilience.Configure` deliberately leaves the
-    whole `CircuitBreaker` section at defaults today.
-  - A workable shape given the measured rate: `MinimumThroughput` around 5, `SamplingDuration` 60s,
-    `FailureRatio` 0.5, `BreakDuration` 30s — roughly 7 requests per sampling window, and a break
-    that still covers ~3-4 arrivals. Validate against `/metrics` before committing to numbers, and
-    note the handler's cross-field rule that `SamplingDuration` must be at least `2 x AttemptTimeout`
-    (currently 5s, so 30s+ is fine).
-  - Safe to attempt now that `IsTransient` handles `ExecutionRejectedException`; before that fix an
-    open breaker would have bypassed the fallback chain and returned a 500. Consider adding a
-    `BrokenCircuitException` case to `BuildUpstreamFromException` so `meta.upstream` reports the open
-    circuit rather than falling through to the generic branch.
-  - Overlaps with the negative-caching item above; pick one.
-
 - [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
   - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
@@ -112,10 +142,15 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - **Snapping to the provider's resolved coords has a chicken-and-egg problem**: the snapped coords only come back *in the response*, so you can't key a cache *read* on them without first calling the provider (defeating the cache). The only correct form is a `requested-key -> snapped-key` alias map (two-level lookup), which still costs one provider call per distinct requested coordinate to learn its mapping.
   - **Conclusion**: F2 is the finest-grained dedup that costs no accuracy, and it is already in place. Coarser is measurably worse; the alias map costs a provider call per distinct coordinate to learn its mapping. Reopen only if usage shows heavy geographic clustering, and only via the alias-map approach.
 
-- [ ] **Round coordinates before the provider call, not just in the cache key (small consistency cleanup)**
-  - The cache key rounds to F2, but `WeatherForecastOrchestrator.cs:103-104` passes the **raw** `latitude`/`longitude` to `provider.GetForecastAsync` and then stores the result under the rounded key. So whichever raw coordinate happens to miss first decides the forecast that every later request in that cell receives, for a point up to ~0.5 km away from what they asked for.
-  - **Not a user-visible bug.** The normalized `WeatherResponse` (`api/src/TrmnlApi/Models/WeatherResponse.cs:3-8`) carries no coordinates, so nothing echoes the mismatch back to the device, and the offset is well inside the provider's own grid cell.
-  - The value is determinism: rounding once, up front, means a cell's cached body always corresponds to the cell centre instead of an arbitrary first caller, which makes cache contents reproducible when debugging. Roughly a one-line change plus a test.
+- [x] **Round coordinates before the provider call, not just in the cache key (done)**
+  - Implemented at `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:59-65`: both coordinates
+    are snapped to the same 0.01 degree grid with `MidpointRounding.AwayFromZero` (matching the `F2`
+    formatting in `WeatherCache.CacheKey`, which `Math.Round` would otherwise miss by defaulting to
+    banker's rounding) before the cache lookup, the upstream call, and the cache write, so all three
+    agree.
+  - A cell's cached body now always corresponds to the cell centre rather than to whichever raw
+    coordinate happened to miss first, which is what makes cache contents reproducible when
+    debugging. The item was simply left unchecked after the fact; closing it 2026-08-24.
 
 ## Observability
 
