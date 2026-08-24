@@ -4,28 +4,22 @@
 
 Improvements identified during a review of the caching and fallback workflow in the weather API.
 Ordered by impact-to-effort ratio (highest first). **Note:** most of these were written while the
-API still ran on Azure Functions (Consumption plan). It now runs as a single always-on container
-(see `api/docs/railway-migration.md`), so items whose premise was instance fragmentation or
-Functions-specific hosting are annotated below.
+API still ran on Azure Functions (Consumption plan). It now runs as a single always-on container,
+so items whose premise was instance fragmentation or Functions-specific hosting are annotated below.
 
-- [x] **P0 — Drop Open-Meteo back to the free tier once caching is strong enough to cover it** — **dropped (2026-08-22/23)**
-  - **Resolution:** not viable on the current host. The free tier is rate-limited per source IP and the API now egresses through a shared NAT address whose daily quota other tenants already consume — unsetting `OPEN_METEO_API_KEY` produced immediate 429s and 502s with no real traffic. No dedicated egress IP is available (see `api/docs/railway-migration.md`, "Open questions"). The paid Open-Meteo customer-API key stays as a permanent part of the prod config; the remaining cache-side lever is raising `WeatherCache__FreshTtl` past the plugin's poll interval.
-  - Original decision (2026-08-22): cancel the Open-Meteo paid subscription (see the now-reverted "Escape upstream per-IP daily quotas" item below) and go back to the free host. Compensate for the lost quota headroom with stronger caching instead of paying for quota.
-  - **Diagnosis (2026-08-22):** API traffic is ~600 req/hr (~14,400/day) and growing as more users install the plugin. Datadog reported 23,330 upstream Open-Meteo calls in the last 48h (~11,665/day) — already above the free tier's 10,000/day cap, implying only a ~19% cache hit rate. `WeatherCacheOptions.FreshTtl` in Azure app config was already set to 30 min, matching the plugin's `refresh_interval` exactly, so a single warm instance should hit cache almost every poll — the ~19% hit rate instead lines up closely with `1/N` for Consumption plan running ~5 concurrent instances with no session affinity (each device's next poll has roughly a 1-in-5 chance of landing back on the instance holding its cache entry). This points to **instance fragmentation, not TTL, as the primary cause** of the low hit rate.
-  - **Action taken (2026-08-22):** bumped `WeatherCache:FreshTtl` app setting from 30 to 35 min (cheap jitter-margin tweak, live in prod). Not expected to meaningfully fix the hit rate on its own — re-check upstream call volume after this has run a while; if it's still ~19-20%, that confirms fragmentation (not TTL) is the blocker and the fix has to be the shared L2 cache or migrating off Consumption to a persistent single instance (see hosting-migration discussion; either directly eliminates the fragmentation).
-  - Blocking prerequisites, in order: the **P1 shared L2 cache** item (or equivalently, migrating to an always-on single-instance host) — this is the fix that actually addresses the diagnosed root cause — and the **P2 longer TTLs** item (so a rate-limited free tier degrades to stale-served instead of 502). Negative caching and background refresh (both P2 below) further reduce live-call volume and are worth doing before the switch too.
-  - Steps to actually revert: remove the `OPEN_METEO_API_KEY` app setting from prod and staging (`OpenMeteoClient` already falls back to the free host when it's absent — no code change needed), then cancel the Open-Meteo paid subscription.
-  - Do not flip this before the caching/fragmentation work lands — the paid tier was the fix for the 2026-08-19 double-429 outage, and reverting without a fix for the fragmentation would likely reproduce it, especially with traffic still growing.
-
-- [x] **P1 — Pick freshest stale entry, not first found**
-  - `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:94-97` uses `staleFallback ??= (cached, provider.Name)`, which locks in the first stale entry encountered (the requested provider's, since it's `chain[0]`). If the secondary provider has a more recent stale entry, we still serve the older one.
-  - Fix: track all stale entries seen in the loop and pick the one with the highest `FetchedAt`.
-  - Quick win — ~5 lines, no infra changes, directly improves availability when both providers are down.
+- [ ] **Decommission the leftover Azure resources**
+  - The hosting migration is complete and all device traffic is served by the container host, but the
+    old Azure resources were deliberately kept as the rollback target and are still running: the
+    `trmnl-plugins-api` and `trmnl-plugins-api-staging` Function Apps, their Application Insights
+    resources, and their storage accounts. Delete them once the current setup has proven stable.
+  - Also remove the two Azure-App-Service-specific Datadog config files, which nothing references
+    any more: `api/src/TrmnlApi/dd-appsettings.production.json` and
+    `api/src/TrmnlApi/dd-appsettings.staging.json`.
 
 - [ ] **P1 — Shared L2 cache** (largely superseded; now a contingency)
   - Original premise: `WeatherCache` uses `IMemoryCache` (per-process), and on a multi-instance Consumption plan the cache was cold most of the time, neutralizing the 3h `StaleTtl` defense. Migrating to a single always-on container fixed the fragmentation directly, so the L2 cache is no longer the main lever.
   - Still open as a contingency for **restart-driven** cache loss: every deploy or restart wipes `IMemoryCache` and produces a warm-up burst of upstream calls. Only worth building if `/metrics` shows those bursts materially degrading the hit rate.
-  - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey`. See `api/docs/railway-migration.md`, "L2 cache contingency".
+  - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey` (`weather:{provider}:{lat:F2}:{lon:F2}:{metric|imperial}`). On a restart L1 is cold but L2 is warm: the first request hits L2 and repopulates L1.
 
 - [ ] **P2 — Negative caching for failing providers**
   - Today, every request to a sustained-failing provider eats the full retry budget (~30s) before falling back. The standard resilience handler's circuit breaker has `MinimumThroughput=100` which is too high to trip on this app's traffic.
@@ -45,22 +39,10 @@ Functions-specific hosting are annotated below.
   - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:28`), so the null-default is dead code.
   - Make the parameter required; drop the null coalesce.
 
-- [x] **P1 — Escape upstream per-IP daily quotas (Open-Meteo paid key or self-host)**
-  - Diagnosed 2026-08-19: prod Function App's outbound IP hit Open-Meteo's per-IP daily limit — `meta.upstream` on `stale_served` responses showed `Open-Meteo returned 429 TooManyRequests: {"reason":"Daily API request limit exceeded. Please try again tomorrow."}`. Resets at UTC midnight. Pirate Weather was also 429'd (`"API rate limit exceeded"`), so neither provider was usable and the orchestrator correctly returned 502.
-  - Options: (a) sign up for an Open-Meteo API key on a paid tier (no daily limit, higher quota), or (b) self-host Open-Meteo (it's open source) to escape per-IP limits entirely. Also verify the Pirate Weather key's plan/limits.
-  - This is the root-cause fix for the 502s; the cache/fallback items above only mask it.
-  - **Resolved 2026-08-19** via option (a): subscribed to Open-Meteo's paid tier. `OpenMeteoClient` now sends requests to `customer-api.open-meteo.com` with `&apikey=` when the `OPEN_METEO_API_KEY` app setting is present, falling back to the free host when it is not. Key set in both prod and staging; deployed and verified (`meta.cache: fresh_fetch`, `meta.provider: open-meteo`). The customer host rejects unkeyed requests with 401 and invalid keys with 400, so a successful fetch confirms the key is in use.
-  - Still open: Pirate Weather remains on its free tier and was observed 429ing on 2026-08-19; its plan/limits have not been verified. It is now the fallback rather than the primary, so this is lower impact.
-  - **Reversion cancelled (2026-08-23):** the plan to drop back to the free tier was abandoned — the free tier's per-IP quota is unusable from a shared-egress host. The paid key stays. See the P0 item above.
-
 - [ ] **P2 — Dedicated outbound IP (on hold — only matters if the free tier is ever revisited)**
   - Open-Meteo's *free* daily quota is per source IP, and the API now egresses through a shared NAT address, so the free tier is unusable without a dedicated egress IP.
   - The current host offers no dedicated egress IP (its "static outbound IPs" are documented as possibly shared). A true dedicated IP would require egressing through a self-hosted forward proxy on a cheap VPS.
   - Moot while the paid Open-Meteo key is in use (it removes the quota ceiling entirely). Revisit only if the paid key is ever dropped.
-
-- [x] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
-  - Every TRMNL device × poll hits the API and counts against upstream per-IP quotas, so raising the interval directly cuts upstream call volume.
-  - Done: `plugins/weather/src/settings.yml` now sets `refresh_interval: 60` (was 30), bumped as part of the hosting cutover. Trade-off accepted: less fresh on-screen data. Note that with `FreshTtl` below 60 min, every device poll now misses the fresh window (see the TTL item below).
 
 - [ ] **P2 — Tighten resilience handler: circuit breaker + jittered exponential backoff**
   - `api/src/TrmnlApi/Services/WeatherResilience.cs` only customizes the retry *predicate* (`ShouldRetry` skips 429 so the orchestrator falls back fast). The rest of `AddStandardResilienceHandler` uses Polly defaults — circuit breaker `MinimumThroughput=100` is too high to ever trip at this app's traffic (noted in the negative-caching item above), and the retry backoff is the default non-jittered exponential.
@@ -80,7 +62,6 @@ Functions-specific hosting are annotated below.
 - [ ] **P3 — Verify graceful stale-cache response when both providers are unavailable**
   - `WeatherForecastOrchestrator.GetAsync` serves stale entries when a provider fails (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), but the behavior when *both* providers are down and the stale entry has expired (502) is the customer-visible failure mode seen on 2026-08-19.
   - Confirm via test or manual repro that the fallback path serves the freshest stale entry while any non-expired one exists, and that the 502 returned after expiry is well-formed (not a raw exception/500). Add a regression test if none covers the both-providers-down path.
-  - Related to the resolved P1 "Pick freshest stale entry" item; this is the verification/coverage counterpart.
 
 - [ ] **Remove the `WeatherProviders` config — always default to open-meteo first**
   - `api/src/TrmnlApi/Program.cs:29` reads `builder.Configuration["WeatherProviders"]` and `ParseWeatherProviders` (Program.cs:39-58) throws if it's missing/empty. The order from this setting defines the default + fallback order in `WeatherProviderResolver` (`api/src/TrmnlApi/Providers/WeatherProviderResolver.cs`).
@@ -89,25 +70,11 @@ Functions-specific hosting are annotated below.
 
 ## Weather display & accuracy
 
-- [x] **Show clock time instead of "Now" for the first hourly entry**
-  - `api/src/TrmnlApi/Services/WeatherTransformer.cs:51` sets `label = loopIndex == 0 ? "Now" : HourLabel.Format(time)`. The first hourly bucket carries the model temperature for the current hour, which can differ from `current.temperature` (e.g. 68° hourly vs 72° current observed for the same moment), so labeling it "Now" reads as inconsistent next to the current temp.
-  - Fix: drop the special-case and just use `HourLabel.Format(time)` for index 0 so it shows the actual hour (e.g. "10am") like the rest of the chart.
-
 - [ ] **Allow enabling/disabling the different subviews (current status, hourly forecast, daily forecast) and adjust layout accordingly**
   - The weather plugin renders three subviews: current conditions (`weather_current` / `weather_current_compact` templates in `plugins/weather/src/shared.liquid`), the hourly chart (`weather_hourly_chart`), and the daily forecast (`weather_daily_bars_vertical`). `full.liquid` renders all three in a fixed two-column layout (current + hourly on the left, daily bars on the right); `half_horizontal.liquid`, `half_vertical.liquid`, and `quadrant.liquid` each render subsets.
   - Add toggle custom fields to `plugins/weather/src/settings.yml` (e.g. `show_current`, `show_hourly`, `show_daily` — boolean/checkbox-style, defaulting on) alongside the existing `hours`/`days` fields, then conditionally `{% if show_x %}...{% endif %}` each `render` call in the layout `.liquid` files.
   - "Adjust layout accordingly" is the meatier part: when one or two subviews are disabled, the remaining view(s) should expand to fill the freed space rather than leave a gap — e.g. with only current+hourly enabled, the hourly chart should widen to full width; with only daily enabled, the daily bars should span the whole screen. Likely needs per-combination layout branches (or a flex container that reflows) and may require touching the Highcharts `chart_height`/width and the daily bars' vertical-vs-horizontal orientation.
   - Consider which layouts make sense for each combination (full vs half vs quadrant) and whether to gate some combinations as invalid.
-
-- [x] **Add a 24-hour clock format option (am/pm vs 24h)**
-  - User feedback via Discord (MischaBoender, 2026-06-16): wants times shown as 24h instead of am/pm.
-  - Hour labels are formatted server-side in `api/src/TrmnlApi/Mappings/HourLabel.cs:5-15` (`HourLabel.Format`), used for the hourly chart's x-axis labels. Sunrise/sunset times and the "Updated"/"Cached" timestamp in `title_bar` may also need the same treatment; audit all places times are rendered.
-  - Needs a new setting (e.g. `time_format` select: `12h` / `24h`) in `plugins/weather/src/settings.yml`, passed through `polling_url` to the API, and a second format branch in `HourLabel.Format` (or an overload taking the format).
-
-- [x] **Investigate the 6-day forecast limit on TRMNL X (user feedback: more days requested)**
-  - User feedback via Discord (MischaBoender, 2026-06-16): TRMNL X has visible space for more than 6 days of forecast, wants the limit raised.
-  - Open-Meteo's `forecast_days` supports up to 16; Pirate Weather is fixed at 7 with no way to request more. Raised the cap to 14 (`WeatherEndpoint.MaxDays`, `OpenMeteoClient` `forecast_days`, `PirateWeatherProvider.Transform` default, `settings.yml` `days.max`) — requests above 7 served by Pirate Weather return fewer entries than requested since it can't supply more, documented in `plugins/weather/CLAUDE.md` and `README.md`.
-  - `full.liquid`'s `weather_daily_bars_vertical` render previously hardcoded `num_days: 6` independent of the `days` setting (custom fields aren't readable in templates, only via the API response) — changed to `num_days: daily.entries.size` so it follows however many entries the API actually returned. `half_horizontal`/`half_vertical`/`quadrant` keep their fixed counts (4/5/3) since those are sized for smaller layout space, not tied to the 6-day cap.
 
 - [ ] **Investigate new TRMNL framework features and assess what could improve the weather plugin**
   - The TRMNL UI framework is now open-source at https://github.com/usetrmnl/trmnl-framework ("TRMNL ePaper design system", a Rails engine), with updated docs at https://trmnl.com/framework. The plugin currently pins `framework_version: 2.3.7` in `plugins/weather/src/settings.yml`.
@@ -121,20 +88,14 @@ Functions-specific hosting are annotated below.
   - **Snapping to the provider's resolved coords has a chicken-and-egg problem**: the snapped coords only come back *in the response*, so you can't key a cache *read* on them without first calling the provider (defeating the cache). The only correct form is a `requested-key -> snapped-key` alias map (two-level lookup), which still costs one provider call per distinct requested coordinate to learn its mapping.
   - **Conclusion**: not worth it for this workload. TRMNL devices poll with fixed per-device coords, which already hit the F2 cache; the only upside (cross-user dedup) requires many geographically-clustered users and costs measurable accuracy. Revisit only if usage shows coordinate clustering, and only via the alias-map approach.
 
-## Docs & tooling
-
-- [x] **Document `trmnlp build --png` in CLAUDE.md or the trmnl-dev skill**
-  - `trmnlp build` (added PNG support in trmnl_preview 0.8.1; we're now on 0.8.7) renders templates to static HTML, and `--png` also rasterizes each view to a PNG. Flags: `--width`, `--height`, `--color-depth` (1-8, e.g. `1` for OG 1-bit e-ink).
-  - It's the lightweight built-in alternative to this repo's `tools/build-preview.sh` (which wraps output in real TRMNL CSS/JS and screenshots variants via Playwright). Note the relationship so it's clear when to reach for each.
-  - **Outcome (keep both):** compared the two on the weather plugin. `trmnlp build --png` runs JS (Highcharts renders) and quantizes bit-depth correctly, but its wrapper is a bare `<div class="screen">` — it never applies `screen--lg`/`screen--4bit`/`screen--portrait`, so the TRMNL X responsive layout and portrait don't render and `--width`/`--height` only resize the canvas. Not a replacement for `build-preview.sh`; they're complementary. Documented in root `CLAUDE.md` "Build Preview" and the trmnl-dev skill's `local-development.md`.
-
 ## Observability
 
 - [ ] **Instrument the Railway API with Datadog APM (deferred Phase 3 fast-follow)**
-  - The Railway migration (`api/docs/railway-migration.md`) shipped without Datadog traces (Phase 3 skipped): the `Datadog.Trace` tracer no-ops when no agent is reachable, and the old Azure mechanism does not carry over. The Azure App Service ran Datadog via the Windows site extension (`dd-appsettings.{production,staging}.json` — profiler DLL paths, named pipes, `DD_TRACE_TRANSPORT=DATADOG-NAMED-PIPES`). That is App-Service-Windows-specific and irrelevant on the Linux Railway container.
+  - The hosting migration shipped without Datadog traces: the `Datadog.Trace` tracer no-ops when no agent is reachable, and the old Azure mechanism does not carry over. The Azure App Service ran Datadog via the Windows site extension (`dd-appsettings.{production,staging}.json` — profiler DLL paths, named pipes, `DD_TRACE_TRANSPORT=DATADOG-NAMED-PIPES`). That is App-Service-Windows-specific and irrelevant on the Linux Railway container.
   - What's already in place: `Datadog.Trace` 3.43.0 is referenced in `api/src/TrmnlApi/TrmnlApi.csproj:10`, and `WeatherForecastOrchestrator.GetAsync` already creates a manual span (`Tracer.Instance.StartActive("weather.forecast")` with `TagCoord`, `WeatherForecastOrchestrator.cs:58-61`). So once an agent is reachable the app code needs little-to-no change; this is primarily a hosting/config task.
   - Approach: run the Datadog Agent as a separate Railway service in the same project (Railway private networking gives each service an internal hostname) rather than bundling it into the app image. The tracer defaults to `127.0.0.1:8126`; set `DD_AGENT_HOST` (and `DD_TRACE_AGENT_PORT` if non-default) on the app service to the agent service's internal hostname so traces ship to the sidecar.
   - Set unified-service-tagging env vars on the app service: `DD_SERVICE` (e.g. `trmnl-api`), `DD_ENV` (`production`/`staging`), `DD_VERSION` (git SHA or semver). The Dockerfile is Linux (`mcr.microsoft.com/dotnet/aspnet:10.0`), so no Windows profiler/pipes config is needed — the Linux tracer attaches via `CORECLR_PROFILER` env that the Datadog.Trace package sets automatically when `DD_DOTNET_TRACER_HOME`/agent env is present; verify auto-instrumentation of the ASP.NET Core HTTP pipeline and the two `HttpClient` providers (Open-Meteo, Pirate Weather).
   - Verify in Datadog: traces appear under the service, the `/api/v1/forecast` and `/health` endpoints are captured as spans, the `weather.forecast` manual span nests under the inbound HTTP span, and the upstream Open-Meteo/Pirate Weather calls show as separate spans. Add a monitor on upstream 429/failure rate (overlaps with the existing "Alert on upstream 429 rates" TODO item) and on the cache hit/miss split now that `meta.cache` is observable.
+
 - [ ] **Pirate Weather needs its own API key (blocking the fallback-path test and any fallback trace coverage)**
-  - Currently the Pirate Weather key is shared across Azure prod/staging and Railway and is returning 429, so `pirate-weather` requests silently fall back to open-meteo and the fallback path (and its trace coverage) is untestable. See `api/docs/railway-migration.md` open questions.
+  - Currently the Pirate Weather key is shared across the old Azure prod/staging apps and the current host, and is returning 429, so `pirate-weather` requests silently fall back to open-meteo and the fallback path (and its trace coverage) is untestable.
