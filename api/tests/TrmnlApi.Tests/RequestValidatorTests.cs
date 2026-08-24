@@ -58,32 +58,33 @@ public class RequestValidatorTests
     }
 
     [Theory]
-    // null → defaults to max, returns true
-    [InlineData(null, 1, 25, true, 25)]
-    [InlineData(null, 1, 6, true, 6)]
+    // null → defaults to defaultValue, returns true
+    [InlineData(null, 1, 25, 25, true, 25)]
+    [InlineData(null, 1, 14, 6, true, 6)]
     // valid boundary values
-    [InlineData("1", 1, 25, true, 1)]
-    [InlineData("25", 1, 25, true, 25)]
-    [InlineData("1", 1, 6, true, 1)]
-    [InlineData("6", 1, 6, true, 6)]
+    [InlineData("1", 1, 25, 25, true, 1)]
+    [InlineData("25", 1, 25, 25, true, 25)]
+    [InlineData("1", 1, 14, 6, true, 1)]
+    [InlineData("14", 1, 14, 6, true, 14)]
     // values within range
-    [InlineData("12", 1, 25, true, 12)]
-    [InlineData("3", 1, 6, true, 3)]
+    [InlineData("12", 1, 25, 25, true, 12)]
+    [InlineData("3", 1, 14, 6, true, 3)]
     // below min
-    [InlineData("0", 1, 25, false, 0)]
-    [InlineData("0", 1, 6, false, 0)]
+    [InlineData("0", 1, 25, 25, false, 0)]
+    [InlineData("0", 1, 14, 6, false, 0)]
     // above max
-    [InlineData("26", 1, 25, false, 26)]
-    [InlineData("7", 1, 6, false, 7)]
+    [InlineData("26", 1, 25, 25, false, 26)]
+    [InlineData("15", 1, 14, 6, false, 15)]
     // non-numeric
-    [InlineData("abc", 1, 25, false, 0)]
-    // empty string → defaults to max, returns true
-    [InlineData("", 1, 25, true, 25)]
+    [InlineData("abc", 1, 25, 25, false, 0)]
+    // empty string → defaults to defaultValue, returns true
+    [InlineData("", 1, 25, 25, true, 25)]
+    [InlineData("", 1, 14, 6, true, 6)]
     // decimal (not an integer)
-    [InlineData("1.5", 1, 25, false, 0)]
-    public void TryParseRangeParam_ReturnsExpected(string? value, int min, int max, bool expectedResult, int expectedValue)
+    [InlineData("1.5", 1, 25, 25, false, 0)]
+    public void TryParseRangeParam_ReturnsExpected(string? value, int min, int max, int defaultValue, bool expectedResult, int expectedValue)
     {
-        var result = RequestValidator.TryParseRangeParam(value, min, max, out var parsed);
+        var result = RequestValidator.TryParseRangeParam(value, min, max, defaultValue, out var parsed);
 
         Assert.Equal(expectedResult, result);
         if (expectedResult)

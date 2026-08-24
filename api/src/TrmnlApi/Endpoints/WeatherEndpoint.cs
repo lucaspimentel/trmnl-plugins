@@ -14,6 +14,11 @@ public class WeatherEndpoint
     private const int MaxHours = 25;
     internal const int MaxDays = 14;
 
+    // Days a caller gets when the parameter is omitted. Deliberately below MaxDays:
+    // most layouts show about a week, and fetching the full 14 for every unparameterized
+    // caller would widen the response for no benefit.
+    private const int DefaultDays = 6;
+
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -47,12 +52,12 @@ public class WeatherEndpoint
         }
         var metric = unitsParam is "metric";
 
-        if (!RequestValidator.TryParseRangeParam(query["hours"].FirstOrDefault(), 1, MaxHours, out var hours))
+        if (!RequestValidator.TryParseRangeParam(query["hours"].FirstOrDefault(), 1, MaxHours, MaxHours, out var hours))
         {
             return BadRequest($"hours must be an integer between 1 and {MaxHours}.");
         }
 
-        if (!RequestValidator.TryParseRangeParam(query["days"].FirstOrDefault(), 1, MaxDays, out var days))
+        if (!RequestValidator.TryParseRangeParam(query["days"].FirstOrDefault(), 1, MaxDays, DefaultDays, out var days))
         {
             return BadRequest($"days must be an integer between 1 and {MaxDays}.");
         }

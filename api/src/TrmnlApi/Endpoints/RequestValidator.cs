@@ -18,11 +18,11 @@ public static class RequestValidator
     public static bool IsValidUnits(string? units)
         => string.IsNullOrEmpty(units) || units is "imperial" or "metric";
 
-    public static bool TryParseRangeParam(string? value, int min, int max, out int result)
+    public static bool TryParseRangeParam(string? value, int min, int max, int defaultValue, out int result)
     {
         if (string.IsNullOrEmpty(value))
         {
-            result = max;
+            result = defaultValue;
             return true;
         }
         if (!int.TryParse(value, out result) || result < min || result > max)
