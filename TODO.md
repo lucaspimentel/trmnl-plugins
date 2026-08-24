@@ -58,10 +58,16 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - `WeatherForecastOrchestrator.GetAsync` serves stale entries when a provider fails (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), but the behavior when *both* providers are down and the stale entry has expired (502) is the customer-visible failure mode seen on 2026-08-19.
   - Confirm via test or manual repro that the fallback path serves the freshest stale entry while any non-expired one exists, and that the 502 returned after expiry is well-formed (not a raw exception/500). Add a regression test if none covers the both-providers-down path.
 
-- [ ] **Remove the `WeatherProviders` config — always default to open-meteo first**
-  - `api/src/TrmnlApi/Program.cs:29` reads `builder.Configuration["WeatherProviders"]` and `ParseWeatherProviders` (Program.cs:39-58) throws if it's missing/empty. The order from this setting defines the default + fallback order in `WeatherProviderResolver` (`api/src/TrmnlApi/Providers/WeatherProviderResolver.cs`).
-  - Goal: drop the config entirely and hardcode open-meteo as the primary (default), with pirate-weather as the only fallback. This removes a required app setting and a startup-failure mode (app refuses to start if `WeatherProviders` is unset).
-  - Touch points: remove `ParseWeatherProviders` + the `configuredProviders` local in Program.cs; pass a fixed `[OpenMeteoProvider.ProviderName, PirateWeatherProvider.ProviderName]` order to `WeatherProviderResolver` (or simplify the resolver to derive order from DI registration). Update `WeatherProviderResolverTests` (several tests assert on `configuredOrder` behavior — e.g. `Resolve_NullOrEmptyName_ReturnsFirstConfiguredProvider`, `ResolveChain_FollowsConfiguredOrderNotRegistrationOrder`, `Resolve_NameRegisteredButNotConfigured_ThrowsArgumentException`). Also remove the `WeatherProviders` environment variable from the prod & staging service config.
+- [x] **Remove the user-facing weather-provider setting from the plugin** (done)
+  - The "Weather Data Provider" custom field and the `provider=` query param are gone from
+    `plugins/weather/src/settings.yml`, so the API now picks the provider from its own
+    `WeatherProviders` setting on every request.
+  - **The API-side config is deliberately kept.** `builder.Configuration["WeatherProviders"]`
+    (`api/src/TrmnlApi/Program.cs:29`), `ParseWeatherProviders`, and `WeatherProviderResolver` stay
+    as-is: they remain the single place to change the default provider and fallback order without a
+    plugin push. Do not hardcode the order.
+  - Remaining: `trmnlp push --force` to prod (and staging) so installed instances stop sending
+    `provider=open-meteo`.
 
 ## Weather display & accuracy
 

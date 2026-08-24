@@ -16,11 +16,11 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally choose a **Weather Data Provider** (Open-Meteo (default) or Pirate Weather) and override the **Units**, **Hours**, **Days**, and **Time Format** fields. The plugin polls the API every 60 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally override the **Units**, **Hours**, **Days**, and **Time Format** fields. The plugin polls the API every 60 minutes.
 
 ## Data Source
 
-Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, deployed to Railway) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Open-Meteo](https://open-meteo.com/) (default) and [Pirate Weather](https://pirateweather.net/). If the selected provider fails, the backend automatically falls back to the other one and reports which provider actually served the data.
+Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, deployed to Railway) that normalizes upstream responses into a uniform shape (condition labels, weather-icon classes, day/night variants). Supported upstreams: [Open-Meteo](https://open-meteo.com/) (default) and [Pirate Weather](https://pirateweather.net/). The upstream is chosen by the backend, not by a plugin setting. If it fails, the backend automatically falls back to the other one and reports which provider actually served the data.
 
 ### Attribution
 
@@ -36,7 +36,7 @@ Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, 
 | `units` | no | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
 | `hours` | no | `25` | Number of hourly forecast entries (1–25) |
 | `days` | no | `6` | Number of daily forecast entries (1–14; Pirate Weather only supplies up to 7) |
-| `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather` (the plugin sends `open-meteo` by default) |
+| `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather`. The plugin does not send it, so the server default applies |
 | `time_format` | no | `12h` | `12h` (am/pm) or `24h` clock for the hourly labels |
 
 ## Development

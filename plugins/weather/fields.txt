@@ -10,7 +10,7 @@ Query parameters:
     units       — "imperial" (default) or "metric"
     hours       — number of hourly entries (1–25, default 25)
     days        — number of daily entries (1–14, default 6; Pirate Weather only supplies up to 7)
-    provider    — "open-meteo" (default) or "pirate-weather"
+    provider    — "open-meteo" or "pirate-weather" (omitted by the plugin; server default applies)
     time_format — "12h" (default) or "24h" — controls the hourly "label" field
     fake        — "true" or "1" to inject randomized precipitation (testing)
 
