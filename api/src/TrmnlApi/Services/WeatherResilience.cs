@@ -16,9 +16,9 @@ public static class WeatherResilience
     // MaxRetryAttempts is 2 rather than 3 so the setting states the real behavior: with a 10s
     // total budget a third attempt would usually be cut off mid-flight anyway.
     //
-    // The circuit breaker is deliberately left at its defaults. Devices poll hourly, so any break
-    // duration short enough to be safe has already elapsed before the next request arrives; a
-    // breaker cannot do useful work at this request rate.
+    // The circuit breaker is left at its defaults for now, which means it never opens: tripping it
+    // needs 100 failures inside a 30s window and traffic runs at roughly a quarter of that. Tuning
+    // it is tracked separately; it is not that a breaker is useless here.
     public static void Configure(HttpStandardResilienceOptions options)
     {
         options.Retry.ShouldHandle = ShouldRetry;

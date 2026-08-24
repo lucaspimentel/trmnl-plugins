@@ -21,16 +21,18 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Still open as a contingency for **restart-driven** cache loss: every deploy or restart wipes `IMemoryCache` and produces a warm-up burst of upstream calls. Only worth building if `/metrics` shows those bursts materially degrading the hit rate.
   - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey` (`weather:{provider}:{lat:F2}:{lon:F2}:{metric|imperial}`). On a restart L1 is cold but L2 is warm: the first request hits L2 and repopulates L1.
 
-- [ ] **P3 — Negative caching for failing providers (re-scoped; the ~60s sentinel does not work)**
-  - Original premise was that every request to a failing provider ate a ~30s retry budget. That is
-    now bounded to 10s per provider by `WeatherResilience.Configure`, so the payoff is much smaller.
-  - **A ~60s sentinel is useless at this traffic**: devices poll hourly, so the sentinel expires
-    long before the next request arrives and never suppresses a call. This is the same reason the
-    circuit breaker was left at its defaults (see the failure-budget item below). Any sentinel that
-    actually suppresses calls would need a TTL in hours, which risks bypassing a provider that has
-    already recovered.
-  - Revisit only if `/metrics` shows enough request volume for a short TTL to matter, and prefer a
-    sentinel whose TTL is derived from the upstream's `Retry-After` header rather than a fixed guess.
+- [ ] **P2 — Negative caching for failing providers**
+  - Today a request to a failing provider still pays a live call before falling back. The retry
+    budget is now bounded to 10s per provider by `WeatherResilience.Configure`, so the payoff is
+    smaller than originally written, but not gone.
+  - Cache a sentinel like `weather:fail:{provider}` for ~60s after a provider returns a failure;
+    skip the live call while the sentinel is present. At the measured ~7 req/min (see the
+    traffic-rate note under the failure-budget item below) a 60s sentinel suppresses roughly seven
+    upstream calls per outage window, so the short TTL is worth having.
+  - Prefer deriving the TTL from the upstream's `Retry-After` header when present, falling back to a
+    fixed ~60s otherwise.
+  - Overlaps heavily with the circuit-breaker item below — a properly tuned breaker does much the
+    same job. Decide between them rather than building both.
 
 - [ ] **P2 — Background refresh on stale-served**
   - When `WeatherForecastOrchestrator.GetAsync` serves a stale entry (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), the next request still has to wait for live retries again. A fire-and-forget refresh after returning stale would warm the cache.
@@ -49,25 +51,40 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
 - [x] **Bound the per-provider failure budget (replaces "tighten resilience handler")**
   - Done: `WeatherResilience.Configure` now sets `TotalRequestTimeout` 10s (was 30s),
     `AttemptTimeout` 5s (was 10s), `MaxRetryAttempts` 2 (was 3). A two-provider outage now reaches
-    the stale-cache fallback in roughly 20s instead of a minute.
-  - The original item asked for two other things, neither of which survived contact with the
-    measured defaults:
-    - **Jitter was already on.** `UseJitter` defaults to `true` in the standard handler; the claim
-      that it was "the default non-jittered exponential" was wrong. `WeatherResilienceTests` turns
-      jitter *off* only to make retry timing deterministic in tests, which is probably where the
-      idea came from.
-    - **A circuit breaker cannot do useful work at this request rate.** Devices poll hourly
-      (`refresh_interval: 60`) and `FreshTtl` is 10 minutes, so every poll makes live upstream
-      calls. A breaker needs failures to accumulate inside `SamplingDuration` *and* needs
-      `BreakDuration` still to be open when the next request arrives. At hourly cadence neither
-      holds: any break duration short enough to be safe has long since elapsed, so the breaker sits
-      closed on every request. Making it bite would need a break duration measured in hours, which
-      is no longer a circuit breaker but a long-TTL bypass that sidelines a provider well after it
-      recovers. Left at defaults deliberately.
+    the stale-cache fallback in roughly 20s instead of a minute. Verified in production: a cold-cache
+    request returns in ~0.5s, so the 5s attempt timeout leaves about 10x headroom.
   - Also hardened while here: `WeatherForecastOrchestrator.IsTransient` now tests for Polly's
     `ExecutionRejectedException` base type instead of `TimeoutRejectedException`. Both
     `TimeoutRejectedException` and `BrokenCircuitException` derive from it, so a Polly rejection can
-    no longer skip the fallback chain and surface as an unhandled 500.
+    no longer skip the fallback chain and surface as an unhandled 500. This is a prerequisite for
+    ever enabling the circuit breaker.
+  - **Jitter was already on**, contrary to the original item: `UseJitter` defaults to `true` in the
+    standard handler. `WeatherResilienceTests` turns jitter *off* only to make retry timing
+    deterministic in tests, which is probably where the mistaken claim came from. Nothing to do.
+  - **Measured traffic rate — read this before reasoning about time windows.** `/metrics` on
+    production showed 725 requests over 6102s uptime, about **7 req/min in aggregate** (~4/min of
+    those reaching upstream). Devices poll hourly *individually*, but installations are staggered, so
+    requests arrive at the API roughly every 8 seconds. Do not confuse the per-device refresh
+    interval with the arrival rate: an earlier pass at this item wrongly concluded that short break
+    durations and short cache TTLs could never span two requests, and dropped both the circuit
+    breaker and negative caching on that basis. Recheck `/metrics` rather than assuming either way.
+
+- [ ] **P2 — Tighten the circuit breaker so it can actually trip**
+  - The standard handler's defaults are `FailureRatio=0.1`, `MinimumThroughput=100`,
+    `SamplingDuration=30s`, `BreakDuration=5s`. At the measured ~3.5 requests per 30s window,
+    `MinimumThroughput=100` is unreachable, so the breaker never opens and a sustained upstream
+    outage costs a live call on every request. `WeatherResilience.Configure` deliberately leaves the
+    whole `CircuitBreaker` section at defaults today.
+  - A workable shape given the measured rate: `MinimumThroughput` around 5, `SamplingDuration` 60s,
+    `FailureRatio` 0.5, `BreakDuration` 30s — roughly 7 requests per sampling window, and a break
+    that still covers ~3-4 arrivals. Validate against `/metrics` before committing to numbers, and
+    note the handler's cross-field rule that `SamplingDuration` must be at least `2 x AttemptTimeout`
+    (currently 5s, so 30s+ is fine).
+  - Safe to attempt now that `IsTransient` handles `ExecutionRejectedException`; before that fix an
+    open breaker would have bypassed the fallback chain and returned a 500. Consider adding a
+    `BrokenCircuitException` case to `BuildUpstreamFromException` so `meta.upstream` reports the open
+    circuit rather than falling through to the generic branch.
+  - Overlaps with the negative-caching item above; pick one.
 
 - [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
   - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
