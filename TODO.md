@@ -35,10 +35,6 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - If N concurrent requests for the same `(provider, lat, lon, units)` hit a cold instance, all N call the upstream. A `SemaphoreSlim` per cache key would collapse them.
   - Low priority given current low-concurrency traffic from TRMNL devices, but cheap to add.
 
-- [ ] **P3 — Cleanup: make `TimeProvider` required in `WeatherCache`**
-  - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:28`), so the null-default is dead code.
-  - Make the parameter required; drop the null coalesce.
-
 - [ ] **P2 — Dedicated outbound IP (on hold — only matters if the free tier is ever revisited)**
   - Open-Meteo's *free* daily quota is per source IP, and the API now egresses through a shared NAT address, so the free tier is unusable without a dedicated egress IP.
   - The current host offers no dedicated egress IP (its "static outbound IPs" are documented as possibly shared). A true dedicated IP would require egressing through a self-hosted forward proxy on a cheap VPS.
