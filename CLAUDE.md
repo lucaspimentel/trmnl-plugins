@@ -16,8 +16,12 @@ For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.tr
 
 ```bash
 cd plugins/<name>
+trmnlp lint            # same check .github/workflows/plugins.yml runs on push/PR
 trmnlp push --force    # --force skips confirmation prompt
 ```
+
+`plugins.yml` pins `trmnl_preview` to a specific gem version so a new lint rule upstream can't
+turn the repo red on its own; bump the pin deliberately.
 
 ## Build Preview
 

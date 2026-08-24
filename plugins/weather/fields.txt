@@ -9,11 +9,12 @@ Query parameters:
     longitude   (required) — location longitude
     units       — "imperial" (default) or "metric"
     hours       — number of hourly entries (1–25, default 25)
-    days        — number of daily entries (1–6, default 6)
+    days        — number of daily entries (1–14, default 6; Pirate Weather only supplies up to 7)
     provider    — "open-meteo" (default) or "pirate-weather"
+    time_format — "12h" (default) or "24h" — controls the hourly "label" field
     fake        — "true" or "1" to inject randomized precipitation (testing)
 
-data.
+Template variables (injected at the top level, not nested under "data"):
     current.
         time                    (ISO 8601, e.g. "2026-02-28T14:00")
         temperature             (integer, °F or °C)
@@ -29,13 +30,13 @@ data.
     hourly.
         entries                 (array of up to 25 objects, current hour + next 24h)
             time                (ISO 8601)
-            label               (string, e.g. "2pm", "3pm")
+            label               (string, e.g. "2pm", "3pm"; "14:00", "15:00" when time_format=24h)
             temperature         (integer)
             precipitation_probability (%, 0–100)
             icon_class          (CSS class, day/night variant pre-computed)
             is_day              (boolean)
     daily.
-        entries                 (array of up to 6 objects, today + next 5 days)
+        entries                 (array of up to "days" objects, today + next N-1 days; 14 max, 7 max from Pirate Weather)
             date                (date string, e.g. "2026-02-28")
             high                (integer, daily high temperature)
             low                 (integer, daily low temperature)
@@ -52,4 +53,5 @@ data.
         data_time               (ISO 8601, matches current.time)
         served_at               (ISO 8601 UTC timestamp when this response was served)
         age_seconds             (integer, seconds since fetched_at)
+        time_format             (string: "12h" or "24h", echoes the requested format)
         upstream                (null when healthy; { status, error } when stale_served or when a fallback was used)

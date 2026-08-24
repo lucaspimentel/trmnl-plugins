@@ -2,10 +2,15 @@
 
 ## Weather API reliability & availability
 
-Improvements identified during a review of the caching and fallback workflow in the Azure Functions weather API. Ordered by impact-to-effort ratio (highest first).
+Improvements identified during a review of the caching and fallback workflow in the weather API.
+Ordered by impact-to-effort ratio (highest first). **Note:** most of these were written while the
+API still ran on Azure Functions (Consumption plan). It now runs as a single always-on container
+(see `api/docs/railway-migration.md`), so items whose premise was instance fragmentation or
+Functions-specific hosting are annotated below.
 
-- [ ] **P0 — Drop Open-Meteo back to the free tier once caching is strong enough to cover it**
-  - Decision (2026-08-22): cancel the Open-Meteo paid subscription (see the now-reverted "Escape upstream per-IP daily quotas" item below) and go back to the free host. Compensate for the lost quota headroom with stronger caching instead of paying for quota.
+- [x] **P0 — Drop Open-Meteo back to the free tier once caching is strong enough to cover it** — **dropped (2026-08-22/23)**
+  - **Resolution:** not viable on the current host. The free tier is rate-limited per source IP and the API now egresses through a shared NAT address whose daily quota other tenants already consume — unsetting `OPEN_METEO_API_KEY` produced immediate 429s and 502s with no real traffic. No dedicated egress IP is available (see `api/docs/railway-migration.md`, "Open questions"). The paid Open-Meteo customer-API key stays as a permanent part of the prod config; the remaining cache-side lever is raising `WeatherCache__FreshTtl` past the plugin's poll interval.
+  - Original decision (2026-08-22): cancel the Open-Meteo paid subscription (see the now-reverted "Escape upstream per-IP daily quotas" item below) and go back to the free host. Compensate for the lost quota headroom with stronger caching instead of paying for quota.
   - **Diagnosis (2026-08-22):** API traffic is ~600 req/hr (~14,400/day) and growing as more users install the plugin. Datadog reported 23,330 upstream Open-Meteo calls in the last 48h (~11,665/day) — already above the free tier's 10,000/day cap, implying only a ~19% cache hit rate. `WeatherCacheOptions.FreshTtl` in Azure app config was already set to 30 min, matching the plugin's `refresh_interval` exactly, so a single warm instance should hit cache almost every poll — the ~19% hit rate instead lines up closely with `1/N` for Consumption plan running ~5 concurrent instances with no session affinity (each device's next poll has roughly a 1-in-5 chance of landing back on the instance holding its cache entry). This points to **instance fragmentation, not TTL, as the primary cause** of the low hit rate.
   - **Action taken (2026-08-22):** bumped `WeatherCache:FreshTtl` app setting from 30 to 35 min (cheap jitter-margin tweak, live in prod). Not expected to meaningfully fix the hit rate on its own — re-check upstream call volume after this has run a while; if it's still ~19-20%, that confirms fragmentation (not TTL) is the blocker and the fix has to be the shared L2 cache or migrating off Consumption to a persistent single instance (see hosting-migration discussion; either directly eliminates the fragmentation).
   - Blocking prerequisites, in order: the **P1 shared L2 cache** item (or equivalently, migrating to an always-on single-instance host) — this is the fix that actually addresses the diagnosed root cause — and the **P2 longer TTLs** item (so a rate-limited free tier degrades to stale-served instead of 502). Negative caching and background refresh (both P2 below) further reduce live-call volume and are worth doing before the switch too.
@@ -17,11 +22,10 @@ Improvements identified during a review of the caching and fallback workflow in 
   - Fix: track all stale entries seen in the loop and pick the one with the highest `FetchedAt`.
   - Quick win — ~5 lines, no infra changes, directly improves availability when both providers are down.
 
-- [ ] **P1 — Shared L2 cache (Azure Table Storage)**
-  - `WeatherCache` uses `IMemoryCache` (per-process). On Y1 Consumption with multiple instances and frequent cold starts, the cache is effectively cold most of the time, which neutralizes the 3h `StaleTtl` defense.
-  - Suggested: Table Storage as L2 (reuses the existing Function storage account, ~20ms reads, cheap). Keep `MemoryCache` as L1 in front.
-  - Schema sketch: PartitionKey = provider, RowKey = `{lat:F2}_{lon:F2}_{units}`, serialized `WeatherResponse` + `FetchedAt`.
-  - Biggest reliability lift — makes cold starts and scale-out events stop being failure modes. Bigger change than P1A but still scoped.
+- [ ] **P1 — Shared L2 cache** (largely superseded; now a contingency)
+  - Original premise: `WeatherCache` uses `IMemoryCache` (per-process), and on a multi-instance Consumption plan the cache was cold most of the time, neutralizing the 3h `StaleTtl` defense. Migrating to a single always-on container fixed the fragmentation directly, so the L2 cache is no longer the main lever.
+  - Still open as a contingency for **restart-driven** cache loss: every deploy or restart wipes `IMemoryCache` and produces a warm-up burst of upstream calls. Only worth building if `/metrics` shows those bursts materially degrading the hit rate.
+  - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey`. See `api/docs/railway-migration.md`, "L2 cache contingency".
 
 - [ ] **P2 — Negative caching for failing providers**
   - Today, every request to a sustained-failing provider eats the full retry budget (~30s) before falling back. The standard resilience handler's circuit breaker has `MinimumThroughput=100` which is too high to trip on this app's traffic.
@@ -30,15 +34,15 @@ Improvements identified during a review of the caching and fallback workflow in 
 
 - [ ] **P2 — Background refresh on stale-served**
   - When `WeatherForecastOrchestrator.GetAsync` serves a stale entry (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), the next request still has to wait for live retries again. A fire-and-forget refresh after returning stale would warm the cache.
-  - Gotcha: fire-and-forget in Azure Functions Consumption is unsafe — the host may scale in and drop the task. Implement via a Durable Function activity or a queue-triggered refresh function instead.
-  - Medium effort, decent value, depends on P1B (shared cache) for the warmed entry to be useful across instances.
+  - The original "fire-and-forget is unsafe on Consumption" gotcha no longer applies now that the API runs as a single always-on container: a background task survives between requests, so a plain `Task.Run`/`IHostedService` refresh is workable. Still guard against stampedes (pairs with the single-flight item below).
+  - Medium effort, decent value. No longer depends on the shared L2 cache, since one process owns the whole cache.
 
 - [ ] **P3 — Single-flight / request coalescing**
   - If N concurrent requests for the same `(provider, lat, lon, units)` hit a cold instance, all N call the upstream. A `SemaphoreSlim` per cache key would collapse them.
   - Low priority given current low-concurrency traffic from TRMNL devices, but cheap to add.
 
 - [ ] **P3 — Cleanup: make `TimeProvider` required in `WeatherCache`**
-  - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:40`), so the null-default is dead code.
+  - `api/src/TrmnlApi/Services/WeatherCache.cs:7` declares `TimeProvider? timeProvider = null` and defaults to `TimeProvider.System`. DI always supplies one (registered in `api/src/TrmnlApi/Program.cs:28`), so the null-default is dead code.
   - Make the parameter required; drop the null coalesce.
 
 - [x] **P1 — Escape upstream per-IP daily quotas (Open-Meteo paid key or self-host)**
@@ -47,16 +51,16 @@ Improvements identified during a review of the caching and fallback workflow in 
   - This is the root-cause fix for the 502s; the cache/fallback items above only mask it.
   - **Resolved 2026-08-19** via option (a): subscribed to Open-Meteo's paid tier. `OpenMeteoClient` now sends requests to `customer-api.open-meteo.com` with `&apikey=` when the `OPEN_METEO_API_KEY` app setting is present, falling back to the free host when it is not. Key set in both prod and staging; deployed and verified (`meta.cache: fresh_fetch`, `meta.provider: open-meteo`). The customer host rejects unkeyed requests with 401 and invalid keys with 400, so a successful fetch confirms the key is in use.
   - Still open: Pirate Weather remains on its free tier and was observed 429ing on 2026-08-19; its plan/limits have not been verified. It is now the fallback rather than the primary, so this is lower impact.
-  - **Being reverted (2026-08-22):** decided to drop back to the free tier and rely on stronger caching instead of paying for quota headroom. See the new P0 item above for the reversal plan and its prerequisites.
+  - **Reversion cancelled (2026-08-23):** the plan to drop back to the free tier was abandoned — the free tier's per-IP quota is unusable from a shared-egress host. The paid key stays. See the P0 item above.
 
-- [ ] **P2 — Dedicated outbound IP (NAT Gateway) for prod Function App (on hold — premised on staying on a paid/quota-sensitive tier)**
-  - Open-Meteo's daily quota is per source IP. A dedicated/consistent outbound IP (Azure NAT Gateway) prevents prod's limit from being shared with other Azure tenants and gives a stable IP to reason about / allowlist.
-  - Lower priority than the paid-key fix above (which removes the quota ceiling entirely), but worth pairing with it for predictability.
-  - On hold pending the free-tier reversion above: if caching brings live-call volume down enough, a dedicated IP may not be worth the Azure NAT Gateway cost. Revisit only if the free tier proves insufficient even with stronger caching.
+- [ ] **P2 — Dedicated outbound IP (on hold — only matters if the free tier is ever revisited)**
+  - Open-Meteo's *free* daily quota is per source IP, and the API now egresses through a shared NAT address, so the free tier is unusable without a dedicated egress IP.
+  - The current host offers no dedicated egress IP (its "static outbound IPs" are documented as possibly shared). A true dedicated IP would require egressing through a self-hosted forward proxy on a cheap VPS.
+  - Moot while the paid Open-Meteo key is in use (it removes the quota ceiling entirely). Revisit only if the paid key is ever dropped.
 
-  - [x] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
-  - `plugins/weather/src/settings.yml` sets `refresh_interval: 30` (minutes). Every TRMNL device × poll hits the API and counts against upstream per-IP quotas. Raising it directly cuts upstream call volume.
-  - Trade-off: less fresh on-screen data. Consider 30 → 60 as a low-risk middle ground, or make it adaptive once the shared L2 cache (P1 above) is in place.
+- [x] **P2 — Reduce upstream load by raising plugin `refresh_interval`**
+  - Every TRMNL device × poll hits the API and counts against upstream per-IP quotas, so raising the interval directly cuts upstream call volume.
+  - Done: `plugins/weather/src/settings.yml` now sets `refresh_interval: 60` (was 30), bumped as part of the hosting cutover. Trade-off accepted: less fresh on-screen data. Note that with `FreshTtl` below 60 min, every device poll now misses the fresh window (see the TTL item below).
 
 - [ ] **P2 — Tighten resilience handler: circuit breaker + jittered exponential backoff**
   - `api/src/TrmnlApi/Services/WeatherResilience.cs` only customizes the retry *predicate* (`ShouldRetry` skips 429 so the orchestrator falls back fast). The rest of `AddStandardResilienceHandler` uses Polly defaults — circuit breaker `MinimumThroughput=100` is too high to ever trip at this app's traffic (noted in the negative-caching item above), and the retry backoff is the default non-jittered exponential.
@@ -66,12 +70,12 @@ Improvements identified during a review of the caching and fallback workflow in 
 - [ ] **P2 — Lengthen forecast cache TTLs so 429s don't surface as customer-visible 502s**
   - `api/src/TrmnlApi/Services/WeatherCache.cs` keys on `FreshTtl`/`StaleTtl` (absolute expiration set to `StaleTtl`). When both providers are rate-limited (as on 2026-08-19), once the stale entry expires the orchestrator returns 502.
   - Raising `StaleTtl` (and optionally `FreshTtl`) widens the window during which a rate-limited provider is masked by a stale-served response instead of surfacing a 502.
-  - Trade-off: staler on-screen data during prolonged outages. Depends on P1B (shared L2 cache) for the longer TTL to actually help across instances/cold starts.
+  - Trade-off: staler on-screen data during prolonged outages. No longer blocked on a shared L2 cache — the single always-on process keeps one warm cache, so a longer TTL takes effect directly. Raising `FreshTtl` past the plugin's 60-min `refresh_interval` is also the main remaining lever for cutting upstream call volume.
 
 - [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
   - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
-  - Likely via Application Insights / Azure Monitor custom metrics emitted from `WeatherForecastOrchestrator` or the resilience handler.
+  - Application Insights was dropped in the hosting migration, so this now depends on the Datadog APM instrumentation item under "Observability" (or on scraping `GET /metrics`, which already exposes upstream-failure and cache-split counters, though they reset every restart).
 
 - [ ] **P3 — Verify graceful stale-cache response when both providers are unavailable**
   - `WeatherForecastOrchestrator.GetAsync` serves stale entries when a provider fails (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), but the behavior when *both* providers are down and the stale entry has expired (502) is the customer-visible failure mode seen on 2026-08-19.
@@ -81,7 +85,7 @@ Improvements identified during a review of the caching and fallback workflow in 
 - [ ] **Remove the `WeatherProviders` config — always default to open-meteo first**
   - `api/src/TrmnlApi/Program.cs:29` reads `builder.Configuration["WeatherProviders"]` and `ParseWeatherProviders` (Program.cs:39-58) throws if it's missing/empty. The order from this setting defines the default + fallback order in `WeatherProviderResolver` (`api/src/TrmnlApi/Providers/WeatherProviderResolver.cs`).
   - Goal: drop the config entirely and hardcode open-meteo as the primary (default), with pirate-weather as the only fallback. This removes a required app setting and a startup-failure mode (app refuses to start if `WeatherProviders` is unset).
-  - Touch points: remove `ParseWeatherProviders` + the `configuredProviders` local in Program.cs; pass a fixed `[OpenMeteoProvider.ProviderName, PirateWeatherProvider.ProviderName]` order to `WeatherProviderResolver` (or simplify the resolver to derive order from DI registration). Update `WeatherProviderResolverTests` (several tests assert on `configuredOrder` behavior — e.g. `Resolve_NullOrEmptyName_ReturnsFirstConfiguredProvider`, `ResolveChain_FollowsConfiguredOrderNotRegistrationOrder`, `Resolve_NameRegisteredButNotConfigured_ThrowsArgumentException`). Also remove `WeatherProviders` from `local.settings.json` / app settings in prod & staging.
+  - Touch points: remove `ParseWeatherProviders` + the `configuredProviders` local in Program.cs; pass a fixed `[OpenMeteoProvider.ProviderName, PirateWeatherProvider.ProviderName]` order to `WeatherProviderResolver` (or simplify the resolver to derive order from DI registration). Update `WeatherProviderResolverTests` (several tests assert on `configuredOrder` behavior — e.g. `Resolve_NullOrEmptyName_ReturnsFirstConfiguredProvider`, `ResolveChain_FollowsConfiguredOrderNotRegistrationOrder`, `Resolve_NameRegisteredButNotConfigured_ThrowsArgumentException`). Also remove the `WeatherProviders` environment variable from the prod & staging service config.
 
 ## Weather display & accuracy
 

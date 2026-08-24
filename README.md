@@ -23,6 +23,8 @@ The [Weather](./plugins/weather) plugin polls a custom ASP.NET Core backend in [
 Endpoints (base `https://trmnl-plugins-prod.lucasp.net`):
 
 - `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — normalized weather forecast (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
+- `GET /health` — liveness/readiness check
+- `GET /metrics` — process-lifetime cache and provider counters
 
 Build and test locally (.NET 10 SDK required):
 

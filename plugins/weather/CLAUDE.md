@@ -25,7 +25,7 @@ Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (d
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, defaults to 14 when omitted; the plugin sends 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
+- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`); `fake=true` injects random precipitation for testing
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting; `src/settings.yml` always sends `provider`, defaulting to `open-meteo`
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 
@@ -96,7 +96,7 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 
 ```liquid
 {% render "weather_current", current: current %}
-{% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230 %}
+{% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230, time_format: meta.time_format %}
 {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature %}
 ```
 
@@ -116,7 +116,9 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 | `weather_current_compact` | Compact current conditions (half/quadrant layouts) |
 | `weather_hourly_chart` | Highcharts spline (temp) + areaspline (precip %) with icons on x-axis, sunrise/sunset lines |
 | `weather_daily_bars_vertical` | CSS range bars, weather icons, labels inside/outside bar |
-| `title_bar` | Bottom bar: plugin name, weather icon, "Updated"/"Cached" timestamp, provider label (full/half_horizontal only) |
+| `title_bar` | Bottom bar: plugin name, weather icon, "Updated"/"Cached" timestamp (all four layouts); the provider label is only passed in from `full`/`half_horizontal` |
+
+Every layout passes `time_format: meta.time_format` to `weather_hourly_chart` and `title_bar` so rendered times follow the `time_format` setting.
 
 Daily bars per layout: `full` follows the `days` setting (up to 14, fewer if Pirate Weather serves the response), `half_horizontal` 4, `half_vertical` 5, `quadrant` 3 (no hourly chart) — the latter three are hardcoded to fit their smaller layout space and don't scale with `days`.
 
