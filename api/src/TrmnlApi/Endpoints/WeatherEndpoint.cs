@@ -11,8 +11,8 @@ namespace TrmnlApi.Endpoints;
 
 public class WeatherEndpoint
 {
-    private const int MaxHours = 25;
-    internal const int MaxDays = 14;
+    private const int MaxHours = ForecastLimits.MaxHours;
+    internal const int MaxDays = ForecastLimits.MaxDays;
 
     // Days a caller gets when the parameter is omitted. Deliberately below MaxDays:
     // most layouts show about a week, and fetching the full 14 for every unparameterized

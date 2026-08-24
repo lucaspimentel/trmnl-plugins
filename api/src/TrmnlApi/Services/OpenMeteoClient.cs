@@ -10,8 +10,8 @@ public class OpenMeteoClient : IOpenMeteoClient
 
     /// <summary>
     /// Open-Meteo's documented ceiling for forecast_days. This is a fact about the
-    /// upstream API, not a product decision: WeatherEndpoint.MaxDays decides how many
-    /// days a caller may request, and must stay at or below this.
+    /// upstream API, not a product decision: ForecastLimits.MaxDays decides how many
+    /// days we actually ask for, and must stay at or below this.
     /// </summary>
     internal const int MaxForecastDays = 16;
 
@@ -50,7 +50,7 @@ public class OpenMeteoClient : IOpenMeteoClient
                   $"&hourly=temperature_2m,weather_code,precipitation_probability" +
                   $"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset" +
                   $"&temperature_unit={tempUnit}&wind_speed_unit={windUnit}&precipitation_unit={precipUnit}" +
-                  $"&timezone=auto&forecast_hours=25&forecast_days={MaxForecastDays}";
+                  $"&timezone=auto&forecast_hours={ForecastLimits.MaxHours}&forecast_days={ForecastLimits.MaxDays}";
 
         if (_apiKey is not null)
         {
