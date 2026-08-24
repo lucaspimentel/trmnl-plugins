@@ -135,4 +135,49 @@ public class WeatherTransformerTests
         Assert.Equal("2026-02-25T06:25", result.Daily.Entries[0].Sunrise);
         Assert.Equal("2026-02-25T17:28", result.Daily.Entries[0].Sunset);
     }
+
+    // The tail of Open-Meteo's forecast window can arrive with nulls in place of numbers when
+    // upstream has not computed that day yet. Any such day is dropped, not fatal to the request.
+    [Theory]
+    [InlineData("temperature_2m_max")]
+    [InlineData("temperature_2m_min")]
+    [InlineData("weather_code")]
+    [InlineData("sunrise")]
+    [InlineData("sunset")]
+    public void Transform_Daily_SkipsDaysWithNullValues(string missingField)
+    {
+        var daily = new OpenMeteoDaily(
+            Time: ["2026-02-25", "2026-02-26"],
+            Temperature2mMax: [45.2, missingField == "temperature_2m_max" ? null : 46.0],
+            Temperature2mMin: [31.8, missingField == "temperature_2m_min" ? null : 30.0],
+            WeatherCode: [2, missingField == "weather_code" ? null : 0],
+            PrecipitationProbabilityMax: [20, 10],
+            Sunrise: ["2026-02-25T06:25", missingField == "sunrise" ? null : "2026-02-26T06:24"],
+            Sunset: ["2026-02-25T17:28", missingField == "sunset" ? null : "2026-02-26T17:29"]);
+
+        var result = WeatherTransformer.TransformDaily(daily);
+
+        Assert.Single(result.Entries);
+        Assert.Equal("2026-02-25", result.Entries[0].Date);
+    }
+
+    // A fully-populated day is unaffected by the null guard.
+    [Fact]
+    public void Transform_Daily_KeepsDaysWithAllValuesPresent()
+    {
+        var daily = new OpenMeteoDaily(
+            Time: ["2026-02-25", "2026-02-26"],
+            Temperature2mMax: [45.2, 46.0],
+            Temperature2mMin: [31.8, 30.0],
+            WeatherCode: [2, 0],
+            PrecipitationProbabilityMax: [20, null],
+            Sunrise: ["2026-02-25T06:25", "2026-02-26T06:24"],
+            Sunset: ["2026-02-25T17:28", "2026-02-26T17:29"]);
+
+        var result = WeatherTransformer.TransformDaily(daily);
+
+        Assert.Equal(2, result.Entries.Count);
+        Assert.Equal(46, result.Entries[1].High);
+        Assert.Equal(0, result.Entries[1].PrecipitationProbability); // null probability defaults to 0
+    }
 }

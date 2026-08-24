@@ -64,16 +64,27 @@ public class WeatherTransformer : IWeatherTransformer
         var entries = new List<DailyEntry>();
         for (int i = 0; i < daily.Time.Count; i++)
         {
-            var wc = daily.WeatherCode[i];
+            // The last day or two of Open-Meteo's window can arrive before its values are
+            // computed, sending nulls in place of numbers across the whole day. Skip days
+            // missing anything required rather than failing the entire forecast.
+            if (daily.Temperature2mMax[i] is not double high ||
+                daily.Temperature2mMin[i] is not double low ||
+                daily.WeatherCode[i] is not int wc ||
+                daily.Sunrise[i] is not string sunrise ||
+                daily.Sunset[i] is not string sunset)
+            {
+                continue;
+            }
+
             entries.Add(new DailyEntry(
                 Date: daily.Time[i],
-                High: (int)Math.Round(daily.Temperature2mMax[i]),
-                Low: (int)Math.Round(daily.Temperature2mMin[i]),
+                High: (int)Math.Round(high),
+                Low: (int)Math.Round(low),
                 Condition: WmoCodeMap.GetCondition(wc),
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay: true),
                 PrecipitationProbability: daily.PrecipitationProbabilityMax[i] ?? 0,
-                Sunrise: daily.Sunrise[i],
-                Sunset: daily.Sunset[i]
+                Sunrise: sunrise,
+                Sunset: sunset
             ));
         }
 
@@ -87,8 +98,15 @@ public class WeatherTransformer : IWeatherTransformer
         {
             if (daily.Time[i] == date)
             {
-                return string.Compare(time, daily.Sunrise[i], StringComparison.Ordinal) < 0
-                    || string.Compare(time, daily.Sunset[i], StringComparison.Ordinal) >= 0;
+                // Fall through to the daytime default when upstream has not sent this day's
+                // sun times yet, rather than reading a missing value as "night".
+                if (daily.Sunrise[i] is not string sunrise || daily.Sunset[i] is not string sunset)
+                {
+                    break;
+                }
+
+                return string.Compare(time, sunrise, StringComparison.Ordinal) < 0
+                    || string.Compare(time, sunset, StringComparison.Ordinal) >= 0;
             }
         }
         return false;

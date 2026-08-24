@@ -32,10 +32,10 @@ public record OpenMeteoHourly(
 
 public record OpenMeteoDaily(
     [property: JsonPropertyName("time")] List<string> Time,
-    [property: JsonPropertyName("temperature_2m_max")] List<double> Temperature2mMax,
-    [property: JsonPropertyName("temperature_2m_min")] List<double> Temperature2mMin,
-    [property: JsonPropertyName("weather_code")] List<int> WeatherCode,
+    [property: JsonPropertyName("temperature_2m_max")] List<double?> Temperature2mMax,
+    [property: JsonPropertyName("temperature_2m_min")] List<double?> Temperature2mMin,
+    [property: JsonPropertyName("weather_code")] List<int?> WeatherCode,
     [property: JsonPropertyName("precipitation_probability_max")] List<int?> PrecipitationProbabilityMax,
-    [property: JsonPropertyName("sunrise")] List<string> Sunrise,
-    [property: JsonPropertyName("sunset")] List<string> Sunset
+    [property: JsonPropertyName("sunrise")] List<string?> Sunrise,
+    [property: JsonPropertyName("sunset")] List<string?> Sunset
 );
