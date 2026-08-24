@@ -49,11 +49,6 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Add jitter to the retry backoff and lower the circuit-breaker thresholds (or switch to a custom `AddResilienceHandler`) so a sustained upstream failure trips the breaker instead of every request eating the full retry budget.
   - Pairs well with the negative-caching item (P2 above); both reduce wasted upstream calls when a provider is down.
 
-- [ ] **P2 — Lengthen forecast cache TTLs so 429s don't surface as customer-visible 502s**
-  - `api/src/TrmnlApi/Services/WeatherCache.cs` keys on `FreshTtl`/`StaleTtl` (absolute expiration set to `StaleTtl`). When both providers are rate-limited (as on 2026-08-19), once the stale entry expires the orchestrator returns 502.
-  - Raising `StaleTtl` (and optionally `FreshTtl`) widens the window during which a rate-limited provider is masked by a stale-served response instead of surfacing a 502.
-  - Trade-off: staler on-screen data during prolonged outages. No longer blocked on a shared L2 cache — the single always-on process keeps one warm cache, so a longer TTL takes effect directly. Raising `FreshTtl` past the plugin's 60-min `refresh_interval` is also the main remaining lever for cutting upstream call volume.
-
 - [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
   - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
