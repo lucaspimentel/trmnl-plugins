@@ -4,6 +4,7 @@ using System.Text.Json;
 using Datadog.Trace;
 using Microsoft.Extensions.Logging;
 using Polly;
+using Polly.CircuitBreaker;
 using Polly.Timeout;
 using TrmnlApi.Models;
 using TrmnlApi.Providers;
@@ -185,6 +186,7 @@ public class WeatherForecastOrchestrator(
         HttpRequestException httpEx => new Upstream(httpEx.StatusCode is null ? null : (int)httpEx.StatusCode, httpEx.Message),
         JsonException jsonEx => new Upstream(200, jsonEx.Message),
         TimeoutRejectedException => new Upstream((int)HttpStatusCode.GatewayTimeout, "upstream timed out after retries"),
+        BrokenCircuitException => new Upstream((int)HttpStatusCode.ServiceUnavailable, "provider circuit open"),
         _ => new Upstream(null, ex.Message)
     };
 }

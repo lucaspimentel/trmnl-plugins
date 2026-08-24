@@ -82,6 +82,27 @@ public class WeatherForecastOrchestratorTests
         Assert.Equal(1, second.CallCount);
     }
 
+    public static IEnumerable<object[]> FailureStatuses => new[]
+    {
+        new object[] { new HttpRequestException("upstream is down", inner: null, statusCode: HttpStatusCode.ServiceUnavailable), 503 },
+        new object[] { new JsonException("bad payload"), 200 },
+        new object[] { new TimeoutRejectedException("timed out"), 504 },
+        new object[] { new BrokenCircuitException("circuit open"), 503 }
+    };
+
+    [Theory]
+    [MemberData(nameof(FailureStatuses))]
+    public async Task GetAsync_FirstProviderFails_ReportsUpstreamStatus(Exception failure, int expectedStatus)
+    {
+        var first = new StubProvider(Primary) { Failure = failure };
+        var second = new StubProvider(Secondary) { Response = MakeResponse("fallback-fetch") };
+        var (orchestrator, _, _) = Build(first, second);
+
+        var outcome = await orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None);
+
+        Assert.Equal(expectedStatus, outcome.Upstream!.Status);
+    }
+
     [Fact]
     public async Task GetAsync_FirstFails_SecondHasFreshCache_ReturnsFreshHitFromSecond()
     {

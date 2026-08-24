@@ -21,50 +21,33 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Still open as a contingency for **restart-driven** cache loss: every deploy or restart wipes `IMemoryCache` and produces a warm-up burst of upstream calls. Only worth building if `/metrics` shows those bursts materially degrading the hit rate.
   - Implementation sketch if it becomes necessary: Redis as a second service on the same private network, `Microsoft.Extensions.Caching.StackExchangeRedis` as `IDistributedCache` L2 behind the `IMemoryCache` L1, Redis key TTL = `StaleTtl`, same key schema as `WeatherCache.CacheKey` (`weather:{provider}:{lat:F2}:{lon:F2}:{metric|imperial}`). On a restart L1 is cold but L2 is warm: the first request hits L2 and repopulates L1.
 
-- [ ] **P2 — Tighten the circuit breaker so it can actually trip (recommended next code change)**
-  - The standard handler's defaults are `FailureRatio=0.1`, `MinimumThroughput=100`,
-    `SamplingDuration=30s`, `BreakDuration=5s` (re-verified 2026-08-24 against
-    `Microsoft.Extensions.Http.Resilience` 10.6.0). At the measured ~4 upstream requests per minute,
-    `MinimumThroughput=100` is unreachable, so the breaker never opens and a sustained upstream
-    outage costs a live call on every request. `WeatherResilience.Configure` deliberately leaves the
-    whole `CircuitBreaker` section at defaults today.
-  - **Two facts measured 2026-08-24 that decide the design:**
-    - The breaker's default predicate **does** count 429 as a failure, unlike our retry predicate,
-      which excludes it on purpose (`api/src/TrmnlApi/Services/WeatherResilience.cs:33-38`).
-      Measured: 429, 500 and 408 handled; 400 and 200 not. So a tuned breaker trips on the
-      2026-08-19 double-429, which is the failure that motivated this item.
+- [x] **P2 — Tighten the circuit breaker so it can actually trip (done 2026-08-24)**
+  - `WeatherResilience.Configure` now sets `FailureRatio=0.5`, `MinimumThroughput=3`,
+    `SamplingDuration=60s`, `BreakDuration=30s`, replacing defaults of `0.1`/`100`/`30s`/`5s` that
+    could never fire: opening the stock breaker needs 100 failures in a 30s window and only ~4
+    requests a minute reach a provider, so a sustained outage cost a live call on every request.
+  - **Two facts measured 2026-08-24, now locked in as tests** (`WeatherResilienceTests`):
+    - The breaker keeps its **default predicate**, which counts 429 as a failure even though
+      `ShouldRetry` excludes it on purpose (`api/src/TrmnlApi/Services/WeatherResilience.cs:55-60`).
+      Retrying a rate limit inside one request is pointless; suppressing it across requests is not.
+      So the breaker trips on the 2026-08-19 double-429 that motivated this item.
     - The standard handler orders strategies Retry -> CircuitBreaker -> AttemptTimeout, so the
-      breaker samples **attempts, not requests**. With the numbers below, a 500 opens the circuit on
-      the *first* failing request (one request produces three failed attempts, so three samples),
-      while a 429 (never retried, one sample per request) needs three requests, roughly 45s at the
-      measured rate. The slow failure mode is suppressed instantly and the cheap fail-fast one within
-      a minute, which is the right way round.
-  - Proposed numbers, lower than the `MinimumThroughput` around 5 this item previously suggested:
-
-    ```csharp
-    options.CircuitBreaker.FailureRatio = 0.5;
-    options.CircuitBreaker.MinimumThroughput = 3;
-    options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);  // must be >= 2 x AttemptTimeout
-    options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
-    ```
-
-  - Tuning this aggressively is justified by the cost asymmetry: an over-eager open just routes to
-    the next provider, or to stale cache that is 10 minutes to 2 hours old, on a display that devices
-    refresh hourly. A false open is close to harmless; a breaker that never trips is the status quo.
-    The one thing to weigh is that at `MinimumThroughput=3` a single blip request that 500s three
-    times opens the circuit for 30s. If that reads as too twitchy, 4 requires two failing requests
-    instead, but start at 3 and let `/metrics` and the APM spans argue otherwise.
-  - Wiring is already in place: `BrokenCircuitException` is thrown with **zero** upstream calls, is
-    not retried by `ShouldRetry`, and is caught by `WeatherForecastOrchestrator.IsTransient` via
-    `ExecutionRejectedException` (`WeatherForecastOrchestrator.cs:180`), so it falls through to the
-    next provider and then to stale cache.
-  - Two small follow-ons to land in the same change:
-    - Add a `BrokenCircuitException` case to `BuildUpstreamFromException`
-      (`WeatherForecastOrchestrator.cs:183-189`) mapping to 503, so `meta.upstream` reports the open
-      circuit instead of falling through to the generic `null`-status branch.
-    - Extend `WeatherResilienceTests` with the two probes above as real assertions. Both are
-      deterministic and fast (the 500 case ran in 76ms) once `Retry.Delay` is zeroed the way the
-      existing tests do.
+      breaker samples **attempts, not requests**. Verified: one 500 request produces three failed
+      attempts and opens the circuit by itself (test runs in 6ms); a 429 needs three requests, about
+      45s at the measured rate (75ms). The slow failure mode is suppressed instantly and the cheap
+      fail-fast one within a minute, which is the right way round.
+  - `BuildUpstreamFromException` maps `BrokenCircuitException` to 503 "provider circuit open"
+    (`WeatherForecastOrchestrator.cs:189`), so `meta.upstream` reports the open circuit instead of
+    falling through to the generic `null`-status branch. Fallback wiring needed no change:
+    `BrokenCircuitException` derives from `ExecutionRejectedException`, which `IsTransient` already
+    tests for, so an open circuit falls through to the next provider and then to stale cache with
+    zero upstream calls. The tests also confirm it propagates out of `HttpClient` unwrapped.
+  - The breaker is scoped per named `HttpClient`, and `Program.cs:11-14` registers one per provider,
+    so `open-meteo` and `pirate-weather` get independent breakers.
+  - No extra observability was added, deliberately: an open circuit already shows as 503 in
+    `meta.upstream`, a warning log per request, and the `weather.first_failure.status` span tag.
+  - **If it reads as too twitchy in production**, `MinimumThroughput=4` requires two failing requests
+    instead of one for the 500 case. Left at 3; let the APM spans argue otherwise.
 
 - [x] **P2 — Negative caching for failing providers (closed — the tuned circuit breaker does this job)**
   - Decided 2026-08-24 in favor of tuning the circuit breaker above. The two always overlapped and
