@@ -39,6 +39,16 @@ private-network only: do **not** generate a public domain for it.
 | `DD_HOSTNAME` | `trmnl-api-agent-<environment>` | No host metadata is available, so set it explicitly rather than letting hostname resolution fail |
 | `DD_DOGSTATSD_NON_LOCAL_TRAFFIC` | `true` | The tracer reports `runtime_metrics_enabled: true` by default and sends them over DogStatsD (8125). Without this they are silently dropped; set `DD_RUNTIME_METRICS_ENABLED=false` on the app instead if you would rather not collect them. |
 
+The agent does not listen on the injected `PORT`, so the platform healthcheck never passes and the
+deploy hangs in `DEPLOYING`. Because the restart policy is `NEVER`, the previous container keeps
+serving in the meantime, which makes a variable change look like it had no effect. Point the
+healthcheck at the trace receiver instead:
+
+| Setting | Value |
+|---|---|
+| `PORT` | `8126` |
+| Healthcheck path | `/info` (the trace agent's info endpoint) |
+
 Private networking is scoped per environment, so `staging` and `production` each need their own
 agent service. Staging cannot share the production agent.
 
