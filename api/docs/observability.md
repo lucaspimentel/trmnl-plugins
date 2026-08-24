@@ -52,6 +52,11 @@ healthcheck at the trace receiver instead:
 Private networking is scoped per environment, so `staging` and `production` each need their own
 agent service. Staging cannot share the production agent.
 
+Set `DD_API_KEY` directly in each environment. It is a sealed variable, so its value cannot be
+read back, which also means it cannot be copied by syncing the service from another environment:
+a sync produces a variable that is present by name but empty, and the container then fails init
+with `01-check-apikey.sh: exited 1` while every listing still shows `DD_API_KEY` as set.
+
 ## App service variables
 
 | Variable | Value |
