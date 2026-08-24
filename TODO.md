@@ -12,9 +12,9 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
     old Azure resources were deliberately kept as the rollback target and are still running: the
     `trmnl-plugins-api` and `trmnl-plugins-api-staging` Function Apps, their Application Insights
     resources, and their storage accounts. Delete them once the current setup has proven stable.
-  - Also remove the two Azure-App-Service-specific Datadog config files, which nothing references
-    any more: `api/src/TrmnlApi/dd-appsettings.production.json` and
-    `api/src/TrmnlApi/dd-appsettings.staging.json`.
+  - The repo side is already clean: the Azure-App-Service Datadog configs
+    (`dd-appsettings.{production,staging}.json`), the Azure Functions VS Code extension
+    recommendation, and the leftover `TrmnlApi.Functions` namespace have all been removed.
 
 - [ ] **P1 — Shared L2 cache** (largely superseded; now a contingency)
   - Original premise: `WeatherCache` uses `IMemoryCache` (per-process), and on a multi-instance Consumption plan the cache was cold most of the time, neutralizing the 3h `StaleTtl` defense. Migrating to a single always-on container fixed the fragmentation directly, so the L2 cache is no longer the main lever.
@@ -91,7 +91,7 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
 ## Observability
 
 - [ ] **Instrument the Railway API with Datadog APM (deferred Phase 3 fast-follow)**
-  - The hosting migration shipped without Datadog traces: the `Datadog.Trace` tracer no-ops when no agent is reachable, and the old Azure mechanism does not carry over. The Azure App Service ran Datadog via the Windows site extension (`dd-appsettings.{production,staging}.json` — profiler DLL paths, named pipes, `DD_TRACE_TRANSPORT=DATADOG-NAMED-PIPES`). That is App-Service-Windows-specific and irrelevant on the Linux Railway container.
+  - The hosting migration shipped without Datadog traces: the `Datadog.Trace` tracer no-ops when no agent is reachable, and the old Azure mechanism does not carry over. The Azure App Service ran Datadog via the Windows site extension (profiler DLL paths, named pipes, `DD_TRACE_TRANSPORT=DATADOG-NAMED-PIPES`), configured by the since-deleted `dd-appsettings.{production,staging}.json`. That approach is App-Service-Windows-specific and irrelevant on the Linux container.
   - What's already in place: `Datadog.Trace` 3.43.0 is referenced in `api/src/TrmnlApi/TrmnlApi.csproj:10`, and `WeatherForecastOrchestrator.GetAsync` already creates a manual span (`Tracer.Instance.StartActive("weather.forecast")` with `TagCoord`, `WeatherForecastOrchestrator.cs:58-61`). So once an agent is reachable the app code needs little-to-no change; this is primarily a hosting/config task.
   - Approach: run the Datadog Agent as a separate Railway service in the same project (Railway private networking gives each service an internal hostname) rather than bundling it into the app image. The tracer defaults to `127.0.0.1:8126`; set `DD_AGENT_HOST` (and `DD_TRACE_AGENT_PORT` if non-default) on the app service to the agent service's internal hostname so traces ship to the sidecar.
   - Set unified-service-tagging env vars on the app service: `DD_SERVICE` (e.g. `trmnl-api`), `DD_ENV` (`production`/`staging`), `DD_VERSION` (git SHA or semver). The Dockerfile is Linux (`mcr.microsoft.com/dotnet/aspnet:10.0`), so no Windows profiler/pipes config is needed — the Linux tracer attaches via `CORECLR_PROFILER` env that the Datadog.Trace package sets automatically when `DD_DOTNET_TRACER_HOME`/agent env is present; verify auto-instrumentation of the ASP.NET Core HTTP pipeline and the two `HttpClient` providers (Open-Meteo, Pirate Weather).

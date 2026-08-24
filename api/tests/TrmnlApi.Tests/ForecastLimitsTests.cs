@@ -1,4 +1,4 @@
-using TrmnlApi.Functions;
+using TrmnlApi.Endpoints;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Tests;

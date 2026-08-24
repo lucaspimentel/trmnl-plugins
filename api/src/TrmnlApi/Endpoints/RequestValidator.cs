@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace TrmnlApi.Functions;
+namespace TrmnlApi.Endpoints;
 
 public static class RequestValidator
 {

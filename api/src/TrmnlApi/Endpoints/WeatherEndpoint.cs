@@ -7,7 +7,7 @@ using TrmnlApi.Mappings;
 using TrmnlApi.Models;
 using TrmnlApi.Services;
 
-namespace TrmnlApi.Functions;
+namespace TrmnlApi.Endpoints;
 
 public class WeatherEndpoint
 {

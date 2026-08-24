@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
-using TrmnlApi.Functions;
+using TrmnlApi.Endpoints;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
