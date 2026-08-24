@@ -16,7 +16,7 @@ public class WeatherCacheTests
     private static (WeatherCache cache, TestClock clock) Build(WeatherCacheOptions? options = null)
     {
         var clock = new TestClock();
-        var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10 });
+        var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10, Clock = clock });
         var cache = new WeatherCache(memoryCache, Options.Create(options ?? new WeatherCacheOptions()), clock);
         return (cache, clock);
     }
@@ -59,6 +59,17 @@ public class WeatherCacheTests
 
         Assert.NotNull(entry);
         Assert.False(entry.IsFresh);
+    }
+
+    [Fact]
+    public void TryGet_AfterStaleTtl_ReturnsNull()
+    {
+        var (cache, clock) = Build();
+
+        cache.Set("open-meteo", 42.0, -71.0, metric: false, SampleResponse());
+        clock.Advance(TimeSpan.FromHours(3)); // beyond the 2h StaleTtl ceiling
+
+        Assert.Null(cache.TryGet("open-meteo", 42.0, -71.0, metric: false));
     }
 
     [Fact]

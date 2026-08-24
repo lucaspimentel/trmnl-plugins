@@ -50,10 +50,6 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
   - Application Insights was dropped in the hosting migration, so this now depends on the Datadog APM instrumentation item under "Observability" (or on scraping `GET /metrics`, which already exposes upstream-failure and cache-split counters, though they reset every restart).
 
-- [ ] **P3 — Verify graceful stale-cache response when both providers are unavailable**
-  - `WeatherForecastOrchestrator.GetAsync` serves stale entries when a provider fails (`api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs:127-141`), but the behavior when *both* providers are down and the stale entry has expired (502) is the customer-visible failure mode seen on 2026-08-19.
-  - Confirm via test or manual repro that the fallback path serves the freshest stale entry while any non-expired one exists, and that the 502 returned after expiry is well-formed (not a raw exception/500). Add a regression test if none covers the both-providers-down path.
-
 ## Weather display & accuracy
 
 - [ ] **Allow enabling/disabling the different subviews (current status, hourly forecast, daily forecast) and adjust layout accordingly**

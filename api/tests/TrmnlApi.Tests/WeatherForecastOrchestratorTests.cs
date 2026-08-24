@@ -138,6 +138,21 @@ public class WeatherForecastOrchestratorTests
     }
 
     [Fact]
+    public async Task GetAsync_AllFail_EveryStaleEntryPastStaleTtl_Throws()
+    {
+        var first = new StubProvider(Primary) { Failure = new HttpRequestException("boom") };
+        var second = new StubProvider(Secondary) { Failure = new HttpRequestException("also down") };
+        var (orchestrator, cache, clock) = Build(first, second);
+        cache.Set(Primary, 1, 2, false, MakeResponse("stale-primary"));
+        cache.Set(Secondary, 1, 2, false, MakeResponse("stale-secondary"));
+        clock.Advance(TimeSpan.FromHours(3)); // beyond StaleTtl (2h default), so both entries are gone
+
+        var ex = await Assert.ThrowsAsync<UpstreamUnavailableException>(
+            () => orchestrator.GetAsync(Primary, 1, 2, false, 24, 5, CancellationToken.None));
+        Assert.Equal("boom", ex.Upstream.Error);
+    }
+
+    [Fact]
     public async Task GetAsync_AllFail_NoStaleCacheAnywhere_Throws()
     {
         var first = new StubProvider(Primary) { Failure = new HttpRequestException("boom") };
@@ -182,7 +197,7 @@ public class WeatherForecastOrchestratorTests
         params StubProvider[] providers)
     {
         var clock = new TestClock();
-        var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10 });
+        var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10, Clock = clock });
         var cache = new WeatherCache(memoryCache, Options.Create(new WeatherCacheOptions()), clock);
         var resolver = new WeatherProviderResolver(providers, providers.Select(p => p.Name).ToList());
         var orchestrator = new WeatherForecastOrchestrator(
