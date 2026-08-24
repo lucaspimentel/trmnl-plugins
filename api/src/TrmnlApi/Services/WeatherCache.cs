@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using TrmnlApi.Models;
@@ -28,7 +29,9 @@ public class WeatherCache(IMemoryCache cache, IOptions<WeatherCacheOptions> opti
     }
 
     private static string CacheKey(string provider, double latitude, double longitude, bool metric) =>
-        $"weather:{provider}:{latitude:F2}:{longitude:F2}:{(metric ? "metric" : "imperial")}";
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"weather:{provider}:{latitude:F2}:{longitude:F2}:{(metric ? "metric" : "imperial")}");
 
     private sealed record CacheEntry(WeatherResponse Response, DateTimeOffset FetchedAt);
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using TrmnlApi.Models;
@@ -19,6 +20,32 @@ public class WeatherCacheTests
         var memoryCache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 10, Clock = clock });
         var cache = new WeatherCache(memoryCache, Options.Create(options ?? new WeatherCacheOptions()), clock);
         return (cache, clock);
+    }
+
+    [Fact]
+    public void TryGet_CultureChangedBetweenSetAndGet_StillHits()
+    {
+        // The key is built with string interpolation, which would otherwise use the ambient
+        // culture: under a comma-decimal culture "42.36" formats as "42,36", so an entry written
+        // under one culture would be invisible to a read under another.
+        var (cache, _) = Build();
+        var original = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+            cache.Set("open-meteo", 42.36, -71.06, metric: false, SampleResponse());
+
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var entry = cache.TryGet("open-meteo", 42.36, -71.06, metric: false);
+
+            Assert.NotNull(entry);
+            Assert.True(entry.IsFresh);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 
     [Fact]
