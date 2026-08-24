@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using Datadog.Trace;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Polly.Timeout;
 using TrmnlApi.Models;
 using TrmnlApi.Providers;
@@ -168,7 +169,7 @@ public class WeatherForecastOrchestrator(
     }
 
     private static bool IsTransient(Exception ex, CancellationToken cancellationToken) =>
-        ex is HttpRequestException or JsonException or IOException or TimeoutRejectedException ||
+        ex is HttpRequestException or JsonException or IOException or ExecutionRejectedException ||
         (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested);
 
     private static Upstream BuildUpstreamFromException(Exception ex) => ex switch

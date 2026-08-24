@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
 using Polly.Timeout;
 using TrmnlApi.Models;
 using TrmnlApi.Providers;
@@ -58,7 +59,8 @@ public class WeatherForecastOrchestratorTests
         new object[] { new JsonException("bad payload") },
         new object[] { new IOException("connection reset") },
         new object[] { new TimeoutRejectedException("timed out") },
-        new object[] { new TaskCanceledException("provider-side cancel") }
+        new object[] { new TaskCanceledException("provider-side cancel") },
+        new object[] { new BrokenCircuitException("circuit open") }
     };
 
     [Theory]
