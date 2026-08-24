@@ -195,6 +195,40 @@ public class WeatherForecastOrchestratorTests
         Assert.Equal(0, second.CallCount);
     }
 
+    [Fact]
+    public async Task GetAsync_CoordinatesInSameGridCell_ShareOneCacheEntry()
+    {
+        var first = new StubProvider(Primary) { Response = MakeResponse("never-called") };
+        var (orchestrator, cache, clock) = Build(first);
+        cache.Set(Primary, 42.3649, -71.0612, false, MakeResponse("cached-cell"));
+        clock.Advance(TimeSpan.FromMinutes(2));
+
+        // Differs from the primed entry only past the second decimal, so it lands in the same cell.
+        var outcome = await orchestrator.GetAsync(Primary, 42.3601, -71.0648, false, 24, 5, CancellationToken.None);
+
+        Assert.Equal("cached-cell", outcome.Response.Current.Condition);
+        Assert.Equal(WeatherForecastOrchestrator.CacheFreshHit, outcome.CacheStatus);
+        Assert.Equal(0, first.CallCount);
+    }
+
+    [Theory]
+    [InlineData(42.3649, -71.0648, 42.36, -71.06)]  // rounds down
+    [InlineData(42.3651, -71.0651, 42.37, -71.07)]  // rounds up
+    [InlineData(42.365, -71.065, 42.37, -71.07)]    // midpoint, away from zero in both signs
+    [InlineData(42.36, -71.06, 42.36, -71.06)]      // already at two decimals
+    public async Task GetAsync_PassesGridAlignedCoordinatesToProvider(
+        double latitude, double longitude, double expectedLatitude, double expectedLongitude)
+    {
+        var first = new StubProvider(Primary) { Response = MakeResponse("fetched") };
+        var (orchestrator, _, _) = Build(first);
+
+        await orchestrator.GetAsync(Primary, latitude, longitude, false, 24, 5, CancellationToken.None);
+
+        Assert.Equal(1, first.CallCount);
+        Assert.Equal(expectedLatitude, first.LastLatitude);
+        Assert.Equal(expectedLongitude, first.LastLongitude);
+    }
+
     private static (WeatherForecastOrchestrator orchestrator, WeatherCache cache, TestClock clock) Build(
         params StubProvider[] providers)
     {
@@ -218,10 +252,14 @@ public class WeatherForecastOrchestratorTests
         public WeatherResponse? Response { get; set; }
         public Exception? Failure { get; set; }
         public int CallCount { get; private set; }
+        public double LastLatitude { get; private set; }
+        public double LastLongitude { get; private set; }
 
         public Task<WeatherResponse> GetForecastAsync(double latitude, double longitude, bool metric, CancellationToken cancellationToken = default)
         {
             CallCount++;
+            LastLatitude = latitude;
+            LastLongitude = longitude;
             if (Failure is not null)
             {
                 return Task.FromException<WeatherResponse>(Failure);

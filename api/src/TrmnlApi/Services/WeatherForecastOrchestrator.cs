@@ -56,6 +56,14 @@ public class WeatherForecastOrchestrator(
         int days,
         CancellationToken cancellationToken)
     {
+        // Snap to the same 0.01 degree grid the cache keys on, before the coordinates are used for
+        // anything. The cache lookup, the upstream call, and the cache write must all agree, so a
+        // cell's cached forecast is always the one fetched for the cell centre rather than for
+        // whichever raw coordinate happened to miss first. AwayFromZero matches the "F2" formatting
+        // in WeatherCache.CacheKey; Math.Round would otherwise default to banker's rounding.
+        latitude = Math.Round(latitude, 2, MidpointRounding.AwayFromZero);
+        longitude = Math.Round(longitude, 2, MidpointRounding.AwayFromZero);
+
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
         span.SetTag(Tags.SpanKind, SpanKinds.Internal);
