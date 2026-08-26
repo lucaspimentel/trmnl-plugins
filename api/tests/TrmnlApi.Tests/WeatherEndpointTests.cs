@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TrmnlApi.Endpoints;
 using TrmnlApi.Models;
+using TrmnlApi.Observability;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
@@ -94,6 +95,7 @@ public class WeatherEndpointTests
                 clock,
                 metrics,
                 NullLogger<WeatherEndpoint>.Instance,
+                NullLogger<ForecastServed>.Instance,
                 CancellationToken.None);
 
             await result.ExecuteAsync(context);

@@ -1,17 +1,23 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using TrmnlApi.Endpoints;
+using TrmnlApi.Observability;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddExceptionHandler<UnhandledExceptionLogger>();
+
 builder.Services.AddMemoryCache(options => options.SizeLimit = 200);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
-    .AddStandardResilienceHandler(WeatherResilience.Configure);
+    .AddStandardResilienceHandler()
+    .Configure((options, sp) => WeatherResilience.Configure(options, OpenMeteoProvider.ProviderName, ResilienceLogger(sp)));
 builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>()
-    .AddStandardResilienceHandler(WeatherResilience.Configure);
+    .AddStandardResilienceHandler()
+    .Configure((options, sp) => WeatherResilience.Configure(options, PirateWeatherProvider.ProviderName, ResilienceLogger(sp)));
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 // Keyed so that only the providers named in WeatherProviders are ever constructed: a provider
@@ -30,6 +36,9 @@ builder.Services.AddSingleton<ForecastMetrics>();
 
 var app = builder.Build();
 
+// The handler registered above writes the response itself, so the branch is empty.
+app.UseExceptionHandler(_ => { });
+
 // Build the resolver eagerly so a missing provider API key fails at startup with a clear
 // message instead of 500ing the first forecast request.
 app.Services.GetRequiredService<WeatherProviderResolver>();
@@ -39,6 +48,10 @@ app.MapGet("/health", () => Results.Ok());
 app.MapGet("/metrics", (ForecastMetrics metrics) => Results.Json(metrics.Snapshot(), WeatherEndpoint.JsonOptions));
 
 app.Run();
+
+// Category TrmnlApi.Services.WeatherResilience, which is what the shipping allowlist names.
+static ILogger ResilienceLogger(IServiceProvider sp) =>
+    sp.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(WeatherResilience));
 
 static IEnumerable<IWeatherProvider> ResolveConfiguredProviders(IServiceProvider sp, IReadOnlyList<string> configuredOrder) =>
     configuredOrder.Select(name => sp.GetKeyedService<IWeatherProvider>(name)

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using TrmnlApi.Mappings;
 using TrmnlApi.Models;
+using TrmnlApi.Observability;
 using TrmnlApi.Services;
 
 namespace TrmnlApi.Endpoints;
@@ -31,6 +32,7 @@ public class WeatherEndpoint
         TimeProvider timeProvider,
         ForecastMetrics metrics,
         ILogger<WeatherEndpoint> logger,
+        ILogger<ForecastServed> servedLogger,
         CancellationToken cancellationToken)
     {
         var query = req.Query;
@@ -130,7 +132,8 @@ public class WeatherEndpoint
         weatherResponse = weatherResponse with { Meta = meta };
 
         metrics.RecordServed(outcome.CacheStatus, outcome.WinningProvider);
-        logger.LogInformation(
+        // Its own category, not this class's: see TrmnlApi.Observability.ForecastServed.
+        servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider}",
             latitude.ToString("F1", CultureInfo.InvariantCulture),
             longitude.ToString("F1", CultureInfo.InvariantCulture),

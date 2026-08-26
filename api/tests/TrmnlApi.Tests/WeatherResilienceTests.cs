@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 using Polly.CircuitBreaker;
 using TrmnlApi.Services;
 
@@ -109,19 +110,61 @@ public class WeatherResilienceTests
         Assert.Equal(3, handler.CallCount);
     }
 
-    private static HttpClient BuildClient(HttpMessageHandler handler)
+    [Fact]
+    public async Task Configure_WhenTheCircuitOpens_LogsTheProviderAndBreakDuration()
+    {
+        // An open circuit is why a provider silently stops being called, so it has to be visible.
+        var logger = new CapturingLogger();
+        var handler = new CountingHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = BuildClient(handler, "open-meteo", logger);
+
+        await client.GetAsync("https://example.com/forecast");
+        await Assert.ThrowsAsync<BrokenCircuitException>(() => client.GetAsync("https://example.com/forecast"));
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Contains("open-meteo", entry.Message, StringComparison.Ordinal);
+        Assert.Contains("00:00:30", entry.Message, StringComparison.Ordinal);
+        Assert.Contains("InternalServerError", entry.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Configure_WithoutALogger_LeavesTheBreakerCallbacksAlone()
+    {
+        // The tests above configure no logger; opening the circuit must still work.
+        var handler = new CountingHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = BuildClient(handler);
+
+        await client.GetAsync("https://example.com/forecast");
+
+        await Assert.ThrowsAsync<BrokenCircuitException>(() => client.GetAsync("https://example.com/forecast"));
+    }
+
+    private static HttpClient BuildClient(HttpMessageHandler handler, string? providerName = null, ILogger? logger = null)
     {
         var services = new ServiceCollection();
         services.AddHttpClient("test")
             .ConfigurePrimaryHttpMessageHandler(() => handler)
             .AddStandardResilienceHandler(options =>
             {
-                WeatherResilience.Configure(options);
+                WeatherResilience.Configure(options, providerName, logger);
                 // Strip retry delays so the test runs in milliseconds rather than seconds.
                 options.Retry.Delay = TimeSpan.Zero;
                 options.Retry.UseJitter = false;
             });
         return services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>().CreateClient("test");
+    }
+
+    private sealed class CapturingLogger : ILogger
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
     }
 
     private sealed class CountingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

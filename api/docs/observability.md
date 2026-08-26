@@ -1,6 +1,10 @@
 # Observability
 
-The API ships APM traces to Datadog. Traces are collected by a Datadog Agent running as its own
+The API ships APM traces and a small, deliberately chosen set of log events to Datadog. Traces go
+through the Agent; logs go straight to the intake, sent by the same tracer. See [Logs](#logs) for why
+the two differ.
+
+Traces are collected by a Datadog Agent running as its own
 Railway service in the same project and environment, reached over Railway's private network.
 
 ## How the tracer gets into the image
@@ -108,6 +112,80 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
 - no spans for `GET /health`
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.
+
+## Logs
+
+Logs do **not** go through the Agent. Container log collection needs the Docker socket or a shared
+filesystem, and an Agent running as its own service has neither, so there is nothing for it to tail.
+Instead the native tracer's **direct log submission** posts to the Datadog log intake itself. This is
+the same tracer already installed for APM, so it costs no NuGet package and no application code.
+
+It is switched on per environment with `DD_LOGS_DIRECT_SUBMISSION_INTEGRATIONS=ILogger`, set on the
+app service alongside `DD_API_KEY`. Neither is baked into the image, so an environment without them
+ships no logs, and local runs and `dotnet test` need no secret.
+
+### What gets sent
+
+Direct submission registers a logging provider aliased `Datadog`, so which events reach it is
+ordinary `Microsoft.Extensions.Logging` filtering, configured in `api/src/TrmnlApi/appsettings.json`
+under `Logging:Datadog:LogLevel`. `Default` is `None`, so nothing ships unless it is named:
+
+| Category | Min level | Events |
+|---|---|---|
+| `TrmnlApi.Observability.ForecastServed` | Information | one line per served forecast |
+| `TrmnlApi.Endpoints.WeatherEndpoint` | Warning | every provider failed, caller got a 502 |
+| `TrmnlApi.Services.WeatherForecastOrchestrator` | Warning | a provider failed; stale cache served instead |
+| `TrmnlApi.Services.WeatherResilience` | Warning | a provider's circuit opened or closed |
+| `TrmnlApi.Observability.UnhandledExceptionLogger` | Error | an exception no endpoint handled |
+
+Console output is unaffected by any of this, so stdout and the platform's own log view keep showing
+everything exactly as before.
+
+Widening the list is one line in that file. `DatadogLogAllowlistTests` runs the real
+`appsettings.json` against a provider aliased the same way, asserting both that each category above
+ships and that `Microsoft.*`, `System.*` and `Polly` never do at any level.
+
+Two exclusions are deliberate: the client-cancelled (499) log shares `WeatherEndpoint`'s category and
+is filtered out by level alone, and routine per-request framework logs are never wanted.
+
+`ForecastServed` is a marker type that exists only to give the served-forecast log its own category,
+separable from the 499 log beside it. `UnhandledExceptionLogger` similarly owns the log site for
+unhandled exceptions: left to the framework they surface under a Kestrel category that has moved
+between releases and also carries unrelated connection-level errors, which is a poor thing to pin an
+allowlist to.
+
+`DD_LOGS_DIRECT_SUBMISSION_MINIMUM_LEVEL` is a second, coarser gate applied before these rules. It
+defaults to `Information`, which is at or below everything in the table, so it is left alone. Lower
+it only if a `Debug` category is ever added above.
+
+### Variables
+
+| Variable | Value |
+|---|---|
+| `DD_API_KEY` | *(from 1Password)* - required; without it direct submission stays off |
+| `DD_SITE` | optional, defaults to `datadoghq.com` |
+| `DD_LOGS_DIRECT_SUBMISSION_INTEGRATIONS` | `ILogger` - required; this is what turns direct submission on |
+
+`DD_SERVICE`, `DD_ENV` and `DD_VERSION` are already set for APM and tag the logs too. As with the
+Agent's copy of `DD_API_KEY`, the variable is sealed per environment and cannot be copied by syncing
+a service from another environment.
+
+Unlike Agent-collected logs, direct submission does not get the Agent's sensitive-data scrubbing.
+Nothing in the allowlist logs a full coordinate (they are rounded to `F1`) or a query string, so this
+is a constraint to respect when adding events rather than a current problem.
+
+### Verifying log shipping
+
+After deploying, hit `/api/v1/forecast` a few times and confirm in the Logs Explorer for
+`service:trmnl-api`:
+
+- one `Served forecast for ...` line per request, tagged with the right `env` and `version`
+- no `Microsoft.*`, `System.*`, or `Polly` lines at all
+- `dd.trace_id` present, and matching the `aspnet_core.request` span for the same request
+
+Correlation should be automatic here: the same tracer produces both the span and the log record. If
+logs do not arrive at all, check the tracer's own log (see below) for a direct-submission startup
+line, since a rejected API key does not surface anywhere in the application's output.
 
 ## Debugging a failed attach
 

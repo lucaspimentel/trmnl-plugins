@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 using Polly.Retry;
 using Polly.Timeout;
 
@@ -37,7 +38,12 @@ public static class WeatherResilience
     //
     // SamplingDuration must stay at or above twice AttemptTimeout or options validation fails when
     // the HttpClient is first resolved.
-    public static void Configure(HttpStandardResilienceOptions options)
+    //
+    // providerName and logger are optional so that tests can configure a pipeline without them. When
+    // both are supplied the breaker announces its transitions: an open circuit is the reason a
+    // provider stops being called at all, and without this the only visible symptom is fetch failures
+    // that mysteriously stop.
+    public static void Configure(HttpStandardResilienceOptions options, string? providerName = null, ILogger? logger = null)
     {
         options.Retry.ShouldHandle = ShouldRetry;
         options.Retry.MaxRetryAttempts = 2;
@@ -47,6 +53,28 @@ public static class WeatherResilience
         options.CircuitBreaker.MinimumThroughput = 3;
         options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
         options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+
+        if (providerName is null || logger is null)
+        {
+            return;
+        }
+
+        options.CircuitBreaker.OnOpened = args =>
+        {
+            logger.LogWarning(
+                args.Outcome.Exception,
+                "Circuit opened for {Provider} for {BreakDuration}; last outcome {StatusCode}",
+                providerName,
+                args.BreakDuration,
+                args.Outcome.Result?.StatusCode);
+            return default;
+        };
+
+        options.CircuitBreaker.OnClosed = args =>
+        {
+            logger.LogWarning("Circuit closed for {Provider}; upstream recovered", providerName);
+            return default;
+        };
     }
 
     // 429 means we've hit the upstream's rate limit; retrying within the request

@@ -25,6 +25,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Datadog log allowlist is tested against the real file, not a copy of it. -->
+    <None Include="../../src/TrmnlApi/appsettings.json" Link="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\TrmnlApi\TrmnlApi.csproj" />
   </ItemGroup>
 

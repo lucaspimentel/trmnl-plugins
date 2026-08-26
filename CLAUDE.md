@@ -71,6 +71,7 @@ dotnet run --project api/src/TrmnlApi             # local run (http://localhost:
 - **Providers must never trim their forecast to a caller's requested `hours`/`days`.** `WeatherCache` keys on `(provider, latitude, longitude, metric)` only, so a trimmed response becomes the ceiling for every later request at that location. Transform everything upstream returns; `ForecastTrimmer` applies per-request limits in `WeatherEndpoint`, after the cache.
 - Round latitude/longitude to `F1` before logging (coordinates are PII)
 - APM: traces ship to Datadog through an agent service on the private network; the native tracer is installed by `api/Dockerfile` and its version must stay in sync with the `Datadog.Trace` package. Setup and env vars: `api/docs/observability.md`
+- Logs: sent by the native tracer's direct submission, not through the agent, which cannot tail another service's stdout. Turned on per environment with `DD_LOGS_DIRECT_SUBMISSION_INTEGRATIONS=ILogger` plus `DD_API_KEY` (deploy-time vars, not in the image). The allowlist is `Logging:Datadog:LogLevel` in `api/src/TrmnlApi/appsettings.json`, defaulting to `None`; console output is unaffected. Adding an event means adding its category there
 
 ## Credentials
 
