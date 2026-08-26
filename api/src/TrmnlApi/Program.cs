@@ -10,8 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddExceptionHandler<UnhandledExceptionLogger>();
 
-builder.Services.AddMemoryCache(options => options.SizeLimit = 200);
 builder.Services.Configure<WeatherCacheOptions>(builder.Configuration.GetSection("WeatherCache"));
+// Sized from WeatherCacheOptions so the limit and the stale window that fills it are configured
+// together: see WeatherCacheOptions.SizeLimit for why it tracks StaleTtl rather than the request
+// rate. Bound here rather than through IOptions because the cache is built before options resolve.
+var weatherCacheSizeLimit = builder.Configuration.GetSection("WeatherCache")
+    .GetValue<int?>(nameof(WeatherCacheOptions.SizeLimit)) ?? new WeatherCacheOptions().SizeLimit;
+builder.Services.AddMemoryCache(options => options.SizeLimit = weatherCacheSizeLimit);
 builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
     .AddStandardResilienceHandler()
     .Configure((options, sp) => WeatherResilience.Configure(options, OpenMeteoProvider.ProviderName, ResilienceLogger(sp)));
