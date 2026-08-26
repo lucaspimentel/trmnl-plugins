@@ -76,9 +76,8 @@ public class WeatherForecastOrchestrator(
         var taggedLatitude = Math.Round(latitude, 1, MidpointRounding.AwayFromZero);
         var taggedLongitude = Math.Round(longitude, 1, MidpointRounding.AwayFromZero);
         span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
-        // Numeric, unlike every other tag here: the geomap widget only plots measures, not facets.
-        span.SetTag(TagLatitude, taggedLatitude);
-        span.SetTag(TagLongitude, taggedLongitude);
+        span.SetTag(TagLatitude, taggedLatitude.ToString("F1", CultureInfo.InvariantCulture));
+        span.SetTag(TagLongitude, taggedLongitude.ToString("F1", CultureInfo.InvariantCulture));
         span.SetTag(TagUnits, metric ? "metric" : "imperial");
         span.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
         span.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
