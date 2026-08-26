@@ -37,6 +37,8 @@ public class WeatherForecastOrchestrator(
     public const string CacheAllFailed = "all_failed";
 
     private const string TagCoord = "weather.coord";
+    private const string TagLatitude = "weather.latitude";
+    private const string TagLongitude = "weather.longitude";
     private const string TagUnits = "weather.units";
     private const string TagHours = "weather.hours";
     private const string TagDays = "weather.days";
@@ -68,7 +70,15 @@ public class WeatherForecastOrchestrator(
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
         span.SetTag(Tags.SpanKind, SpanKinds.Internal);
+        // Coarsen to ~11 km before the coordinates reach a span: they are PII, and this matches
+        // the precision already exposed by weather.coord and by the logs. AwayFromZero mirrors
+        // the "F1" formatting below; Math.Round would otherwise default to banker's rounding.
+        var taggedLatitude = Math.Round(latitude, 1, MidpointRounding.AwayFromZero);
+        var taggedLongitude = Math.Round(longitude, 1, MidpointRounding.AwayFromZero);
         span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
+        // Numeric, unlike every other tag here: the geomap widget only plots measures, not facets.
+        span.SetTag(TagLatitude, taggedLatitude);
+        span.SetTag(TagLongitude, taggedLongitude);
         span.SetTag(TagUnits, metric ? "metric" : "imperial");
         span.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
         span.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
