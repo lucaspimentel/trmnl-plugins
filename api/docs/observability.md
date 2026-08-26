@@ -68,12 +68,34 @@ with `01-check-apikey.sh: exited 1` while every listing still shows `DD_API_KEY`
 | `DD_AGENT_HOST` | `datadog-agent.railway.internal` (the agent service's internal hostname) |
 | `DD_SERVICE` | `trmnl-api` |
 | `DD_ENV` | `staging` or `production` |
-| `DD_VERSION` | `${{RAILWAY_GIT_COMMIT_SHA}}` |
+| `DD_VERSION` | not a variable; set by the start command, see below |
 
 `DD_TRACE_AGENT_PORT` stays at its default `8126`. `DD_LOGS_INJECTION` already defaults to `true`.
 
-`DD_VERSION` is set through a dashboard variable reference rather than in the Dockerfile so the
-repo stays free of host-specific variable names.
+### DD_VERSION and the commit SHA
+
+`DD_VERSION` cannot be set as a variable here. The obvious spelling,
+`DD_VERSION=${{RAILWAY_GIT_COMMIT_SHA}}`, renders empty: the git variables are injected into the
+container at runtime but are not resolvable as dashboard variable references. `RAILWAY_DEPLOYMENT_ID`
+behaves the same way, so this is a property of the reference mechanism rather than of the git
+variables specifically. Confirmed empty from a dashboard reference while
+`RAILWAY_GIT_COMMIT_SHA=f2d29b2...` was present inside the running container.
+
+Instead the service's **start command** maps it at container start, which is early enough for the
+tracer to read:
+
+```sh
+DD_VERSION="$RAILWAY_GIT_COMMIT_SHA" exec dotnet TrmnlApi.dll
+```
+
+This keeps the host-specific variable name in the host's own configuration rather than in the image.
+`exec` is not optional: without it the shell stays PID 1 and swallows SIGTERM, costing a graceful
+shutdown on every redeploy.
+
+**The cost of this approach:** a start command overrides the Dockerfile's `ENTRYPOINT`, so
+`dotnet TrmnlApi.dll` is now written down in two places, and the override is per environment. If the
+entrypoint in `api/Dockerfile` ever changes, both start commands have to change with it or they will
+silently keep launching the old one.
 
 To turn tracing off in an environment without changing the image, set `DD_TRACE_ENABLED=false`.
 

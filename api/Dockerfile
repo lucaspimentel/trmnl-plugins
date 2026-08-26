@@ -30,4 +30,6 @@ ENV CORECLR_ENABLE_PROFILING=1 \
 # Override with ASPNETCORE_HTTP_PORTS or ASPNETCORE_URLS to listen elsewhere.
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
+# A deployment may override this with its own start command, in which case changing the line below
+# is not enough on its own. See "DD_VERSION and the commit SHA" in docs/observability.md.
 ENTRYPOINT ["dotnet", "TrmnlApi.dll"]
