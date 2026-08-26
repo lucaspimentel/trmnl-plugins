@@ -4,6 +4,7 @@ using System.Text.Json;
 using Datadog.Trace;
 using Microsoft.Extensions.Logging;
 using Polly;
+using TrmnlApi.Observability;
 using Polly.CircuitBreaker;
 using Polly.Timeout;
 using TrmnlApi.Models;
@@ -64,27 +65,21 @@ public class WeatherForecastOrchestrator(
         // cell's cached forecast is always the one fetched for the cell centre rather than for
         // whichever raw coordinate happened to miss first. AwayFromZero matches the "F2" formatting
         // in WeatherCache.CacheKey; Math.Round would otherwise default to banker's rounding.
+        // Telemetry coarsens these further, to ~11 km: see CoarseCoordinate.
         latitude = Math.Round(latitude, 2, MidpointRounding.AwayFromZero);
         longitude = Math.Round(longitude, 2, MidpointRounding.AwayFromZero);
 
         using var scope = Tracer.Instance.StartActive("weather.forecast");
         var span = scope.Span;
         span.SetTag(Tags.SpanKind, SpanKinds.Internal);
-        // Coarsen to ~11 km before the coordinates reach a span: they are PII, and this matches
-        // the precision already exposed by the logs. Math.Round would otherwise default to
-        // banker's rounding.
-        //
-        // Every tag below must be built from these rounded values, never from the F2-snapped ones.
-        // ToString("F1") does not round away from zero: it formats whatever the double actually
-        // holds, and an F2-snapped coordinate ending in 5 sits exactly on an F1 midpoint. The two
-        // disagree on 5% of the F2 grid (-71.05 formats as -71.0 but rounds to -71.1), which would
-        // otherwise let weather.coord contradict weather.latitude/longitude on the same span and
-        // split one location into two on a group-by.
-        var taggedLatitude = Math.Round(latitude, 1, MidpointRounding.AwayFromZero);
-        var taggedLongitude = Math.Round(longitude, 1, MidpointRounding.AwayFromZero);
-        span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{taggedLatitude:F1},{taggedLongitude:F1}"));
-        span.SetTag(TagLatitude, taggedLatitude.ToString("F1", CultureInfo.InvariantCulture));
-        span.SetTag(TagLongitude, taggedLongitude.ToString("F1", CultureInfo.InvariantCulture));
+        // Coarsen to ~11 km before the coordinates reach a span: they are PII. The coordinates are
+        // already snapped to the cache grid above, so this takes the Snapped path; see
+        // CoarseCoordinate for the two rounding hazards it exists to contain.
+        var taggedLatitude = CoarseCoordinate.RoundSnapped(latitude);
+        var taggedLongitude = CoarseCoordinate.RoundSnapped(longitude);
+        span.SetTag(TagCoord, $"{CoarseCoordinate.Format(taggedLatitude)},{CoarseCoordinate.Format(taggedLongitude)}");
+        span.SetTag(TagLatitude, CoarseCoordinate.Format(taggedLatitude));
+        span.SetTag(TagLongitude, CoarseCoordinate.Format(taggedLongitude));
         span.SetTag(TagUnits, metric ? "metric" : "imperial");
         span.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
         span.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
@@ -141,8 +136,8 @@ public class WeatherForecastOrchestrator(
                     ex,
                     "{Provider} fetch failed for {Latitude},{Longitude}",
                     provider.Name,
-                    latitude.ToString("F1", CultureInfo.InvariantCulture),
-                    longitude.ToString("F1", CultureInfo.InvariantCulture));
+                    CoarseCoordinate.SnappedToTag(latitude),
+                    CoarseCoordinate.SnappedToTag(longitude));
                 if (firstFailure is null)
                 {
                     firstFailure = BuildUpstreamFromException(ex);
@@ -155,8 +150,8 @@ public class WeatherForecastOrchestrator(
         {
             logger.LogWarning(
                 "All providers failed for {Latitude},{Longitude}; serving stale cache from {Provider}",
-                latitude.ToString("F1", CultureInfo.InvariantCulture),
-                longitude.ToString("F1", CultureInfo.InvariantCulture),
+                CoarseCoordinate.SnappedToTag(latitude),
+                CoarseCoordinate.SnappedToTag(longitude),
                 stale.Provider);
             return TagOutcome(span, new ForecastOutcome(
                 stale.Forecast.Response,

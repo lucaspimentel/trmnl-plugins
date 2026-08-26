@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -77,8 +76,8 @@ public class WeatherEndpoint
         {
             logger.LogInformation(
                 "Client cancelled forecast request for {Latitude},{Longitude}",
-                latitude.ToString("F1", CultureInfo.InvariantCulture),
-                longitude.ToString("F1", CultureInfo.InvariantCulture));
+                CoarseCoordinate.ToTag(latitude),
+                CoarseCoordinate.ToTag(longitude));
             return Results.StatusCode(499);
         }
         catch (ArgumentException)
@@ -91,8 +90,8 @@ public class WeatherEndpoint
             logger.LogError(
                 ex,
                 "All weather providers failed for {Latitude},{Longitude}",
-                latitude.ToString("F1", CultureInfo.InvariantCulture),
-                longitude.ToString("F1", CultureInfo.InvariantCulture));
+                CoarseCoordinate.ToTag(latitude),
+                CoarseCoordinate.ToTag(longitude));
             return Results.Text("Failed to fetch weather forecast from upstream provider.", statusCode: 502);
         }
 
@@ -135,8 +134,8 @@ public class WeatherEndpoint
         // Its own category, not this class's: see TrmnlApi.Observability.ForecastServed.
         servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider}",
-            latitude.ToString("F1", CultureInfo.InvariantCulture),
-            longitude.ToString("F1", CultureInfo.InvariantCulture),
+            CoarseCoordinate.ToTag(latitude),
+            CoarseCoordinate.ToTag(longitude),
             outcome.CacheStatus,
             outcome.WinningProvider,
             outcome.RequestedProvider);
