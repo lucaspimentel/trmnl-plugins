@@ -42,6 +42,7 @@ Each plugin directory uses the trmnlp `src/` layout:
 plugins/<name>/
   .trmnlp.yml                 # local dev config
   fields.txt                  # API data field docs (optional)
+  assets/                     # cached sample API responses for offline preview (optional)
   src/
     settings.yml              # API endpoint, refresh interval, metadata (must be in src/)
     shared.liquid             # reusable Liquid templates
