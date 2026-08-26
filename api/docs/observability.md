@@ -131,13 +131,33 @@ aspnet_core.request   GET /api/v1/forecast        (p_id: null)
     http.request      GET api.open-meteo.com/v1/forecast
 ```
 
+## Span tags on `weather.forecast`
+
+Set in `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs`. All are string tags, including
+the numeric-looking ones, so they stay facets rather than measures.
+
+| Tag | Meaning |
+|---|---|
+| `weather.coord` | `"<lat>,<lon>"` rounded to `F1`, the form the geomap uses |
+| `weather.latitude`, `weather.longitude` | the same coordinates as separate `F1` tags |
+| `weather.units` | `metric` or `imperial` |
+| `weather.hours`, `weather.days` | requested forecast limits |
+| `weather.requested_provider` | provider asked for (or the configured default) |
+| `weather.winning_provider` | provider that actually served |
+| `weather.cache_status` | `fresh_fetch`, `fresh_hit`, `stale_served`, or `all_failed` |
+| `weather.fallback` | `true` when the winning provider is not the requested one |
+| `weather.age_seconds` | age of the served data |
+| `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
+
+Coordinates are rounded to `F1` before tagging, the same rule the logs follow.
+
 ## Verifying in Datadog
 
 After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trmnl-api`:
 
 - the same three-span tree as above
-- `weather.forecast` carrying `weather.cache_status`, `weather.winning_provider`,
-  `weather.fallback`, and `weather.coord`
+- `weather.forecast` carrying the tags listed above, in particular `weather.cache_status`,
+  `weather.winning_provider`, `weather.fallback`, and `weather.coord`
 - no spans for `GET /health`
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.
