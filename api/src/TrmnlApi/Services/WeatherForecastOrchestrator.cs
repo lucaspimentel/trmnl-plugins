@@ -71,11 +71,18 @@ public class WeatherForecastOrchestrator(
         var span = scope.Span;
         span.SetTag(Tags.SpanKind, SpanKinds.Internal);
         // Coarsen to ~11 km before the coordinates reach a span: they are PII, and this matches
-        // the precision already exposed by weather.coord and by the logs. AwayFromZero mirrors
-        // the "F1" formatting below; Math.Round would otherwise default to banker's rounding.
+        // the precision already exposed by the logs. Math.Round would otherwise default to
+        // banker's rounding.
+        //
+        // Every tag below must be built from these rounded values, never from the F2-snapped ones.
+        // ToString("F1") does not round away from zero: it formats whatever the double actually
+        // holds, and an F2-snapped coordinate ending in 5 sits exactly on an F1 midpoint. The two
+        // disagree on 5% of the F2 grid (-71.05 formats as -71.0 but rounds to -71.1), which would
+        // otherwise let weather.coord contradict weather.latitude/longitude on the same span and
+        // split one location into two on a group-by.
         var taggedLatitude = Math.Round(latitude, 1, MidpointRounding.AwayFromZero);
         var taggedLongitude = Math.Round(longitude, 1, MidpointRounding.AwayFromZero);
-        span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{latitude:F1},{longitude:F1}"));
+        span.SetTag(TagCoord, string.Create(CultureInfo.InvariantCulture, $"{taggedLatitude:F1},{taggedLongitude:F1}"));
         span.SetTag(TagLatitude, taggedLatitude.ToString("F1", CultureInfo.InvariantCulture));
         span.SetTag(TagLongitude, taggedLongitude.ToString("F1", CultureInfo.InvariantCulture));
         span.SetTag(TagUnits, metric ? "metric" : "imperial");
