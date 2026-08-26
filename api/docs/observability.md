@@ -138,8 +138,7 @@ the numeric-looking ones, so they stay facets rather than measures.
 
 | Tag | Meaning |
 |---|---|
-| `weather.coord` | `"<lat>,<lon>"` rounded to `F1`, the form the geomap uses |
-| `weather.latitude`, `weather.longitude` | the same coordinates as separate `F1` tags |
+| `weather.latitude`, `weather.longitude` | the request coordinates as separate `F1` tags, rounded to ~11 km |
 | `weather.units` | `metric` or `imperial` |
 | `weather.hours`, `weather.days` | requested forecast limits |
 | `weather.requested_provider` | provider asked for (or the configured default) |
@@ -157,7 +156,7 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
 
 - the same three-span tree as above
 - `weather.forecast` carrying the tags listed above, in particular `weather.cache_status`,
-  `weather.winning_provider`, `weather.fallback`, and `weather.coord`
+  `weather.winning_provider`, and `weather.fallback`
 - no spans for `GET /health`
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.

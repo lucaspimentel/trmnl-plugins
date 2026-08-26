@@ -73,7 +73,8 @@ public class CoarseCoordinateTests
     [Fact]
     public void Format_is_culture_invariant()
     {
-        // A comma decimal separator would corrupt weather.coord, which is itself comma-separated.
+        // A comma decimal separator would corrupt the coordinate tags, which are read back as
+        // strings and grouped on, so the format must stay culture-invariant.
         var original = Thread.CurrentThread.CurrentCulture;
         try
         {

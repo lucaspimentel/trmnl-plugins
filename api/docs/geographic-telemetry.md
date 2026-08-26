@@ -2,7 +2,7 @@
 
 **Status: proposed.** Nothing in this document is in the code yet. The tags described under
 [What to emit](#what-to-emit) do not exist; the only location data on a span today is
-`weather.coord` / `weather.latitude` / `weather.longitude`, all `F1`, as listed in
+`weather.latitude` / `weather.longitude`, both `F1`, as listed in
 [observability.md](observability.md).
 
 The goal is to group forecast telemetry by place - country, subdivision, city - instead of by a
@@ -17,12 +17,9 @@ country ISO code (alpha-2) or a country subdivision ISO code (ISO-3166-2), and f
 "metric queries don't include geographic coordinates" - they need a join against a reference table
 supplying lat/lon.
 
-So `weather.coord` in its `"42.4,-71.1"` form drives nothing. Commit `a3bcfef`
-("Plot weather request locations on a map") suggests this was already attempted; ISO codes are the
-missing prerequisite rather than a refinement.
-
-Note also that `docs/observability.md` describes `weather.coord` as "the form the geomap uses",
-which is incorrect and should be fixed whether or not this design is built.
+So the `weather.latitude` / `weather.longitude` tags on a span drive nothing on a geomap. Commit
+`a3bcfef` ("Plot weather request locations on a map") suggests this was already attempted; ISO
+codes are the missing prerequisite rather than a refinement.
 
 ## What to emit
 
@@ -130,9 +127,9 @@ The city label is a deterministic function of the F1 coordinates **already on th
 carries no information the span does not already expose. There is no incremental leak. Two real
 constraints, though:
 
-- **The tags are coupled.** If `weather.coord` is ever coarsened or dropped to tighten the privacy
-  threshold, a place label derived from F1 silently becomes the finest location signal on the span
-  and defeats that change. Coarsen them together.
+- **The tags are coupled.** If the coordinate tags are ever coarsened or dropped to tighten the
+  privacy threshold, a place label derived from F1 silently becomes the finest location signal on
+  the span and defeats that change. Coarsen them together.
 - **The aggregate is a user-location dataset.** This is a public plugin with hundreds of users, and
   TRMNL devices sit in homes, so these are home locations. If any users are in the EU, GDPR applies
   to the aggregate. This argues for ISO codes as the primary fields and `city` as optional.
