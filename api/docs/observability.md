@@ -78,19 +78,26 @@ with `01-check-apikey.sh: exited 1` while every listing still shows `DD_API_KEY`
 `DD_VERSION=${{RAILWAY_GIT_COMMIT_SHA}}`, renders empty: the git variables are injected into the
 container at runtime but are not resolvable as dashboard variable references. `RAILWAY_DEPLOYMENT_ID`
 behaves the same way, so this is a property of the reference mechanism rather than of the git
-variables specifically. Confirmed empty from a dashboard reference while
-`RAILWAY_GIT_COMMIT_SHA=f2d29b2...` was present inside the running container.
+variables specifically.
 
-Instead the service's **start command** maps it at container start, which is early enough for the
-tracer to read:
+Do not leave such a variable in place. Three deploys failed with completely empty deploy logs while a
+`DD_VERSION` variable holding an unresolvable reference existed, and the start command below then
+succeeded unchanged once that variable was deleted. The link was never proven, so treat it as a lead
+rather than a rule: if a deploy fails with no container output at all, an unresolvable variable
+reference is worth ruling out early.
+
+Set it through the service's **start command** instead, which runs early enough for the tracer:
 
 ```sh
-DD_VERSION="$RAILWAY_GIT_COMMIT_SHA" exec dotnet TrmnlApi.dll
+/bin/sh -c "export DD_VERSION=$RAILWAY_GIT_COMMIT_SHA; exec dotnet TrmnlApi.dll"
 ```
 
+The `/bin/sh -c` wrapper is required, not decoration. For a service built from a Dockerfile the start
+command replaces the image's `ENTRYPOINT` in **exec form**: no shell, so no variable expansion and no
+inline `VAR=value` prefix. `exec` is equally required, or the shell stays PID 1 and swallows SIGTERM,
+costing a graceful shutdown on every redeploy.
+
 This keeps the host-specific variable name in the host's own configuration rather than in the image.
-`exec` is not optional: without it the shell stays PID 1 and swallows SIGTERM, costing a graceful
-shutdown on every redeploy.
 
 **The cost of this approach:** a start command overrides the Dockerfile's `ENTRYPOINT`, so
 `dotnet TrmnlApi.dll` is now written down in two places, and the override is per environment. If the
