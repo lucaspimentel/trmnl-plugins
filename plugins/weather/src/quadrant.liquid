@@ -9,11 +9,16 @@
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 3, inset_top: 0, current_temp: current.temperature %}
     </div>
   </div>
+  {% elsif error %}
+  <div class="flex flex--col flex--center-y gap--none" style="flex:1;">
+    <i class="wi wi-na text--gray-50 wi-sz-48"></i>
+    <div class="title mt--2" data-pixel-perfect="true">{{ error.message }}</div>
+  </div>
   {% else %}
   <div class="flex flex--col flex--center-y gap--none" style="flex:1;">
     <i class="wi wi-na text--gray-50 wi-sz-48"></i>
     <div class="title mt--2" data-pixel-perfect="true">No weather data.</div>
   </div>
   {% endif %}
-  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, cache: meta.cache, time_format: meta.time_format %}
+  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, cache: meta.cache, time_format: meta.time_format, place: place %}
 </div>

@@ -13,11 +13,19 @@
       {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature %}
     </div>
   </div>
+  {% elsif error %}
+  <div class="flex flex--col flex--center-y gap--none" style="flex:1;">
+    <i class="wi wi-na text--gray-50 wi-sz-xl"></i>
+    <div class="title mt--4" data-pixel-perfect="true">{{ error.message }}</div>
+    {% if error.hint %}
+    <div class="description mt--2" data-pixel-perfect="true">{{ error.hint }}</div>
+    {% endif %}
+  </div>
   {% else %}
   <div class="flex flex--col flex--center-y gap--none" style="flex:1;">
     <i class="wi wi-na text--gray-50 wi-sz-xl"></i>
     <div class="title mt--4" data-pixel-perfect="true">No weather data available.</div>
   </div>
   {% endif %}
-  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache, time_format: meta.time_format %}
+  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, provider: meta.provider, cache: meta.cache, time_format: meta.time_format, place: place %}
 </div>

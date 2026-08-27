@@ -12,11 +12,13 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 - Sunrise and sunset times marked as dashed vertical lines on the chart
 - Multi-day forecast with temperature range bars and weather icons (up to 14 days)
 - 12-hour (am/pm) or 24-hour clock for all displayed times
-- Configurable latitude/longitude (defaults to Boston, MA)
+- Configurable location by city name, postal code, or coordinates (defaults to Boston, MA)
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Latitude** and **Longitude** fields in the plugin settings. Optionally override the **Units**, **Hours**, **Days**, and **Time Format** fields. The plugin polls the API every 60 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Location** field with a city name, postal code, or coordinate pair (latitude first). Your saved **Latitude** and **Longitude** still apply when **Location** is blank. Optionally override the **Units**, **Hours**, **Days**, and **Time Format** fields. The plugin polls the API every 60 minutes.
+
+> **Note:** Coordinate pairs are not checked for order, so a swapped pair can silently show the wrong place. Postal codes are not unique across countries (`75001` resolves to Paris, France; add `, US` for Addison, TX).
 
 ## Data Source
 
@@ -27,12 +29,13 @@ Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, 
 - [Open-Meteo](https://open-meteo.com/) data is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This plugin modifies the data: unit normalization, WMO-code-to-icon mapping, day/night variants, condition label simplification, and trimming the response to the fields used by the templates.
 - [Pirate Weather](https://pirateweather.net/) is an open-source weather API built on NOAA forecast data. This plugin modifies the response in the same ways as above.
 
-**Proxy URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast`
+**Proxy URL**: `https://trmnl-plugins-prod.lucasp.net/api/v2/forecast`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `latitude` | yes | — | Location latitude |
-| `longitude` | yes | — | Location longitude |
+| `place` | no | — | City, postal code, or `latitude, longitude` pair (latitude first). Falls back to `latitude`/`longitude` when blank. v2 only |
+| `latitude` | v1 | — | Location latitude (v2: fallback when `place` is blank) |
+| `longitude` | v1 | — | Location longitude (v2: fallback when `place` is blank) |
 | `units` | no | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
 | `hours` | no | `25` | Number of hourly forecast entries (1–25) |
 | `days` | no | `6` | Number of daily forecast entries (1–14; Pirate Weather only supplies up to 7) |

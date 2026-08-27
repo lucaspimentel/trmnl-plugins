@@ -445,6 +445,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 <div class="title_bar">
   {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
   <span class="title">{{ plugin_name }}</span>
+  {% if place %}<span class="instance">{{ place.name }}{% if place.admin1 %}, {{ place.admin1 }}{% endif %}{% if updated_at %} ·{% endif %}</span>{% endif %}
   {% if updated_at %}
   {% if provider_label %}
   {% if time_format == "24h" %}

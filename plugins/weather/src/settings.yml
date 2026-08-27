@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language:
-polling_url: https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}
+polling_url: https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -38,6 +38,11 @@ custom_fields:
   category: environment,custom
   github_url: https://github.com/lucaspimentel/trmnl-plugins
   learn_more_url: https://github.com/lucaspimentel/trmnl-plugins/tree/main/plugins/weather/README.md
+- keyname: place
+  field_type: string
+  name: Location
+  description: City, postal code, or 'latitude, longitude' (latitude first). Blank uses your saved Latitude and Longitude. Postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX). Swapped coordinates silently show the wrong place.
+  placeholder: 'Boston, MA'
 - keyname: latitude
   field_type: number
   name: Latitude

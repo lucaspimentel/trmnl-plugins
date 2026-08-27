@@ -1,18 +1,19 @@
-TrmnlApi response: https://trmnl-plugins-prod.lucasp.net/api/v1/forecast
+TrmnlApi response: https://trmnl-plugins-prod.lucasp.net/api/v2/forecast
 
 Field names are unit-agnostic. Actual units depend on the `units` query parameter:
     imperial (default): °F, mph, inches
     metric:             °C, km/h, mm
 
 Query parameters:
-    latitude    (required) — location latitude
-    longitude   (required) — location longitude
+    place       (v2) — city, postal code, or "latitude, longitude" pair (latitude first). Falls back to latitude/longitude when blank.
+    latitude    (v1 required, v2 optional) — location latitude
+    longitude   (v1 required, v2 optional) — location longitude
     units       — "imperial" (default) or "metric"
     hours       — number of hourly entries (1–25, default 25)
     days        — number of daily entries (1–14, default 6; Pirate Weather only supplies up to 7)
     provider    — "open-meteo" or "pirate-weather" (omitted by the plugin; server default applies)
     time_format — "12h" (default) or "24h" — controls the hourly "label" field
-    fake        — "true" or "1" to inject randomized precipitation (testing)
+    fake        — "true" or "1" to inject randomized precipitation (testing; v1 only)
 
 Template variables (injected at the top level, not nested under "data"):
     current.
@@ -55,3 +56,14 @@ Template variables (injected at the top level, not nested under "data"):
         age_seconds             (integer, seconds since fetched_at)
         time_format             (string: "12h" or "24h", echoes the requested format)
         upstream                (null when healthy; { status, error } when stale_served or when a fallback was used)
+    place. (v2 only, present when the caller named a place)
+        name                    (string, e.g. "Portland")
+        admin1                  (string, e.g. "Maine"; display name, not ISO code)
+        country                 (string, e.g. "United States")
+        country_code            (ISO 3166-1 alpha-2, e.g. "US")
+        latitude                (float)
+        longitude               (float)
+    error. (v2 only, present on failure instead of current/hourly/daily)
+        code                    (stable string: place_missing, place_invalid, place_not_found, request_invalid, weather_unavailable)
+        message                 (string, rendered on screen; quotes back the user's input)
+        hint                    (string, shown where the layout has room)
