@@ -1,3 +1,4 @@
+using Datadog.Trace;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using TrmnlApi.Mappings;
@@ -30,6 +31,9 @@ public class WeatherV2Endpoint
     /// <summary>Longest echo of a user's input in an error message.</summary>
     private const int MaxQuotedLength = 80;
 
+    private const string TagInputKind = "weather.input_kind";
+    private const string TagErrorCode = "weather.error_code";
+
     public static async Task<IResult> Handle(
         HttpRequest req,
         PlaceResolver placeResolver,
@@ -42,21 +46,30 @@ public class WeatherV2Endpoint
     {
         var query = req.Query;
 
+        // v2's own span, wrapping the orchestrator's weather.forecast rather than living on it.
+        // Two failures never reach the orchestrator at all - an unset place and one that resolves
+        // to nothing - so tagging its span would leave exactly the errors this version introduces
+        // untagged. Everything below reports through here.
+        using var scope = Tracer.Instance.StartActive("weather.request");
+        var span = scope.Span;
+        span.SetTag(Tags.SpanKind, SpanKinds.Internal);
+        span.ResourceName = "/api/v2/forecast";
+
         var unitsParam = query["units"].FirstOrDefault();
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
-            return RequestInvalid("units must be 'imperial' or 'metric'.");
+            return RequestInvalid(span, "units must be 'imperial' or 'metric'.");
         }
         var metric = unitsParam is "metric";
 
         if (!RequestValidator.TryParseRangeParam(query["hours"].FirstOrDefault(), 1, MaxHours, MaxHours, out var hours))
         {
-            return RequestInvalid($"hours must be an integer between 1 and {MaxHours}.");
+            return RequestInvalid(span, $"hours must be an integer between 1 and {MaxHours}.");
         }
 
         if (!RequestValidator.TryParseRangeParam(query["days"].FirstOrDefault(), 1, MaxDays, DefaultDays, out var days))
         {
-            return RequestInvalid($"days must be an integer between 1 and {MaxDays}.");
+            return RequestInvalid(span, $"days must be an integer between 1 and {MaxDays}.");
         }
 
         var use24Hour = query["time_format"].FirstOrDefault() is "24h";
@@ -68,6 +81,10 @@ public class WeatherV2Endpoint
             query["latitude"].FirstOrDefault(),
             query["longitude"].FirstOrDefault());
 
+        // The measurement that decides whether the reverse-geocoding work in
+        // docs/geographic-telemetry.md is worth building at all. Four values, all bounded.
+        span.SetTag(TagInputKind, input.Kind);
+
         double latitude;
         double longitude;
         Place? place = null;
@@ -76,12 +93,14 @@ public class WeatherV2Endpoint
         {
             case PlaceInput.Missing:
                 return Error(
+                    span,
                     ErrorCodes.PlaceMissing,
                     "No location is set.",
                     "Open this plugin's settings and enter a city, postal code, or coordinates.");
 
             case PlaceInput.Invalid:
                 return Error(
+                    span,
                     ErrorCodes.PlaceInvalid,
                     $"{Quote(placeParam ?? $"{query["latitude"].FirstOrDefault()}, {query["longitude"].FirstOrDefault()}")} is not a location.",
                     "If you pasted coordinates, check the order: latitude first, then longitude.");
@@ -98,19 +117,20 @@ public class WeatherV2Endpoint
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    return ClientGone(logger);
+                    return ClientGone(span, logger);
                 }
                 catch (HttpRequestException ex)
                 {
                     // An outage, not a miss. Telling someone their correct input was not found
                     // would have them retype an address that was never the problem.
                     logger.LogError(ex, "Place lookup failed upstream.");
-                    return Unavailable();
+                    return Unavailable(span);
                 }
 
                 if (place is null)
                 {
                     return Error(
+                        span,
                         ErrorCodes.PlaceNotFound,
                         $"No place matches {Quote(typed.Text)}.",
                         "Try adding a state or country, as in Portland, ME.");
@@ -131,11 +151,11 @@ public class WeatherV2Endpoint
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return ClientGone(logger);
+            return ClientGone(span, logger);
         }
         catch (ArgumentException)
         {
-            return RequestInvalid($"provider '{requestedProvider}' is not a known weather provider.");
+            return RequestInvalid(span, $"provider '{requestedProvider}' is not a known weather provider.");
         }
         catch (UpstreamUnavailableException ex)
         {
@@ -145,7 +165,7 @@ public class WeatherV2Endpoint
                 "All weather providers failed for {Latitude},{Longitude}",
                 CoarseCoordinate.ToTag(latitude),
                 CoarseCoordinate.ToTag(longitude));
-            return Unavailable();
+            return Unavailable(span);
         }
 
         var weatherResponse = ForecastTrimmer.Trim(outcome.Response, hours, days);
@@ -190,21 +210,35 @@ public class WeatherV2Endpoint
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
 
-    private static IResult Error(string code, string message, string hint) =>
-        Results.Json(new ErrorResponse(new ErrorInfo(code, message, hint)), WeatherEndpoint.JsonOptions);
+    private static IResult Error(ISpan span, string code, string message, string hint)
+    {
+        // Error rate and error tracking read span tags, not the status code, so a response that
+        // deliberately carries a 200 still has to be counted as the failure it is. This is what
+        // pays for the 200: without it, every v2 failure would read as a clean success.
+        span.Error = true;
+        span.SetTag(Tags.ErrorType, code);
+        span.SetTag(Tags.ErrorMsg, message);
+        // Faceted separately from ErrorType so a dashboard can group on it without parsing.
+        span.SetTag(TagErrorCode, code);
 
-    private static IResult RequestInvalid(string message) =>
-        Error(ErrorCodes.RequestInvalid, message, "This is a plugin configuration problem, not something the screen's settings can fix.");
+        return Results.Json(new ErrorResponse(new ErrorInfo(code, message, hint)), WeatherEndpoint.JsonOptions);
+    }
 
-    private static IResult Unavailable() =>
+    private static IResult RequestInvalid(ISpan span, string message) =>
+        Error(span, ErrorCodes.RequestInvalid, message, "This is a plugin configuration problem, not something the screen's settings can fix.");
+
+    private static IResult Unavailable(ISpan span) =>
         Error(
+            span,
             ErrorCodes.WeatherUnavailable,
             "Weather is temporarily unavailable.",
             "This usually clears on its own by the next refresh.");
 
-    // Nobody is left to render anything, so this is the one case that keeps a status code.
-    private static IResult ClientGone(ILogger logger)
+    // Nobody is left to render anything, so this is the one case that keeps a status code, and the
+    // one failure that is not the service's fault. Deliberately not tagged as a span error.
+    private static IResult ClientGone(ISpan span, ILogger logger)
     {
+        span.SetTag(TagErrorCode, "client_cancelled");
         logger.LogInformation("Client cancelled the forecast request.");
         return Results.StatusCode(499);
     }
