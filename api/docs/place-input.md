@@ -5,6 +5,9 @@ requires `latitude` and `longitude` as separate numeric query parameters
 (`Endpoints/RequestValidator.cs`) and returns plain text on every error path
 (`Endpoints/WeatherEndpoint.cs`).
 
+The Open-Meteo geocoding behaviour described below was checked against the live API rather than
+assumed, with the one exception noted under [Client](#client).
+
 The goal is to let a user identify their location however they naturally would - a city name, a
 postal code, or a pasted coordinate pair - instead of looking up two decimal numbers before the
 plugin will work.
@@ -20,7 +23,7 @@ Related: [geographic-telemetry.md](geographic-telemetry.md), which covers the in
 | Input shape | A **single** free-form `place` parameter |
 | Coordinates | Detected by parsing, not by a separate parameter |
 | Geocoder | Open-Meteo forward geocoding, on the paid customer endpoint |
-| Ambiguity | **Take the first result.** No qualifier syntax, no candidate list |
+| Ambiguity | **Take the first result.** Qualifiers already work via full-text search |
 | Errors | HTTP **200** with a renderable error in the body, not a status code |
 | Versioning | New **`/api/v2/`** endpoint. `/api/v1/` is frozen, and retired once fork traffic stops |
 
@@ -58,7 +61,7 @@ arriving with coordinates alone.
 | `42.35, -71.05` | coordinates | parsed directly, no geocoding call |
 | `02180` | not coordinates | Open-Meteo search |
 | `Boston, MA` | not coordinates | Open-Meteo search |
-| `SW1A 1AA` | not coordinates | Open-Meteo search |
+| `SW1A 1AA` | not coordinates | Open-Meteo search, which finds nothing |
 
 The rule: normalize whitespace, split on `[,\s]+`, and treat the value as coordinates only when there
 are **exactly two tokens, both parse as invariant-culture doubles, and both fall in range** (latitude
@@ -67,6 +70,10 @@ are **exactly two tokens, both parse as invariant-culture doubles, and both fall
 That is safe against all of the above. A bare postal code is one token. A UK postcode is two
 non-numeric tokens. A name with a comma splits into non-numeric tokens. Parse invariant-culture only:
 accepting a comma as a decimal separator would make `42,35` ambiguous with a coordinate pair.
+
+Sniffing correctly is not the same as resolving. `SW1A 1AA` parses as a name and reaches the
+geocoder, which returns no match - Open-Meteo does not index UK-style alphanumeric postcodes. It is
+in the table as a parsing example, not a working input.
 
 Coordinate input costs no geocoding call, so the parse order also keeps existing-style usage off the
 Open-Meteo quota entirely.
@@ -97,20 +104,48 @@ input form; resolve before and every user who typed `Boston` converges on one ca
 Mirror `OpenMeteoClient`: it already switches between a free base URL and a `customer-` prefixed one
 based on whether `OPEN_METEO_API_KEY` is set, and appends `apikey` to the query
 (`Services/OpenMeteoClient.cs`). The geocoding equivalents are `geocoding-api.open-meteo.com/v1/search`
-and `customer-geocoding-api.open-meteo.com/v1/search`; confirm both against Open-Meteo's current docs
-before wiring them.
+and `customer-geocoding-api.open-meteo.com/v1/search`. The free host is confirmed working; the
+`customer-` one is **not** verified, because checking it needs the API key.
 
-Postal codes resolve through the same `search` call. No separate postal dataset is needed.
+Postal codes resolve through the same `search` call, confirmed against the live API. No separate
+postal dataset is needed.
+
+Two response details that will bite an implementation:
+
+- **On no match the `results` key is absent entirely**, not an empty array. A query for `zzzzqqqq`
+  returns `{"generationtime_ms": ...}` and nothing else, so deserialization has to treat the property
+  as missing rather than as empty.
+- **Not every result is a populated place.** `Portland, ME` returns the city first and `Portland
+  Point`, a `CAPE`, second. Taking the first result blindly can hand back a headland or a mountain
+  for some inputs, so filter to `PPL*` feature codes before picking.
 
 ### Ambiguity: first result wins
 
-Open-Meteo returns a ranked list, so `count=1` is effectively "most prominent match". `Springfield`,
-`Portland`, and `Paris` will each silently resolve to whichever the ranking favours.
+Open-Meteo returns a ranked list, so `count=1` is effectively "most prominent match". Verified
+against the live API: `Portland` resolves to Oregon (population 652,503) ahead of Maine, and
+`Springfield` resolves to Missouri ahead of Illinois.
 
-This is deliberate: it never errors, needs no qualifier syntax, and keeps the screen populated. The
-cost is that a user in Portland, Maine gets Portland, Oregon weather until they notice, and nothing
-in the system will tell them. Rendering the resolved place name on screen (see
-[Response shape](#response-shape-v2)) is the mitigation - the user sees what the API decided.
+This is deliberate. It never errors, needs no qualifier syntax, and keeps the screen populated. Two
+things make it tolerable, and both are cheaper than a disambiguation UI.
+
+**Qualifiers already work, for free.** The search is full-text, so `Portland, ME` and
+`Portland, Maine` both return Portland, Maine ahead of the much larger Oregon one. No syntax, no
+parsing, no extra parameter on this side - it only needs saying in the plugin's field description.
+That is the primary mitigation.
+
+**The resolved place is shown on screen.** The plugin renders what the API actually picked (see
+[Response shape](#response-shape-v2)), so a user who gets the wrong Portland can see it rather than
+inferring it from a suspicious temperature.
+
+#### Postal codes collide across countries
+
+Worse than the city case, and also verified: `75001` returns **Paris, France** ahead of Addison,
+Texas. A user in Addison typing their own ZIP gets French weather, and unlike an ambiguous city name
+a postal code feels unambiguous, so nothing prompts them to qualify it.
+
+The same two mitigations apply - the rendered place name catches it, a country qualifier fixes it -
+but this one is worth calling out in the field description rather than leaving for a user to
+discover.
 
 ### Quota and abuse
 
@@ -132,9 +167,10 @@ needs bounding:
 ## How the two features layer
 
 Open-Meteo's geocoding response carries `country_code` (ISO alpha-2), `country`, and `name`, but
-`admin1` is a **display name** ("Massachusetts") with a GeoNames id attached, not an ISO-3166-2 code.
-So forward geocoding alone cannot populate `weather.subdivision` as
-[geographic-telemetry.md](geographic-telemetry.md) specifies it.
+`admin1` is a **display name** ("Massachusetts") carrying only a GeoNames `admin1_id`, never an
+ISO-3166-2 code. Confirmed against the live API. So forward geocoding alone cannot populate
+`weather.subdivision` as [geographic-telemetry.md](geographic-telemetry.md) specifies it, and the
+polygon lookup stays the only source of that field.
 
 The two features layer rather than compete:
 
@@ -161,8 +197,9 @@ Two changes over v1.
 
 **A `place` block.** The resolved location, echoed back: name, country, country code, subdivision,
 and the coordinates actually used. The template today cannot show the user where the forecast is
-*for*; this is a user-visible feature, not just plumbing, and it is what makes the first-result
-ambiguity decision tolerable.
+*for*. The plugin will render this, which makes it a required field rather than a nice-to-have: it is
+how a user finds out they got Paris instead of Addison. See
+[Ambiguity](#ambiguity-first-result-wins).
 
 **An error field, returned with HTTP 200.** A non-200 gives the plugin nothing renderable, so a user
 who mistypes a place name sees a stale or blank screen with no explanation. v2 returns 200 with a

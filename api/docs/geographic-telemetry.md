@@ -41,7 +41,7 @@ else, and forks will keep it alive for a while, so an unfiltered reading measure
 have upgraded rather than what anyone prefers.
 
 What forward geocoding does **not** supply is an ISO-3166-2 subdivision code - Open-Meteo returns
-`admin1` as a display name only. So if `weather.subdivision` matters, the polygon lookup remains the
+`admin1` as a display name with a GeoNames id, verified against the live API. So if `weather.subdivision` matters, the polygon lookup remains the
 only source of it, for both input paths.
 
 ## This is not about making the geomap work
