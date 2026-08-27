@@ -118,15 +118,22 @@ Two response details that will bite an implementation:
 - **On no match the `results` key is absent entirely**, not an empty array. A query for `zzzzqqqq`
   returns `{"generationtime_ms": ...}` and nothing else, so deserialization has to treat the property
   as missing rather than as empty.
-- **Not every result is a populated place.** `Portland, ME` returns the city first and `Portland
-  Point`, a `CAPE`, second. Taking the first result blindly can hand back a headland or a mountain
-  for some inputs, so filter to `PPL*` feature codes before picking.
+- **Not every result is a populated place.** `Portland, ME` returns the city first, then `Portland
+  Point` (`CAPE`), `Cushing Island` (`ISL`), the airport (`AIRP`) and a historic district (`PRK`).
+  Taking the first result blindly can hand back a headland for some inputs, so filter to `PPL*`
+  feature codes before picking. Verified against the live API that this keeps everything wanted:
+  cities arrive as `PPL`, `PPLA`, `PPLA2` or `PPLC`, and a postal code resolves to a plain `PPL`
+  (`02180` returns Stoneham, Massachusetts).
 
 ### Ambiguity: first result wins
 
-Open-Meteo returns a ranked list, so `count=1` is effectively "most prominent match". Verified
-against the live API: `Portland` resolves to Oregon (population 652,503) ahead of Maine, and
+Open-Meteo returns a ranked list, and taking the top of it is effectively "most prominent match".
+Verified against the live API: `Portland` resolves to Oregon (population 652,503) ahead of Maine, and
 `Springfield` resolves to Missouri ahead of Illinois.
+
+The request still asks for more than one result, because the ranking interleaves populated places
+with the headlands and airports above: `count=1` would return whatever ranked first regardless of
+feature code, leaving the filter nothing to choose from.
 
 This is deliberate. It never errors, needs no qualifier syntax, and keeps the screen populated. Two
 things make it tolerable, and both are cheaper than a disambiguation UI.
@@ -249,9 +256,14 @@ That split matters because a forked plugin's conditionals outlive any phrasing d
 | `code` | Raised when | Typical `hint` |
 |---|---|---|
 | `place_missing` | Neither `place` nor a coordinate pair was supplied | Point at the plugin's own settings field |
-| `place_invalid` | Two numeric tokens that fall outside latitude or longitude range | Name the likely swapped-order mistake |
-| `place_not_found` | The geocoder returned no `results` key at all | Suggest a qualifier |
-| `weather_unavailable` | Every provider failed and no cached entry, fresh or stale, was usable | Say it is temporary |
+| `place_invalid` | Two numeric tokens that fall outside latitude or longitude range, or saved `latitude`/`longitude` parameters that are unusable on their own | Name the likely swapped-order mistake |
+| `place_not_found` | The geocoder matched nothing, or matched nothing that is a populated place | Suggest a qualifier |
+| `weather_unavailable` | Every provider failed and no cached entry, fresh or stale, was usable, **or** the geocoder itself was unreachable | Say it is temporary |
+
+A geocoder **outage** is deliberately not `place_not_found`. The two are indistinguishable in the
+response body if they share a code, but they are opposites to the person reading the screen: a miss
+means the input needs changing, an outage means the input was fine and the service was not.
+`weather_unavailable` already carries the right hint, and reusing it costs no extra template arm.
 
 `message` should quote back what the user actually typed. Custom field values are not readable from
 templates, so the response body is the only place the typed input can come from, and on an error
