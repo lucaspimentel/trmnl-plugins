@@ -382,16 +382,26 @@ touch `WeatherForecastOrchestrator`, `WeatherCache`, or the providers.
 
 ## Telemetry
 
-One new span tag, beyond the place tags in the other document:
+v2 opens its own `weather.request` span, and the orchestrator's existing `weather.forecast` nests
+inside it. The wrapping span is not decoration: an unset place and a place that resolves to nothing
+never reach the orchestrator, so tagging `weather.forecast` would leave exactly the failures this
+version introduces untagged.
 
 | Tag | Values | Purpose |
 |---|---|---|
-| `weather.input_kind` | `coordinates`, `place` | Whether the reverse-geocoding work is worth building |
+| `weather.input_kind` | `coordinates`, `place`, `missing`, `invalid` | Whether the reverse-geocoding work is worth building |
+| `weather.error_code` | the `code` values above, plus `client_cancelled` | Which failure, without parsing a message |
 
-Low cardinality and safe in a metric.
+Both are low cardinality and safe in a metric. The first two values answer the sequencing question;
+the other two come free from the same parse and say how often input arrives unusable.
+
+**Every error response also sets the span's error flag**, with the `code` as the error type. This is
+what pays for returning 200: error rate and error tracking read span tags rather than the status
+code, so without it every v2 failure would read as a clean success. A cancelled request is
+deliberately excluded - the client left, which is not the service failing.
 
 No `api.version` tag is needed - the versions are separate paths, so the route already carries it.
-One wrinkle when querying: the route sits on the ASP.NET Core request span while `weather.input_kind`
-belongs on the custom `weather.forecast` span, so cross-tabulating them is a trace-level query rather
-than a single-span facet. That filter matters, because v1 is coordinates-only by definition and the
-interesting read is what **v2** users choose.
+One wrinkle when querying: the route sits on the ASP.NET Core request span while these tags sit on
+`weather.request`, so cross-tabulating them is a trace-level query rather than a single-span facet.
+That filter matters, because v1 is coordinates-only by definition and the interesting read is what
+**v2** users choose.
