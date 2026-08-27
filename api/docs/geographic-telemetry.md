@@ -9,6 +9,10 @@ The goal is to group forecast telemetry by place - country, subdivision, city - 
 numeric coordinate, so a dashboard can answer "which regions see provider failures", "does cache hit
 rate vary by geography", and "where are the users" without a human decoding coordinates.
 
+Related: [place-input.md](place-input.md), which covers the inverse problem (a user-supplied place
+name to coordinates) and proposes the v2 API. The two features meet in the middle, and that one
+should probably be built first: see [Sequencing](#sequencing-build-v2-first).
+
 ## Decisions
 
 | Question | Decision |
@@ -20,6 +24,20 @@ rate vary by geography", and "where are the users" without a human decoding coor
 | Timing | **Synchronous, in the request path**, behind a memo |
 | Surfaces | Span tags **and** the `ForecastServed` log line. No span-based metric today |
 | Packaging | In-process project `TrmnlApi.Geo`, **not** a separate deployed service |
+
+## Sequencing: build v2 first
+
+This work only ever serves **coordinate** input. [place-input.md](place-input.md) proposes a single
+free-form `place` parameter accepting a city name or postal code, and forward geocoding returns
+country, country code, and a city name directly, with no polygons involved.
+
+If most traffic moves to place names, the polygon lookup serves a small minority and a much cheaper
+approximation may be enough. So ship v2 with its `weather.input_kind` tag (`coordinates` or `place`),
+read the real split, and decide then rather than now.
+
+What forward geocoding does **not** supply is an ISO-3166-2 subdivision code - Open-Meteo returns
+`admin1` as a display name only. So if `weather.subdivision` matters, the polygon lookup remains the
+only source of it, for both input paths.
 
 ## This is not about making the geomap work
 
@@ -60,6 +78,11 @@ home.
 
 Emit **codes as well as names** for country and subdivision. `"Massachusetts"` is unusable as a
 geomap or metric group-by; `US-MA` is unreadable in a top-list. They are cheap, so carry both.
+
+When a request carried a place name rather than coordinates, `weather.city` comes from the geocoding
+result instead of the nearest-place lookup, because that is the place the user actually named. The
+code fields still come from the polygon lookup either way. See
+[place-input.md](place-input.md#how-the-two-features-layer).
 
 ### Surfaces
 
@@ -186,6 +209,10 @@ room to walk than F1 did, so the bound matters more, not less.
 The memo must be bounded, and must not share the forecast cache's size budget (see
 `WeatherCacheOptions.SizeLimit`): a place lookup must never be able to evict forecasts.
 
+The same rule applies to the forward-geocoding memo in
+[place-input.md](place-input.md#quota-and-abuse), and applies harder: its keys are unbounded free
+text rather than a grid, so it additionally needs negative caching and an input length cap.
+
 ## Packaging: a project, not a service
 
 Put this in `api/src/TrmnlApi.Geo` as its own project in the solution. Do **not** deploy it as a
@@ -268,6 +295,11 @@ read is indirect, via the raw `FreshFetch` / `FreshHit` counters at `GET /metric
 below what the sub-hourly refresh cohort alone would produce implies F2 fragmentation is preventing
 sharing, and that the cache key grain should move to F1 (or 0.05 degrees as a compromise for coastal
 and mountain users, where 11 km spans a real gradient).
+
+[place-input.md](place-input.md) attacks the same problem from the other end: every user who types
+`Boston` converges on one canonical coordinate and therefore one cache entry, where today each types
+slightly different numbers and lands in a private F2 cell. Place input may improve the hit rate
+enough that regrinding the cache key becomes unnecessary.
 
 Note that `FreshTtl` (45 min, set in Railway) is deliberately below the 60 min default
 refresh interval: an hourly device never self-hits and always gets a live fetch, which keeps
