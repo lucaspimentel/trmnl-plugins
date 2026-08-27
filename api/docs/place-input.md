@@ -271,7 +271,36 @@ written against v1 status codes has to be revisited.
 leaving it in place. For provider outages the existing cache absorbs this already: `weather_unavailable`
 fires only after both the fresh and the stale windows are exhausted, so a brief blip still serves the
 cached forecast and never reaches the error path. A geocoding failure has no such cushion, but it is
-also not transient, since the same bad input will fail identically on the next poll.
+not transient either: the same bad input fails identically on every poll, which is exactly why it must
+not be signalled with a status code. See below.
+
+### Why not a status code plus a payload
+
+The obvious refinement is to return a non-2xx **and** a renderable body, so Datadog sees a failure
+without the plugin losing its message. Rejected, for one specific reason.
+
+TRMNL counts polling failures and eventually stops refreshing the plugin altogether, putting it in a
+**degraded state** that the user has to clear by hand from the plugin settings page. The help centre
+says only that "if this happens too frequently, we will stop trying"; the threshold is not published.
+
+That makes the split persistent-versus-transient rather than whose-fault-it-is:
+
+- `place_missing`, `place_invalid`, and `place_not_found` are persistent by construction. Bad input
+  fails on every poll, forever, so a status code here would not merely show an error once, it would
+  walk the plugin into degraded state and demand a manual reset. Strictly worse than a blank screen.
+- `weather_unavailable` is genuinely transient and rare, so a status code would be safe there, and
+  arguably better: TRMNL would keep the last good forecast rather than replace it with a message.
+
+Only the last of the four is a candidate, so the hybrid buys one code and costs a second render path.
+Left as a possible later carve-out rather than part of this design.
+
+The observability argument for it does not hold up either. Error rate and error tracking read span
+tags, not the HTTP status, so a 200 tagged as an error is counted correctly. The status code is not
+the lever that feature needs.
+
+Whether TRMNL parses the body of a non-2xx response at all is **undocumented and unverified**. If the
+carve-out is ever revisited, test it on a scratch plugin rather than this one, and on a real device:
+local `trmnlp serve` has already proven to differ from hardware on custom field resolution.
 
 ## What v1 keeps
 
@@ -303,6 +332,21 @@ arriving with coordinates alone.
 
 Note that auto-upgrade means every non-forked install moves the moment v2 is pushed. Nothing in v1's
 history has had that exposure, so a v2 defect is a fleet-wide outage rather than a slow rollout.
+
+### Where the error renders
+
+The template already has the branch. All four layouts guard on `{% if current and current.temperature %}`
+and fall through to a `wi-na` icon over fixed text: `full.liquid:16`, `half_horizontal.liquid:19`,
+`half_vertical.liquid:15`, and `quadrant.liquid:12`, which shortens the wording for the smaller slot.
+`title_bar` renders outside the branch and degrades on its own, since `shared.liquid` guards the whole
+timestamp span behind `{% if updated_at %}`, leaving just the instance name.
+
+So this is not new markup, it is a reason attached to markup that exists. Today that branch fires
+whenever `current.temperature` is nil, which makes a mistyped place, an expired key, a provider
+outage, and a malformed `polling_url` produce one identical screen. v2 changes the trigger from
+absent data to a reported error: each layout gains an `{% if error %}` arm rendering `error.message`
+and, where the slot has room, `error.hint`, keeping the current text as the fallback for a response
+that carries neither forecast nor error.
 
 ## Sharing internals across versions
 
