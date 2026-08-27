@@ -22,25 +22,34 @@ Related: [geographic-telemetry.md](geographic-telemetry.md), which covers the in
 | Geocoder | Open-Meteo forward geocoding, on the paid customer endpoint |
 | Ambiguity | **Take the first result.** No qualifier syntax, no candidate list |
 | Errors | HTTP **200** with a renderable error in the body, not a status code |
-| Versioning | New **`/api/v2/`** endpoint. `/api/v1/` keeps its current contract permanently |
+| Versioning | New **`/api/v2/`** endpoint. `/api/v1/` is frozen, and retired once fork traffic stops |
 
 ## Why a new version rather than extending v1
 
-The plugin is public and has been forked. A fork carries its own `polling_url` with
-`latitude={{ latitude }}&longitude={{ longitude }}` baked into `settings.yml`, pointing at this API,
-and every device running that fork will keep polling that URL for as long as it stays installed.
-There is no mechanism to update a fork's settings, and no way to know who forked it.
+The plugin is public and has been forked. A fork gets its own copy of `settings.yml`, with
+`latitude={{ latitude }}&longitude={{ longitude }}` and a v1 URL baked in, and receives no further
+updates. There is no mechanism to change a fork's settings and no way to know who forked it, so those
+devices keep polling v1 for as long as they stay installed.
 
-So v1 is not deprecable in any meaningful sense. Treat it as permanent. That is affordable only if v1
-stays a thin edge over shared internals: see [Sharing internals](#sharing-internals-across-versions).
+Non-forked installs upgrade automatically, so they move to v2 on their own. That makes v1 **retirable
+rather than permanent**: it lives until fork traffic stops. Watch the v1 route and remove the endpoint
+once it goes quiet. The only judgement call is how long quiet has to be, since a dormant fork looks
+exactly like a dead one. Until then v1 should stay a thin edge over shared internals: see
+[Sharing internals](#sharing-internals-across-versions).
 
 Versioning also buys the freedom to change the response schema, which the error-shape decision below
 requires and which v1 cannot absorb without breaking the forks' Liquid templates.
 
 ## Input: one field, sniffed
 
-v2 takes a single `place` parameter and decides what it is by parsing it. `latitude` and `longitude`
-are **not** v2 parameters at all; a coordinate pair is just one of the things `place` accepts.
+v2 takes a single `place` parameter and decides what it is by parsing it. A coordinate pair is just
+one of the things `place` accepts, so no separate numeric parameters are needed for new users.
+
+v2 does still accept `latitude` and `longitude`, but only as a transition affordance for installs that
+upgrade with coordinates already saved: see [Migrating the plugin](#migrating-the-plugin). `place`
+wins whenever it is present and not blank, whitespace included; the coordinate parameters are
+consulted only when it is absent or empty. Both should be removed once telemetry shows nobody is
+arriving with coordinates alone.
 
 | Input | Detected as | Path |
 |---|---|---|
@@ -179,13 +188,34 @@ consequences of returning 200 have to be handled:
 
 ## What v1 keeps
 
-Unchanged, permanently: `latitude` and `longitude` as separate required parameters, the current JSON
-schema, and plain-text error responses with their existing status codes. No new fields, because a
-fork's template may iterate structures it does not expect to grow.
+Unchanged for as long as it exists: `latitude` and `longitude` as separate required parameters, the
+current JSON schema, and plain-text error responses with their existing status codes. No new fields,
+because a fork's template may iterate structures it does not expect to grow.
 
 v1 does gain the place **telemetry** tags from
 [geographic-telemetry.md](geographic-telemetry.md#what-to-emit) internally, since those are emitted
 server-side and are invisible to the caller.
+
+## Migrating the plugin
+
+Forked installs carry their own copy of `settings.yml` and never receive updates, so they stay on v1
+indefinitely. Every non-forked install upgrades automatically, and that is where the care is needed:
+those users get the new `settings.yml` with an empty `place` field, and their saved coordinates have
+to keep working until they choose to type a place.
+
+Keep `latitude` and `longitude` **declared** in `custom_fields` through the transition, and have
+`polling_url` send all three parameters. Removing the fields only hides them from the UI, and whether
+a removed field's stored value still interpolates into `polling_url` is unverified - not something to
+bet every upgraded screen on. Declared fields interpolate for certain.
+
+The `place` field's description should say that saved coordinates still work if it is left blank, or
+upgraded users will see an empty field and assume the plugin is broken.
+
+Drop the coordinate fields, and the v2 fallback that reads them, once telemetry shows no requests
+arriving with coordinates alone.
+
+Note that auto-upgrade means every non-forked install moves the moment v2 is pushed. Nothing in v1's
+history has had that exposure, so a v2 defect is a fleet-wide outage rather than a slow rollout.
 
 ## Sharing internals across versions
 
@@ -199,22 +229,22 @@ touch `WeatherForecastOrchestrator`, `WeatherCache`, or the providers.
 
 ## Telemetry
 
-Two new span tags, beyond the place tags in the other document:
+One new span tag, beyond the place tags in the other document:
 
 | Tag | Values | Purpose |
 |---|---|---|
-| `api.version` | `v1`, `v2` | Adoption, and whether v1 traffic is forks or just un-migrated users |
 | `weather.input_kind` | `coordinates`, `place` | Whether the reverse-geocoding work is worth building |
 
-Both are low cardinality and safe in a metric.
+Low cardinality and safe in a metric.
+
+No `api.version` tag is needed - the versions are separate paths, so the route already carries it.
+One wrinkle when querying: the route sits on the ASP.NET Core request span while `weather.input_kind`
+belongs on the custom `weather.forecast` span, so cross-tabulating them is a trace-level query rather
+than a single-span facet. That filter matters, because v1 is coordinates-only by definition and the
+interesting read is what **v2** users choose.
 
 ## Open questions
 
-- **Migrating this plugin's existing users.** Removing the `latitude` and `longitude` custom fields in
-  favour of a single `place` field leaves existing installs with an empty `place` and a broken screen
-  until each user reconfigures. Keeping all three fields during a transition and choosing between them
-  in `polling_url` may work, but `polling_url` interpolation is plain Liquid and whether it supports a
-  conditional there needs verifying before the plan depends on it.
 - **Whether the error shape extends to upstream failures**, per the open decision above.
 - **Whether `provider` and `fake` carry over to v2.** Both are debugging affordances rather than user
   features, and a new version is the cheap moment to drop them.

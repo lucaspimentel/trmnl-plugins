@@ -31,9 +31,14 @@ This work only ever serves **coordinate** input. [place-input.md](place-input.md
 free-form `place` parameter accepting a city name or postal code, and forward geocoding returns
 country, country code, and a city name directly, with no polygons involved.
 
-If most traffic moves to place names, the polygon lookup serves a small minority and a much cheaper
-approximation may be enough. So ship v2 with its `weather.input_kind` tag (`coordinates` or `place`),
-read the real split, and decide then rather than now.
+Non-forked installs upgrade automatically, so most traffic will move to v2 on its own. If place input
+dominates there, the polygon lookup serves a small minority and a much cheaper approximation may be
+enough. So ship v2 with its `weather.input_kind` tag (`coordinates` or `place`), read the real split,
+and decide then rather than now.
+
+Read that split on **v2 traffic only**, identified by the route. v1 takes coordinates and nothing
+else, and forks will keep it alive for a while, so an unfiltered reading measures how many installs
+have upgraded rather than what anyone prefers.
 
 What forward geocoding does **not** supply is an ISO-3166-2 subdivision code - Open-Meteo returns
 `admin1` as a display name only. So if `weather.subdivision` matters, the polygon lookup remains the
