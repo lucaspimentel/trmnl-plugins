@@ -24,7 +24,10 @@ Related: [geographic-telemetry.md](geographic-telemetry.md), which covers the in
 | Coordinates | Detected by parsing, not by a separate parameter |
 | Geocoder | Open-Meteo forward geocoding, on the paid customer endpoint |
 | Ambiguity | **Take the first result.** Qualifiers already work via full-text search |
-| Errors | HTTP **200** with a renderable error in the body, not a status code |
+| Errors | HTTP **200** with a renderable error in the body, for **every failure the device can see** |
+| Error body | A stable `code`, a human `message`, and an actionable `hint` |
+| Response shape | A nested **`place`** object beside the existing forecast keys |
+| Debug parameters | `provider` and `fake` carry over from v1 unchanged |
 | Versioning | New **`/api/v2/`** endpoint. `/api/v1/` is frozen, and retired once fork traffic stops |
 
 ## Why a new version rather than extending v1
@@ -193,35 +196,82 @@ work is worth building at all; the argument lives in
 
 ## Response shape (v2)
 
-Two changes over v1.
+Two additions over v1, and one invariant that reaches further than either of them: **every failure
+the device can see is returned as HTTP 200 with a populated `error` object.**
 
-**A `place` block.** The resolved location, echoed back: name, country, country code, subdivision,
-and the coordinates actually used. The template today cannot show the user where the forecast is
-*for*. The plugin will render this, which makes it a required field rather than a nice-to-have: it is
-how a user finds out they got Paris instead of Addison. See
-[Ambiguity](#ambiguity-first-result-wins).
+### The `place` block
 
-**An error field, returned with HTTP 200.** A non-200 gives the plugin nothing renderable, so a user
-who mistypes a place name sees a stale or blank screen with no explanation. v2 returns 200 with a
-populated error object (a stable machine-readable code plus a short human message sized for the
-screen) so the template can say what went wrong.
+The resolved location, echoed back beside the forecast:
 
-### Open decision: how far the error shape extends
+```json
+{
+  "place": {
+    "name": "Portland",
+    "admin1": "Maine",
+    "country": "United States",
+    "country_code": "US",
+    "latitude": 43.66,
+    "longitude": -70.26
+  },
+  "current": { },
+  "hourly": { },
+  "daily": { },
+  "meta": { }
+}
+```
 
-This is not specific to geocoding. `WeatherEndpoint.cs` returns `Results.Text` for every validation
-failure and for the 502 when all providers fail, so the plugin currently cannot render **any** error.
-If the screen should show "couldn't find that place", it should probably also show "weather providers
-are unavailable" rather than silently going stale.
+`current`, `hourly`, `daily`, and `meta` keep their v1 shapes.
 
-Deciding that is broader than this feature and is left open here. Whatever the answer, two
-consequences of returning 200 have to be handled:
+The plugin renders this block, which makes it required rather than decorative: it is how a user finds
+out they got Paris instead of Addison. See [Ambiguity](#ambiguity-first-result-wins).
 
-- **The span must still be tagged as an error.** A 200 that represents a failure will otherwise make
-  the Datadog error rate blind to exactly the failures worth seeing.
-- **TRMNL's retry and staleness behaviour changes**, because every response now looks successful to
-  it. A transient upstream failure that currently leaves the last good screen in place would instead
-  replace it with an error message. That may not be the better outcome for a brief blip, which argues
-  for keeping genuinely transient failures on the existing non-200 path.
+`admin1` is the geocoder's display name, not an ISO code. Open-Meteo never returns ISO 3166-2, so the
+subdivision **code** can only come from the polygon lookup in
+[geographic-telemetry.md](geographic-telemetry.md#what-to-emit), which is a telemetry concern and is
+not part of this response. When the request carried coordinates rather than a place, `place` is
+populated by the same reverse lookup if it exists, and omitted otherwise.
+
+### The error object
+
+```json
+{
+  "error": {
+    "code": "place_not_found",
+    "message": "No place matches zzzzqqqq.",
+    "hint": "Try adding a state or country, as in Portland, ME."
+  }
+}
+```
+
+`code` is stable and is what a template branches on; `message` and `hint` are wording and may change.
+That split matters because a forked plugin's conditionals outlive any phrasing decision made here.
+
+| `code` | Raised when | Typical `hint` |
+|---|---|---|
+| `place_missing` | Neither `place` nor a coordinate pair was supplied | Point at the plugin's own settings field |
+| `place_invalid` | Two numeric tokens that fall outside latitude or longitude range | Name the likely swapped-order mistake |
+| `place_not_found` | The geocoder returned no `results` key at all | Suggest a qualifier |
+| `weather_unavailable` | Every provider failed and no cached entry, fresh or stale, was usable | Say it is temporary |
+
+`message` should quote back what the user actually typed. Custom field values are not readable from
+templates, so the response body is the only place the typed input can come from, and on an error
+there is no `place` block to carry it.
+
+### What returning 200 costs
+
+**The span must still be tagged as an error.** A 200 that represents a failure will otherwise make the
+Datadog error rate blind to exactly the failures worth seeing. Set the error tags on the
+`weather.forecast` span independently of the status code.
+
+**A non-2xx now means something narrower.** After this change a 5xx from v2 indicates the API itself
+broke, not that the weather did. That is a more useful signal than today's mixed one, but any alerting
+written against v1 status codes has to be revisited.
+
+**TRMNL sees every response as successful**, so a failure now replaces the last good screen instead of
+leaving it in place. For provider outages the existing cache absorbs this already: `weather_unavailable`
+fires only after both the fresh and the stale windows are exhausted, so a brief blip still serves the
+cached forecast and never reaches the error path. A geocoding failure has no such cushion, but it is
+also not transient, since the same bad input will fail identically on the next poll.
 
 ## What v1 keeps
 
@@ -279,9 +329,3 @@ One wrinkle when querying: the route sits on the ASP.NET Core request span while
 belongs on the custom `weather.forecast` span, so cross-tabulating them is a trace-level query rather
 than a single-span facet. That filter matters, because v1 is coordinates-only by definition and the
 interesting read is what **v2** users choose.
-
-## Open questions
-
-- **Whether the error shape extends to upstream failures**, per the open decision above.
-- **Whether `provider` and `fake` carry over to v2.** Both are debugging affordances rather than user
-  features, and a new version is the cheap moment to drop them.
