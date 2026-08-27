@@ -46,14 +46,10 @@ public class WeatherV2Endpoint
     {
         var query = req.Query;
 
-        // v2's own span, wrapping the orchestrator's weather.forecast rather than living on it.
-        // Two failures never reach the orchestrator at all - an unset place and one that resolves
-        // to nothing - so tagging its span would leave exactly the errors this version introduces
-        // untagged. Everything below reports through here.
-        using var scope = Tracer.Instance.StartActive("weather.request");
-        var span = scope.Span;
-        span.SetTag(Tags.SpanKind, SpanKinds.Internal);
-        span.ResourceName = "/api/v2/forecast";
+        // The request's own span, not one of ours: see RequestSpan. Two failures never reach the
+        // orchestrator at all - an unset place and one that resolves to nothing - so this is also
+        // the only span guaranteed to exist for every error below.
+        var span = RequestSpan.Current;
 
         var unitsParam = query["units"].FirstOrDefault();
         if (!RequestValidator.IsValidUnits(unitsParam))
@@ -83,7 +79,7 @@ public class WeatherV2Endpoint
 
         // The measurement that decides whether the reverse-geocoding work in
         // docs/geographic-telemetry.md is worth building at all. Four values, all bounded.
-        span.SetTag(TagInputKind, input.Kind);
+        span?.SetTag(TagInputKind, input.Kind);
 
         double latitude;
         double longitude;
@@ -210,24 +206,28 @@ public class WeatherV2Endpoint
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
 
-    private static IResult Error(ISpan span, string code, string message, string hint)
+    private static IResult Error(ISpan? span, string code, string message, string hint)
     {
-        // Error rate and error tracking read span tags, not the status code, so a response that
-        // deliberately carries a 200 still has to be counted as the failure it is. This is what
-        // pays for the 200: without it, every v2 failure would read as a clean success.
-        span.Error = true;
-        span.SetTag(Tags.ErrorType, code);
-        span.SetTag(Tags.ErrorMsg, message);
-        // Faceted separately from ErrorType so a dashboard can group on it without parsing.
-        span.SetTag(TagErrorCode, code);
+        // Error rate and error tracking read the span, not the status code, so a response that
+        // deliberately carries a 200 still has to be counted as the failure it is. Setting this on
+        // the entry span is what makes it count natively: without it, every v2 failure would read
+        // as a clean success.
+        if (span is not null)
+        {
+            span.Error = true;
+            span.SetTag(Tags.ErrorType, code);
+            span.SetTag(Tags.ErrorMsg, message);
+            // Faceted separately from ErrorType so a dashboard can group on it without parsing.
+            span.SetTag(TagErrorCode, code);
+        }
 
         return Results.Json(new ErrorResponse(new ErrorInfo(code, message, hint)), WeatherEndpoint.JsonOptions);
     }
 
-    private static IResult RequestInvalid(ISpan span, string message) =>
+    private static IResult RequestInvalid(ISpan? span, string message) =>
         Error(span, ErrorCodes.RequestInvalid, message, "This is a plugin configuration problem, not something the screen's settings can fix.");
 
-    private static IResult Unavailable(ISpan span) =>
+    private static IResult Unavailable(ISpan? span) =>
         Error(
             span,
             ErrorCodes.WeatherUnavailable,
@@ -236,9 +236,9 @@ public class WeatherV2Endpoint
 
     // Nobody is left to render anything, so this is the one case that keeps a status code, and the
     // one failure that is not the service's fault. Deliberately not tagged as a span error.
-    private static IResult ClientGone(ISpan span, ILogger logger)
+    private static IResult ClientGone(ISpan? span, ILogger logger)
     {
-        span.SetTag(TagErrorCode, "client_cancelled");
+        span?.SetTag(TagErrorCode, "client_cancelled");
         logger.LogInformation("Client cancelled the forecast request.");
         return Results.StatusCode(499);
     }

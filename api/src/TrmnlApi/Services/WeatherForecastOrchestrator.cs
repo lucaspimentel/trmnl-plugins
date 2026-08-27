@@ -68,19 +68,18 @@ public class WeatherForecastOrchestrator(
         latitude = Math.Round(latitude, 2, MidpointRounding.AwayFromZero);
         longitude = Math.Round(longitude, 2, MidpointRounding.AwayFromZero);
 
-        using var scope = Tracer.Instance.StartActive("weather.forecast");
-        var span = scope.Span;
-        span.SetTag(Tags.SpanKind, SpanKinds.Internal);
+        // Tags go on the request's own span rather than one of ours: see RequestSpan.
+        var span = RequestSpan.Current;
         // Coarsen to ~11 km before the coordinates reach a span: they are PII. The coordinates are
         // already snapped to the cache grid above, so this takes the Snapped path; see
         // CoarseCoordinate for the two rounding hazards it exists to contain.
         var taggedLatitude = CoarseCoordinate.RoundSnapped(latitude);
         var taggedLongitude = CoarseCoordinate.RoundSnapped(longitude);
-        span.SetTag(TagLatitude, CoarseCoordinate.Format(taggedLatitude));
-        span.SetTag(TagLongitude, CoarseCoordinate.Format(taggedLongitude));
-        span.SetTag(TagUnits, metric ? "metric" : "imperial");
-        span.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
-        span.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
+        span?.SetTag(TagLatitude, CoarseCoordinate.Format(taggedLatitude));
+        span?.SetTag(TagLongitude, CoarseCoordinate.Format(taggedLongitude));
+        span?.SetTag(TagUnits, metric ? "metric" : "imperial");
+        span?.SetTag(TagHours, hours.ToString(CultureInfo.InvariantCulture));
+        span?.SetTag(TagDays, days.ToString(CultureInfo.InvariantCulture));
 
         var chain = resolver.ResolveChain(requestedName);
         if (chain.Count == 0)
@@ -89,8 +88,9 @@ public class WeatherForecastOrchestrator(
         }
 
         var requestedProvider = chain[0].Name;
-        span.ResourceName = requestedProvider;
-        span.SetTag(TagRequestedProvider, requestedProvider);
+        // No ResourceName here: on the entry span that is the route, not ours to overwrite. The
+        // provider is a tag, which is what grouping by provider reads anyway.
+        span?.SetTag(TagRequestedProvider, requestedProvider);
 
         Upstream? firstFailure = null;
         Exception? firstFailureException = null;
@@ -161,18 +161,18 @@ public class WeatherForecastOrchestrator(
         }
 
         var failure = new UpstreamUnavailableException(firstFailure!, firstFailureException);
-        span.SetException(failure);
-        span.SetTag(TagCacheStatus, CacheAllFailed);
+        span?.SetException(failure);
+        span?.SetTag(TagCacheStatus, CacheAllFailed);
         TagFirstFailure(span, firstFailure!);
         throw failure;
     }
 
-    private ForecastOutcome TagOutcome(ISpan span, ForecastOutcome outcome)
+    private ForecastOutcome TagOutcome(ISpan? span, ForecastOutcome outcome)
     {
-        span.SetTag(TagWinningProvider, outcome.WinningProvider);
-        span.SetTag(TagCacheStatus, outcome.CacheStatus);
-        span.SetTag(TagFallback, outcome.WinningProvider != outcome.RequestedProvider ? "true" : "false");
-        span.SetTag(TagAgeSeconds, (timeProvider.GetUtcNow() - outcome.FetchedAt).TotalSeconds.ToString("F0", CultureInfo.InvariantCulture));
+        span?.SetTag(TagWinningProvider, outcome.WinningProvider);
+        span?.SetTag(TagCacheStatus, outcome.CacheStatus);
+        span?.SetTag(TagFallback, outcome.WinningProvider != outcome.RequestedProvider ? "true" : "false");
+        span?.SetTag(TagAgeSeconds, (timeProvider.GetUtcNow() - outcome.FetchedAt).TotalSeconds.ToString("F0", CultureInfo.InvariantCulture));
         if (outcome.Upstream is { } u)
         {
             TagFirstFailure(span, u);
@@ -180,10 +180,10 @@ public class WeatherForecastOrchestrator(
         return outcome;
     }
 
-    private static void TagFirstFailure(ISpan span, Upstream upstream)
+    private static void TagFirstFailure(ISpan? span, Upstream upstream)
     {
-        span.SetTag(TagFirstFailureStatus, upstream.Status?.ToString(CultureInfo.InvariantCulture));
-        span.SetTag(TagFirstFailureError, upstream.Error);
+        span?.SetTag(TagFirstFailureStatus, upstream.Status?.ToString(CultureInfo.InvariantCulture));
+        span?.SetTag(TagFirstFailureError, upstream.Error);
     }
 
     private static bool IsTransient(Exception ex, CancellationToken cancellationToken) =>
