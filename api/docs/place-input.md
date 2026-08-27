@@ -1,12 +1,13 @@
-# Place input and API v2 (design, not yet implemented)
+# Place input and API v2
 
-**Status: proposed.** Nothing in this document is in the code yet. Today `GET /api/v1/forecast`
-requires `latitude` and `longitude` as separate numeric query parameters
-(`Endpoints/RequestValidator.cs`) and returns plain text on every error path
-(`Endpoints/WeatherEndpoint.cs`).
+**Status: `/api/v2/forecast` is live on staging (items 1-9 below), not yet on production and not
+yet used by the plugin.** `GET /api/v1/forecast` is unchanged: it still requires `latitude` and
+`longitude` as separate numeric query parameters (`Endpoints/RequestValidator.cs`) and returns
+plain text on every error path (`Endpoints/WeatherEndpoint.cs`).
 
 The Open-Meteo geocoding behaviour described below was checked against the live API rather than
-assumed, with the one exception noted under [Client](#client).
+assumed, including the customer host, which was confirmed working through the deployed staging
+service.
 
 The goal is to let a user identify their location however they naturally would - a city name, a
 postal code, or a pasted coordinate pair - instead of looking up two decimal numbers before the
@@ -15,6 +16,28 @@ plugin will work.
 Related: [geographic-telemetry.md](geographic-telemetry.md), which covers the inverse problem
 (coordinates to place names for telemetry). The two features meet in the middle; see
 [How the two features layer](#how-the-two-features-layer).
+
+## Plan
+
+Decisions and unverified items are recorded in full elsewhere in this document; this table tracks
+status only.
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Error shape scope: geocoding failures only, or also the 502 when all providers fail | Settled: every device-visible failure, including `weather_unavailable` |
+| 2 | Whether `provider` and `fake` carry over to v2 | Settled: kept |
+| 3 | v2 schema specifics: `place` block fields, stable error codes | Settled: see [Response shape](#response-shape-v2) |
+| 4 | Verify the `customer-geocoding-api.open-meteo.com` host | Verified against the deployed staging service |
+| 5 | Whether a removed `custom_field`'s stored value still interpolates into `polling_url` | Unverified, not blocking: the plan keeps the fields declared |
+| 6 | `PlaceResolver` - input sniffing | Done, as `PlaceInput.Parse` (pure sniffing) plus `PlaceResolver` (the async lookup and memo) |
+| 7 | Geocoding client | Done: free/customer switch, absent-`results` handling, `PPL*` filter, bounded memo with negative caching |
+| 8 | v2 endpoint and response models | Done: `/api/v2/forecast`, verified end-to-end on staging |
+| 9 | `weather.input_kind` span tag | Done, plus full error tagging; both tags and the two spans that originally carried them were later consolidated onto the request's own span - see [Telemetry](#telemetry) |
+| 10 | Plugin v2: `settings.yml` gains `place`, template renders the place block and the error | Not started |
+| 11 | Ship staging, then production, then push the plugin | Not started |
+| 12 | Watch v1 route traffic; retire the endpoint when it goes quiet | Deferred, gated on data |
+| 13 | Read `weather.input_kind` on v2 traffic; decides whether the polygon work happens at all | Deferred, gated on data |
+| 14 | If it does: measure Natural Earth memory first, then `TrmnlApi.Geo` and the SQLite R-tree | Deferred, gated on data |
 
 ## Decisions
 
