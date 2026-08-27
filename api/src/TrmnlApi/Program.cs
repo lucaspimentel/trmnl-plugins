@@ -23,6 +23,11 @@ builder.Services.AddHttpClient<IOpenMeteoClient, OpenMeteoClient>()
 builder.Services.AddHttpClient<IPirateWeatherClient, PirateWeatherClient>()
     .AddStandardResilienceHandler()
     .Configure((options, sp) => WeatherResilience.Configure(options, PirateWeatherProvider.ProviderName, ResilienceLogger(sp)));
+// Standard resilience, but not WeatherResilience's configuration: that logs circuit transitions
+// under a provider name, and geocoding is not a forecast provider. Its failure is reported to the
+// caller on its own terms.
+builder.Services.AddHttpClient<IOpenMeteoGeocodingClient, OpenMeteoGeocodingClient>()
+    .AddStandardResilienceHandler();
 builder.Services.AddHttpClient("TrmnlApi");
 builder.Services.AddSingleton<IWeatherTransformer, WeatherTransformer>();
 // Keyed so that only the providers named in WeatherProviders are ever constructed: a provider
