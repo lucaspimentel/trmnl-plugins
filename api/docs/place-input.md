@@ -258,12 +258,22 @@ That split matters because a forked plugin's conditionals outlive any phrasing d
 | `place_missing` | Neither `place` nor a coordinate pair was supplied | Point at the plugin's own settings field |
 | `place_invalid` | Two numeric tokens that fall outside latitude or longitude range, or saved `latitude`/`longitude` parameters that are unusable on their own | Name the likely swapped-order mistake |
 | `place_not_found` | The geocoder matched nothing, or matched nothing that is a populated place | Suggest a qualifier |
+| `request_invalid` | A parameter the **plugin** supplies, not the user, was rejected: `units`, `hours`, `days`, `provider` | Say it is a plugin problem |
 | `weather_unavailable` | Every provider failed and no cached entry, fresh or stale, was usable, **or** the geocoder itself was unreachable | Say it is temporary |
 
 A geocoder **outage** is deliberately not `place_not_found`. The two are indistinguishable in the
 response body if they share a code, but they are opposites to the person reading the screen: a miss
 means the input needs changing, an outage means the input was fine and the service was not.
 `weather_unavailable` already carries the right hint, and reusing it costs no extra template arm.
+
+`request_invalid` covers what v1 answers with a 400. None of those parameters comes from anything
+a user types, so reaching one means a fork's polling URL is malformed, but the device cannot tell
+the difference: a permanent 400 walks it into the degraded state exactly as a permanent 404 would.
+Returning it as a rendered message is also the only way its owner ever finds out.
+
+The single exception to the whole rule is a **cancelled request**, which keeps its status code. The
+client is already gone, so there is no screen to render an error object onto and no poll left to
+count against the install.
 
 `message` should quote back what the user actually typed. Custom field values are not readable from
 templates, so the response body is the only place the typed input can come from, and on an error
