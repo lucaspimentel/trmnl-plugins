@@ -68,6 +68,19 @@ public class WeatherEndpointTests
         Assert.Equal(1, metrics.Snapshot().UpstreamFailures);
     }
 
+    [Fact]
+    public async Task Handle_Success_EmitsNoPlaceKey()
+    {
+        // v1 is frozen for the forks that copied it. Nullable fields added for v2 must stay
+        // invisible here, which is what DefaultIgnoreCondition.WhenWritingNull buys.
+        var (execute, _, _, _) = Build(new StubProvider(Primary) { Response = MakeResponse("live") });
+
+        var (status, body) = await execute();
+
+        Assert.Equal(200, status);
+        Assert.DoesNotContain("\"place\"", body, StringComparison.Ordinal);
+    }
+
     private static (Func<Task<(int Status, string Body)>> Execute, WeatherCache Cache, TestClock Clock, ForecastMetrics Metrics) Build(
         params StubProvider[] providers)
     {

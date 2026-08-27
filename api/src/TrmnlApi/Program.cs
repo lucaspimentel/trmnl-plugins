@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Http.Resilience;
 using TrmnlApi.Endpoints;
 using TrmnlApi.Observability;
@@ -39,6 +40,16 @@ var configuredProviders = ParseWeatherProviders(builder.Configuration["WeatherPr
 builder.Services.AddSingleton<WeatherProviderResolver>(sp => new WeatherProviderResolver(
     ResolveConfiguredProviders(sp, configuredProviders),
     configuredProviders));
+builder.Services.Configure<PlaceCacheOptions>(builder.Configuration.GetSection("PlaceCache"));
+var placeCacheSizeLimit = builder.Configuration.GetSection("PlaceCache")
+    .GetValue<int?>(nameof(PlaceCacheOptions.SizeLimit)) ?? new PlaceCacheOptions().SizeLimit;
+builder.Services.AddSingleton(sp => new PlaceResolver(
+    sp.GetRequiredService<IOpenMeteoGeocodingClient>(),
+    // Its own MemoryCache, deliberately not the one AddMemoryCache registered: free-text input that
+    // can evict forecasts is a way to empty the forecast cache. See PlaceCacheOptions.SizeLimit.
+    new MemoryCache(new MemoryCacheOptions { SizeLimit = placeCacheSizeLimit }),
+    sp.GetRequiredService<IOptions<PlaceCacheOptions>>(),
+    sp.GetRequiredService<ILogger<PlaceResolver>>()));
 builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton<WeatherForecastOrchestrator>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -54,6 +65,7 @@ app.UseExceptionHandler(_ => { });
 app.Services.GetRequiredService<WeatherProviderResolver>();
 
 app.MapGet("/api/v1/forecast", WeatherEndpoint.Handle);
+app.MapGet("/api/v2/forecast", WeatherV2Endpoint.Handle);
 app.MapGet("/health", () => Results.Ok());
 app.MapGet("/metrics", (ForecastMetrics metrics) => Results.Json(metrics.Snapshot(), WeatherEndpoint.JsonOptions));
 

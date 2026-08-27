@@ -14,6 +14,8 @@ public class DatadogLogAllowlistTests
 {
     private const string ForecastServedCategory = "TrmnlApi.Observability.ForecastServed";
     private const string EndpointCategory = "TrmnlApi.Endpoints.WeatherEndpoint";
+    private const string V2EndpointCategory = "TrmnlApi.Endpoints.WeatherV2Endpoint";
+    private const string PlaceResolverCategory = "TrmnlApi.Services.PlaceResolver";
     private const string OrchestratorCategory = "TrmnlApi.Services.WeatherForecastOrchestrator";
     private const string ResilienceCategory = "TrmnlApi.Services.WeatherResilience";
     private const string UnhandledCategory = "TrmnlApi.Observability.UnhandledExceptionLogger";
@@ -22,12 +24,15 @@ public class DatadogLogAllowlistTests
     // The events we mean to ship.
     [InlineData(ForecastServedCategory, LogLevel.Information, true)]
     [InlineData(EndpointCategory, LogLevel.Error, true)]           // all providers failed, 502
+    [InlineData(V2EndpointCategory, LogLevel.Error, true)]         // all providers failed, or the geocoder did
+    [InlineData(PlaceResolverCategory, LogLevel.Warning, true)]    // a lookup turned away before it was made
     [InlineData(OrchestratorCategory, LogLevel.Warning, true)]     // provider failure / stale rescue
     [InlineData(ResilienceCategory, LogLevel.Warning, true)]       // circuit opened or closed
     [InlineData(UnhandledCategory, LogLevel.Error, true)]
     // Deliberately not shipped: the client-cancelled log shares the endpoint's category and is
     // excluded by level alone.
     [InlineData(EndpointCategory, LogLevel.Information, false)]
+    [InlineData(V2EndpointCategory, LogLevel.Information, false)]
     [InlineData(OrchestratorCategory, LogLevel.Information, false)]
     // No framework log may reach Datadog, whatever its level.
     [InlineData("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Error, false)]
@@ -51,6 +56,8 @@ public class DatadogLogAllowlistTests
         // silently stop shipping the event it names. This is what catches that.
         Assert.Equal(ForecastServedCategory, typeof(ForecastServed).FullName);
         Assert.Equal(EndpointCategory, typeof(WeatherEndpoint).FullName);
+        Assert.Equal(V2EndpointCategory, typeof(WeatherV2Endpoint).FullName);
+        Assert.Equal(PlaceResolverCategory, typeof(PlaceResolver).FullName);
         Assert.Equal(OrchestratorCategory, typeof(WeatherForecastOrchestrator).FullName);
         Assert.Equal(ResilienceCategory, typeof(WeatherResilience).FullName);
         Assert.Equal(UnhandledCategory, typeof(UnhandledExceptionLogger).FullName);
