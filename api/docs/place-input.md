@@ -107,8 +107,8 @@ input form; resolve before and every user who typed `Boston` converges on one ca
 Mirror `OpenMeteoClient`: it already switches between a free base URL and a `customer-` prefixed one
 based on whether `OPEN_METEO_API_KEY` is set, and appends `apikey` to the query
 (`Services/OpenMeteoClient.cs`). The geocoding equivalents are `geocoding-api.open-meteo.com/v1/search`
-and `customer-geocoding-api.open-meteo.com/v1/search`. The free host is confirmed working; the
-`customer-` one is **not** verified, because checking it needs the API key.
+and `customer-geocoding-api.open-meteo.com/v1/search`. Both are confirmed working: the free host
+directly, and the `customer-` one through the deployed staging service, which has the API key set.
 
 Postal codes resolve through the same `search` call, confirmed against the live API. No separate
 postal dataset is needed.
@@ -282,8 +282,8 @@ there is no `place` block to carry it.
 ### What returning 200 costs
 
 **The span must still be tagged as an error.** A 200 that represents a failure will otherwise make the
-Datadog error rate blind to exactly the failures worth seeing. Set the error tags on the
-`weather.forecast` span independently of the status code.
+Datadog error rate blind to exactly the failures worth seeing. Set the error tags on the request's
+own span independently of the status code, which is also where error rate reads them natively.
 
 **A non-2xx now means something narrower.** After this change a 5xx from v2 indicates the API itself
 broke, not that the weather did. That is a more useful signal than today's mixed one, but any alerting
@@ -382,10 +382,12 @@ touch `WeatherForecastOrchestrator`, `WeatherCache`, or the providers.
 
 ## Telemetry
 
-v2 opens its own `weather.request` span, and the orchestrator's existing `weather.forecast` nests
-inside it. The wrapping span is not decoration: an unset place and a place that resolves to nothing
-never reach the orchestrator, so tagging `weather.forecast` would leave exactly the failures this
-version introduces untagged.
+The tags go on the automatically instrumented `aspnet_core.request` span. This service starts no
+spans of its own: a wrapping span was measured covering 892ms of a 1004ms request, so it timed the
+entry span over again, while the calls worth timing separately - the geocoding and forecast requests
+- already get their own client spans. The entry span is also the only one guaranteed to exist for
+every failure, since an unset place and a place that resolves to nothing never reach the
+orchestrator at all.
 
 | Tag | Values | Purpose |
 |---|---|---|
@@ -401,7 +403,6 @@ code, so without it every v2 failure would read as a clean success. A cancelled 
 deliberately excluded - the client left, which is not the service failing.
 
 No `api.version` tag is needed - the versions are separate paths, so the route already carries it.
-One wrinkle when querying: the route sits on the ASP.NET Core request span while these tags sit on
-`weather.request`, so cross-tabulating them is a trace-level query rather than a single-span facet.
-That filter matters, because v1 is coordinates-only by definition and the interesting read is what
-**v2** users choose.
+Because these tags share a span with `http.route`, filtering them to v2 is an ordinary facet rather
+than a trace-level query. That filter matters, because v1 is coordinates-only by definition and the
+interesting read is what **v2** users choose.

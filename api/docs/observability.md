@@ -15,8 +15,8 @@ and copies the extracted tracer home to `/opt/datadog` in the runtime stage, the
 `CORECLR_*` profiler variables so the CLR loads it at startup.
 
 The `Datadog.Trace` NuGet package alone does **not** do this: it is the manual instrumentation API
-only. Without the native tracer there would be a single `weather.forecast` span per trace and no
-inbound or outbound HTTP spans.
+only. Without the native tracer there would be no spans at all, since this service starts none of
+its own: it tags the automatically created `aspnet_core.request` span instead.
 
 **The version lives in two places and they must be bumped together:**
 
@@ -127,14 +127,24 @@ convert before comparing. The expected tree for one forecast request, all sharin
 
 ```
 aspnet_core.request   GET /api/v1/forecast        (p_id: null)
-  weather.forecast    open-meteo                  (p_id = the aspnet_core.request s_id)
-    http.request      GET api.open-meteo.com/v1/forecast
+  http.request        GET api.open-meteo.com/v1/forecast
 ```
 
-## Span tags on `weather.forecast`
+A v2 request adds a second `http.request` child for the geocoding call, unless the place was
+already memoized, in which case there is no span for it at all.
 
-Set in `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs`. All are string tags, including
-the numeric-looking ones, so they stay facets rather than measures.
+## Span tags on `aspnet_core.request`
+
+Every `weather.*` tag goes on the request's own span. This service starts no spans of its own: a
+wrapping span was measured covering 892ms of a 1004ms request, so it only timed the entry span over
+again, and the calls worth timing separately already get their own client spans.
+
+Tagging the entry span is also what makes the tags queryable together with `http.route` and
+`http.status_code`, rather than through a trace-level join.
+
+Set in `api/src/TrmnlApi/Services/WeatherForecastOrchestrator.cs` and, for v2, in
+`api/src/TrmnlApi/Endpoints/WeatherV2Endpoint.cs`. All are string tags, including the
+numeric-looking ones, so they stay facets rather than measures.
 
 | Tag | Meaning |
 |---|---|
@@ -147,16 +157,28 @@ the numeric-looking ones, so they stay facets rather than measures.
 | `weather.fallback` | `true` when the winning provider is not the requested one |
 | `weather.age_seconds` | age of the served data |
 | `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
+| `weather.input_kind` | v2 only: `coordinates`, `place`, `missing`, or `invalid` |
+| `weather.error_code` | v2 only: which failure, or `client_cancelled` |
 
-Coordinates are rounded to `F1` before tagging, the same rule the logs follow.
+Coordinates are rounded to `F1` before tagging, the same rule the logs follow. That rule only binds
+the tags set here: automatic instrumentation will tag raw query strings at full precision unless
+`DD_HTTP_SERVER_TAG_QUERY_STRING` and `DD_HTTP_CLIENT_TAG_QUERY_STRING` are set to `false`, which
+they are per environment.
+
+**v2 also sets the span's error flag on every error response**, with the error code as the error
+type. Those responses deliberately carry HTTP 200, so without this they would read as successes:
+see [place-input.md](place-input.md). A cancelled request is excluded, since the client leaving is
+not the service failing.
 
 ## Verifying in Datadog
 
 After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trmnl-api`:
 
-- the same three-span tree as above
-- `weather.forecast` carrying the tags listed above, in particular `weather.cache_status`,
+- the same two-span tree as above
+- `aspnet_core.request` carrying the tags listed above, in particular `weather.cache_status`,
   `weather.winning_provider`, and `weather.fallback`
+- no `weather.*` coordinate finer than one decimal place, and no `http.url_details.queryString.*`
+  tags at all
 - no spans for `GET /health`
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.
