@@ -30,45 +30,67 @@ avoids the drift where a newer manual API call is not understood by an older loa
 
 ## Agent service
 
-Deploy a second Railway service from the public image `gcr.io/datadoghq/agent:7`. It is
-private-network only: do **not** generate a public domain for it.
+Deploy a second Railway service, private-network only: do **not** generate a public domain for it.
+It runs `ghcr.io/lucaspimentel/datadog-serverless-compat`, the lean serverless-compatibility agent,
+rather than the full `gcr.io/datadoghq/agent:7`. Both environments run the same pinned tag.
 
 | Variable | Value | Why |
 |---|---|---|
 | `DD_API_KEY` | *(from 1Password)* | Required |
 | `DD_SITE` | `datadoghq.com` | US1 |
-| `DD_APM_ENABLED` | `true` | Enable the trace receiver |
-| `DD_APM_NON_LOCAL_TRAFFIC` | `true` | Bind beyond localhost so the app service can reach port 8126 |
-| `DD_APM_IGNORE_RESOURCES` | `GET /health` | The platform healthcheck polls `/health` constantly and it does produce a span; keep it out of ingestion |
-| `DD_HOSTNAME` | `trmnl-api-agent-<environment>` | No host metadata is available, so set it explicitly rather than letting hostname resolution fail |
-| `DD_DOGSTATSD_NON_LOCAL_TRAFFIC` | `true` | The tracer reports `runtime_metrics_enabled: true` by default and sends them over DogStatsD (8125). Without this they are silently dropped; set `DD_RUNTIME_METRICS_ENABLED=false` on the app instead if you would rather not collect them. |
+| `DD_ENV` | `staging` or `production` | Tags what the agent forwards |
+| `DD_LOG_LEVEL` | *(as needed)* | Raise it when the agent itself is what needs debugging |
+| `PORT` | `8126` | The trace receiver's port, so the platform healthcheck can reach it |
 
-The agent does not listen on the injected `PORT`, so the platform healthcheck never passes and the
-deploy hangs in `DEPLOYING`. Because the restart policy is `NEVER`, the previous container keeps
-serving in the meantime, which makes a variable change look like it had no effect. Point the
-healthcheck at the trace receiver instead:
+That is the whole set. The compat agent takes a much smaller configuration surface than the full
+one: the APM receiver is on by default and already listens for non-local traffic, so
+`DD_APM_ENABLED` and `DD_APM_NON_LOCAL_TRAFFIC` have nothing to add, `DD_HOSTNAME` is unnecessary,
+and `DD_DOGSTATSD_NON_LOCAL_TRAFFIC` is not needed either.
+
+The one that is genuinely missed is **`DD_APM_IGNORE_RESOURCES`**, which has no equivalent here yet.
+It is what used to keep the constant `/health` healthcheck polls out of ingestion, so those traces
+now arrive: see [Verifying in Datadog](#verifying-in-datadog).
 
 | Setting | Value |
 |---|---|
-| `PORT` | `8126` |
 | Healthcheck path | `/info` (the trace agent's info endpoint) |
+| Replicas | 1 |
+| Restart policy | `NEVER` |
+
+The healthcheck points at `/info` because the agent serves the trace receiver rather than anything
+on a conventional health path. Note the restart policy: with `NEVER`, a deploy that fails its
+healthcheck hangs in `DEPLOYING` while the previous container keeps serving, which makes a variable
+change look like it had no effect.
 
 Private networking is scoped per environment, so `staging` and `production` each need their own
 agent service. Staging cannot share the production agent.
 
 Set `DD_API_KEY` directly in each environment. It is a sealed variable, so its value cannot be
 read back, which also means it cannot be copied by syncing the service from another environment:
-a sync produces a variable that is present by name but empty, and the container then fails init
-with `01-check-apikey.sh: exited 1` while every listing still shows `DD_API_KEY` as set.
+a sync produces a variable that is present by name but empty while every listing still shows
+`DD_API_KEY` as set, and the container then fails to start. Sealed variables are also absent from
+listings entirely, so a name missing from `list-variables` does not mean it is unset.
 
 ## App service variables
 
 | Variable | Value |
 |---|---|
-| `DD_AGENT_HOST` | `datadog-agent.railway.internal` (the agent service's internal hostname) |
+| `DD_AGENT_HOST` | the agent service's internal hostname, `<service name>.railway.internal` (the service is currently named `datadog-agent-rust`) |
 | `DD_SERVICE` | `trmnl-api` |
 | `DD_ENV` | `staging` or `production` |
 | `DD_VERSION` | not a variable; set by the start command, see below |
+| `DD_HTTP_SERVER_TAG_QUERY_STRING` | `false` |
+| `DD_HTTP_CLIENT_TAG_QUERY_STRING` | `false` |
+| `DD_RUNTIME_METRICS_ENABLED` | tracer-side, nothing to do with the agent |
+
+Both `DD_HTTP_*_TAG_QUERY_STRING` are off because coordinates are PII: automatic instrumentation
+otherwise records the raw request at full precision, which is finer than the `F1` rule the tags this
+service sets obey. See [Span tags](#span-tags-on-aspnet_corerequest).
+
+Also set here, all tracer configuration: `DD_INSTRUMENTATION_TELEMETRY_ENABLED`,
+`DD_REMOTE_CONFIGURATION_ENABLED`, `DD_TRACE_PROPAGATION_STYLE`,
+`DD_TRACE_PROPAGATION_BEHAVIOR_EXTRACT`, `DD_TRACE_REMOVE_INTEGRATION_SERVICE_NAMES_ENABLED`,
+`DD_TRACE_SAMPLE_RATE`, `DD_TRACE_STATS_COMPUTATION_ENABLED`.
 
 `DD_TRACE_AGENT_PORT` stays at its default `8126`. `DD_LOGS_INJECTION` already defaults to `true`.
 
@@ -179,7 +201,11 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
   `weather.winning_provider`, and `weather.fallback`
 - no `weather.*` coordinate finer than one decimal place, and no `http.url_details.queryString.*`
   tags at all
-- no spans for `GET /health`
+- `GET /health` spans **are** expected. `DD_APM_IGNORE_RESOURCES` used to drop them on the full
+  agent and the compat agent has no equivalent yet, so the healthcheck's own traces arrive, with
+  `status: ok` and no `weather.*` tags. To drop them without the agent, a tracer-side sampling rule
+  on the resource is the lever, at the cost of losing them entirely rather than just un-indexing
+  them.
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.
 
