@@ -213,18 +213,25 @@ The two features layer rather than compete:
 |---|---|
 | Coordinates | Given directly, or from forward geocoding |
 | `country_code`, `subdivision` | **Always** the Natural Earth polygon lookup, run on the final coordinates |
-| `city` | The geocoding result when there was one, else the GeoNames nearest-place fallback |
+| `city` / `name` | The geocoding result when there was one, else the GeoNames nearest-place fallback |
 
 Running the polygon lookup for both input paths keeps the ISO codes consistent and gives one code
 path instead of two sources of truth. Using the geocoded name for `city` is strictly better than
 nearest-place when it is available, because it is the place the user actually named.
 
-### This should be built first
+The same rule now governs what reaches the **screen**, not only what reaches a span: the plan is for
+the bundled data to populate the `place` block on coordinate input too, where it is omitted today,
+and to supply a subdivision **code** in place of Open-Meteo's display name. That makes this document
+the source of `place` only for the geocoded `name`; everything else in the block comes from
+[geographic-telemetry.md](geographic-telemetry.md#the-two-use-cases).
 
-v2 has to emit the `weather.input_kind` tag from [Telemetry](#telemetry), so that the split between
-coordinate and place input becomes measurable. That measurement is what decides whether the polygon
-work is worth building at all; the argument lives in
-[geographic-telemetry.md](geographic-telemetry.md#sequencing-build-v2-first).
+### This was built first
+
+v2 emits the `weather.input_kind` tag from [Telemetry](#telemetry), which makes the split between
+coordinate and place input measurable. That measurement was once expected to decide whether the
+polygon work happened at all. It no longer does: the bundled data became user-facing as well as
+internal, and both input paths need it, so the split now sizes the benefit rather than gating it.
+See [geographic-telemetry.md](geographic-telemetry.md#what-the-input_kind-reading-is-still-for).
 
 ## Response shape (v2)
 

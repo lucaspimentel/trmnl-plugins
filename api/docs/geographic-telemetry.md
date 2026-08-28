@@ -1,54 +1,160 @@
-# Geographic telemetry (design, not yet implemented)
+# Place names from coordinates (design, not yet implemented)
 
 **Status: proposed, decisions made.** Nothing in this document is in the code yet. The tags described
 under [What to emit](#what-to-emit) do not exist; the only location data on a span today is
 `weather.coord` / `weather.latitude` / `weather.longitude`, all `F1`, as listed in
-[observability.md](observability.md).
+[observability.md](observability.md). On the response side, today's `place` block comes from
+Open-Meteo's forward geocoding and is **omitted entirely** when the caller sent coordinates, so a
+coordinate user currently sees no location on screen at all.
 
-The goal is to group forecast telemetry by place - country, subdivision, city - instead of by a
-numeric coordinate, so a dashboard can answer "which regions see provider failures", "does cache hit
-rate vary by geography", and "where are the users" without a human decoding coordinates.
+Bundled geographic data serves two goals, one user-facing and one internal:
 
-Related: [place-input.md](place-input.md), which covers the inverse problem (a user-supplied place
-name to coordinates) and specifies the v2 API. The two features meet in the middle, and that one was
-built first, deliberately: see [Sequencing](#sequencing-build-v2-first).
+1. **Show the resolved location on screen**, for every input shape rather than only for the users
+   who typed a place name.
+2. **Group forecast telemetry by place** - country, subdivision, city - instead of by a numeric
+   coordinate, so a dashboard can answer "which regions see provider failures" or "where are the
+   users" without a human decoding coordinates.
+
+Both read the same lookup. They differ in what they do with the result, and the difference matters
+enough to state once rather than leave to be inferred: see
+[Display and telemetry are separate decisions](#display-and-telemetry-are-separate-decisions).
+
+Related: [place-input.md](place-input.md), which covers the other direction (a user-supplied place
+name to coordinates) and specifies the v2 API. That one was built first, deliberately, and this
+document assumes it has shipped.
+
+## The two use cases
+
+Every forecast request resolves to a latitude/longitude pair before anything else happens. Only the
+first step differs between the two input shapes:
+
+| Step | Case 1: input is coordinates | Case 2: input is a place name or postal code |
+|---|---|---|
+| 1. Get coordinates | Parse them. **No geocoding request** | **Open-Meteo forward geocoding**, as today |
+| 2. Fetch the forecast | By coordinates | By coordinates - identical |
+| 3. Get a display name | Our own data | Our own data, **except `name`** - see below |
+| 4. Emit telemetry | Our own data | Our own data |
+
+Open-Meteo's geocoding API keeps exactly one job: **turning a user's typed place into coordinates**.
+Every name and code that reaches a screen or a span comes from bundled data instead.
+
+### Except the name the user typed
+
+Step 3 is not quite symmetric, and making it symmetric would be a regression.
+
+In case 2 the user typed `Stoneham, MA`. If the display name came from our nearest-place lookup, the
+screen could read `Melrose` - not wrong, since it may genuinely be the nearest populated place to
+those coordinates, but not what they asked for either. It reads as a bug, and it defeats the reason
+the block exists: confirming that *the thing you asked for is the thing you got*. Substituting a
+different nearby name breaks that confirmation exactly when a user most needs it.
+
+So the rule is a hybrid, and it is the same rule this document already applies to `weather.city`:
+
+| Field | Case 1 (coordinates) | Case 2 (place name) |
+|---|---|---|
+| `name` | Nearest populated place, from our data | **The geocoder's matched name** - the place the user named |
+| `admin1` / subdivision | Our data | Our data |
+| `country` / `country_code` | Our data | Our data |
+
+That fixes the subdivision defects below on both paths without ever renaming a user's own input.
+
+### What the input_kind reading is still for
+
+[place-input.md](place-input.md) item 13 reads the `weather.input_kind` split on v2 traffic. That
+reading was once the gate on whether this work happened at all, back when it served coordinate input
+only. It is not any more: case 2 needs the subdivision codes just as much as case 1 does, so the
+split now sizes the benefit rather than deciding it.
+
+It is still worth reading, with the same two caveats as before. Read it on **v2 traffic only**,
+identified by the route - v1 takes coordinates and nothing else, and forks keep it alive, so an
+unfiltered reading measures how many installs have upgraded rather than what anyone prefers. And read
+it from the **plugin push onwards**, because v2 served production for a short window before the
+plugin moved, during which every install still sent coordinates from the old template.
+
+## Why our own data rather than the geocoder
+
+The obvious cheaper design is to ask a hosted service to turn coordinates back into a place, rather
+than bundling polygons and a city list. The service already holds a paid Open-Meteo geocoding
+subscription and already has the memo and negative-caching machinery built for the forward direction,
+so a reverse endpoint would be a small addition.
+
+It is rejected on **data quality**, not on cost or latency, and specifically on the quality of what
+this vendor returns:
+
+- **`admin1` is a display name, never a code.** Open-Meteo returns `Massachusetts` with a GeoNames id
+  attached and no ISO 3166-2 field at all, verified against the live API. Codes are not a nicety
+  here; see [The 18-character problem](#the-18-character-problem).
+- **Subdivisions go missing.** Puerto Rico has been observed coming back with no `admin1` at all.
+  Whatever the cause, a territory silently losing its subdivision is the class of defect a bundled
+  dataset with a real `iso_3166_2` field does not have.
+
+A reverse endpoint from the same vendor would inherit both, and switching vendors trades one opaque
+dependency for another. Bundling is what actually buys control over the fields. The same bundle then
+serves telemetry, which needs ISO codes that no forward geocoder supplies at all.
+
+## What the user sees
+
+The `place` block already exists in the v2 response and the title bar already renders it
+(`plugins/weather/src/shared.liquid:456`, guarded by `{% if place %}`). Two things change, and
+**neither is a template change**:
+
+1. The block gets populated for coordinate input, where it is omitted today.
+2. `admin1` carries a code rather than a display name.
+
+### The 18-character problem
+
+The title bar appends the subdivision only when the combined label fits in 18 characters
+(`shared.liquid:455`):
+
+```liquid
+{% assign with_admin1 = place.name | append: ", " | append: place.admin1 %}
+{% if with_admin1.size <= 18 %}{% assign place_label = with_admin1 %}{% endif %}
+```
+
+`Boston, Massachusetts` is 21 characters, so it silently renders as **`Boston`**. The same happens
+for Pennsylvania, North Carolina, and every other long subdivision name. `Boston, MA` is 10 and fits.
+
+This is why codes are load-bearing rather than cosmetic. The ambiguity mitigation that `Place.cs`
+describes as the entire reason for the block - letting someone see they got Portland, Maine rather
+than Portland, Oregon - is not working today for a large share of US users, because the state is
+precisely the part being dropped.
+
+## Display and telemetry are separate decisions
+
+The two goals read one lookup but are not one decision. They have different accuracy thresholds and
+different privacy consequences.
+
+| | Display | Telemetry |
+|---|---|---|
+| Audience | The one user whose location it is | An aggregate dataset, retained and queried |
+| A wrong-but-plausible name | **Actively harmful**: it is believed, so the mitigation misleads | Grouping noise |
+| A blank result | Acceptable - renders nothing, exactly as today | Acceptable - an unfilterable bucket |
+| Privacy weight | None. Showing users their own location is not an emission | Real. See [PII](#pii) |
+
+The consequence that matters: **a field may be rendered without being tagged.** `weather.city` can be
+withheld from telemetry on privacy grounds while `place.name` still reaches the screen, because
+showing someone their own location is not the same act as retaining hundreds of users' locations in a
+queryable store. An earlier draft conflated these and concluded city should be "optional". It is
+optional as a *tag* and mandatory as a *display field*.
+
+The other consequence: **display sets the accuracy bar**, and it is the higher of the two. A name
+that is merely near enough to group by is not near enough to show.
 
 ## Decisions
 
 | Question | Decision |
 |---|---|
+| Purpose | A user-facing display name **and** telemetry grouping, from one lookup |
+| What Open-Meteo still does | Forward geocoding only: a typed place to coordinates |
+| Display `name`, case 2 | The **geocoder's matched name**, not our nearest place |
+| Codes and subdivision | Always bundled data, both cases |
 | Input precision | **F2** (~1.1 km), the already-snapped orchestrator values |
 | Country + subdivision | Point-in-polygon against Natural Earth **50m admin-1** |
-| City | Nearest populated place from GeoNames `cities15000` |
+| City | Nearest populated place from GeoNames, at the grain set in [How to resolve a coordinate](#how-to-resolve-a-coordinate) |
 | No match (ocean, unmapped) | Snap to nearest within a bounded radius, else blank |
-| Timing | **Synchronous, in the request path**, behind a memo |
-| Surfaces | Span tags **and** the `ForecastServed` log line. No span-based metric today |
+| Timing | **Synchronous, in the request path**, behind a memo and a time budget |
+| Surfaces | The v2 `place` block, span tags, and the `ForecastServed` log line. No span-based metric today |
 | Packaging | In-process project `TrmnlApi.Geo`, **not** a separate deployed service |
-
-## Sequencing: build v2 first
-
-**v2 has shipped**, so this is now a question of reading the data rather than deciding what to build
-next. See [place-input.md](place-input.md).
-
-This work only ever serves **coordinate** input. v2 takes a single free-form `place` parameter
-accepting a city name or postal code, and forward geocoding returns country, country code, and a city
-name directly, with no polygons involved.
-
-Non-forked installs upgrade automatically, so most traffic has already moved to v2. If place input
-dominates there, the polygon lookup serves a small minority and a much cheaper approximation may be
-enough. v2 carries the `weather.input_kind` tag (`coordinates` or `place`) for exactly this reading.
-
-Read that split on **v2 traffic only**, identified by the route. v1 takes coordinates and nothing
-else, and forks will keep it alive for a while, so an unfiltered reading measures how many installs
-have upgraded rather than what anyone prefers.
-
-Read it from the **plugin** push onwards, too. v2 served production for a short window before the
-plugin moved, and during it every install was still sending coordinates from the old template, so
-that traffic reads `coordinates` regardless of what those users would have chosen.
-
-What forward geocoding does **not** supply is an ISO-3166-2 subdivision code - Open-Meteo returns
-`admin1` as a display name with a GeoNames id, verified against the live API. So if `weather.subdivision` matters, the polygon lookup remains the
-only source of it, for both input paths.
 
 ## This is not about making the geomap work
 
@@ -57,21 +163,27 @@ true only of **metric** queries. Log Events geomaps do accept latitude/longitude
 already built and working off the `ForecastServed` log line. Commit `a3bcfef` ("Plot weather request
 locations on a map") succeeded; it was not blocked on ISO codes.
 
-So the map is done, and the reasons to do this work are the other ones:
+So the map is done, and the reasons to do this work are the other ones. The first of them is not a
+telemetry reason at all:
 
+- **Showing the location on screen**, for coordinate users who see nothing today and for everyone
+  whose subdivision is currently dropped. See [What the user sees](#what-the-user-sees). This is the
+  goal that makes the work worth doing on its own.
 - **Readable facets and top-lists.** Trace search grouped on `weather.city` beats grouped on
   `42.4,-71.1`.
 - **Cardinality, if a span-based metric is ever added.** A metric cannot take a coordinate, and
   grouping on `country_code` collapses a few hundred distinct cells into a few dozen values. See
   [Cardinality budget](#cardinality-budget).
-- **Measuring cache-sharing potential.** `weather.city` is the only practical read on whether the F2
-  cache key is fragmenting entries that an F1 key would share. See
-  [Open question this would answer](#open-question-this-would-answer).
+- **Measuring cache-sharing potential** falls out of it, but is explicitly **not** a motivation. See
+  [A side effect: cache sharing becomes visible](#a-side-effect-cache-sharing-becomes-visible).
 
 ## Where the coordinates come from
 
-The plugin collects raw `latitude` / `longitude` numbers (`plugins/weather/src/settings.yml`). There
-is no place name anywhere in the request to piggyback on, so reverse geocoding is genuinely required.
+Coordinates reach the API two ways now: a user who typed a pair into the Location field, and a user
+still on the deprecated `latitude` / `longitude` fields (`plugins/weather/src/settings.yml`). Neither
+carries a place name to piggyback on, so a lookup from coordinates is genuinely required. The third
+way - a typed place name - has a name already, which is what the hybrid rule in
+[Except the name the user typed](#except-the-name-the-user-typed) preserves.
 
 Datadog's built-in GeoIP processor is **not** an option. TRMNL fetches `polling_url` server-side, so
 the client IP on an incoming forecast request belongs to TRMNL's infrastructure, not to the user's
@@ -92,12 +204,15 @@ geomap or metric group-by; `US-MA` is unreadable in a top-list. They are cheap, 
 
 When a request carried a place name rather than coordinates, `weather.city` comes from the geocoding
 result instead of the nearest-place lookup, because that is the place the user actually named. The
-code fields still come from the polygon lookup either way. See
-[place-input.md](place-input.md#how-the-two-features-layer).
+code fields still come from the polygon lookup either way. This is the same hybrid the display side
+uses, deliberately, so a span and a screen never disagree about where a user is: see
+[Except the name the user typed](#except-the-name-the-user-typed).
 
 ### Surfaces
 
-Both the span tags and the `ForecastServed` log message get these fields. Adding them to the log line
+Three surfaces now, not two: the **`place` block in the v2 response**, the span tags, and the
+`ForecastServed` log message. The response block is the user-facing one and is the reason the
+accuracy bar is where it is. Adding them to the log line
 requires **no** change to `appsettings.json` or to `DatadogLogAllowlistTests`: the category
 `TrmnlApi.Observability.ForecastServed` is already allowed at `Information`, and the allowlist filters
 on category and level, not on message parameters. Only introducing a *new* logger category would move
@@ -127,13 +242,13 @@ Lazy and memoized, not precomputed.
 |---|---|
 | Input | The **F2** coordinates the orchestrator has already snapped |
 | Dataset, country + subdivision | Natural Earth **50m admin-1** polygons, bundled in the image |
-| Dataset, city | GeoNames `cities15000`, bundled in the image |
+| Dataset, city | GeoNames `cities1000`, bundled in the image - see [City grain is set by display](#city-grain-is-set-by-display) |
 | Country / subdivision | **Point-in-polygon** |
 | City | Nearest populated place, display-only |
-| Fallback | Nearest polygon or place **within a bounded radius** (start at 50 km), else blank |
+| Fallback | Nearest polygon or place **within a bounded radius**, else blank. Radius differs by surface: generous for codes, tight for a displayed city name |
 | Memo key | Packed long from the F2 cell, `(latE2 + 9000) * 36001L + (lonE2 + 18000)` |
 | Memo storage | Bounded, in its **own** `MemoryCache` instance |
-| Failure | Non-throwing. Telemetry must never fail a forecast; unresolvable cells return a blank record |
+| Failure | Non-throwing **and time-budgeted**. A lookup must never fail *or* delay a forecast; on either, return a blank record |
 
 ### One dataset covers three fields
 
@@ -151,8 +266,25 @@ The fields pull in opposite directions, which is why neither source alone is eno
   GeoNames does not, so the subdivision *code* has to come from Natural Earth regardless of any
   border-accuracy argument.
 - **Natural Earth is thin on cities.** ~1,250 populated places at 50m and ~7,350 at 10m, against
-  ~26,000 in GeoNames `cities15000`. The city label has to come from GeoNames or rural users all
-  resolve to the same handful of metros.
+  ~26,000 in GeoNames `cities15000` and ~150,000 in `cities1000`. The city label has to come from
+  GeoNames or rural users all resolve to the same handful of metros - which was tolerable when this
+  was a grouping key and is not once it is on a screen.
+
+### City grain is set by display
+
+`cities15000` was chosen when the city label was telemetry only. For grouping traces, "nearest
+populated place within 50 km" is acceptable noise. On a title bar it is a visible error, and a
+plausible wrong name is worse than no name at all: the user reads `Boston`, believes it, and the
+ambiguity mitigation has actively misled them rather than merely failed.
+
+So go finer. GeoNames publishes `cities15000`, `cities5000`, `cities1000` and `cities500`;
+`cities1000` is roughly 150,000 rows, which is nothing behind an R-tree and still small enough to
+bundle. Revisit the fallback radius at the same time - 50 km is far too generous for something a
+human reads, even if it remains reasonable for assigning a country code.
+
+The two surfaces may legitimately disagree here: a distant nearest-city is good enough to tag and
+not good enough to render. Blank on screen is an acceptable outcome, since the title bar already
+renders nothing when `place` is absent.
 
 ### Why F2 and not F1
 
@@ -191,6 +323,10 @@ An F2 cell centre near a coast frequently lands in water, where containment retu
 users are a meaningful share of a weather plugin's audience, so a pure-containment implementation
 would silently drop them from the telemetry. Hence the bounded-radius snap: near enough to land, take
 the nearest polygon; genuinely mid-ocean, return blank rather than inventing a country.
+
+Coastal cells are also where the display and telemetry radii pull apart hardest. A cell 30 km off
+shore can still be tagged with the right country, and should be; naming a city for it on screen is a
+guess the user has no way to check.
 
 ### Why lazy beats precomputing
 
@@ -277,8 +413,10 @@ Three real constraints, though:
   defeats that change. Coarsen them together.
 - **The aggregate is a user-location dataset.** This is a public plugin with hundreds of users, and
   TRMNL devices sit in homes, so these are home locations. If any users are in the EU, GDPR applies
-  to the aggregate. This argues for treating the ISO codes as the primary fields and `city` as
-  optional.
+  to the aggregate. This argues for treating the ISO codes as the primary **tags** and `weather.city`
+  as the optional one. It says nothing about `place.name`: rendering users their own location is not
+  a retained dataset, so the display field is unaffected by this constraint. See [Display and
+  telemetry are separate decisions](#display-and-telemetry-are-separate-decisions).
 - **Direct log submission skips scrubbing.** It does not get the Agent's sensitive-data scrubbing
   (see [observability.md](observability.md#logs)), so anything added to a log line has to respect the
   same F1 ceiling. The place fields do.
@@ -289,19 +427,25 @@ more accurate, not less, but it means the city is not reproducible from the tagg
 
 ### Dataset licensing
 
-Natural Earth is public domain. GeoNames is CC BY 4.0 and **requires attribution**, so using
-`cities15000` for the city label means shipping a NOTICE file in the image.
+Natural Earth is public domain. GeoNames is CC BY 4.0 and **requires attribution**, so shipping a
+NOTICE file in the image is unconditional: the city label is a display field now, not a tag that
+could be dropped on privacy grounds, so there is no version of this design that omits GeoNames.
 
 Existing NuGet options were checked and rejected: `ReverseGeocoder` (0.3.0) and
 `Wibci.CountryReverseGeocode` are both low-activity and neither bundles its data.
 
-## Open question this would answer
+## A side effect: cache sharing becomes visible
+
+Recorded because it is true and easy to forget, **not** as a reason to build any of this. The cache
+grain is settled: F2 for requesting and caching, F1 for telemetry and logging. Nothing below is a
+proposal to change it.
 
 The forecast cache keys on **F2** (~1.1 km, `WeatherCache.CacheKey`) while telemetry emits **F1**
 (~11 km). Nothing tags F2, so the number that decides whether nearby users share a cache entry -
 distinct F2 keys per F1 cell - is structurally invisible today.
 
-`weather.city` measures it directly: users per city *is* the sharing potential. Until then the only
+`weather.city` would measure it directly, for free, once it exists: users per city *is* the sharing
+potential. Until then the only
 read is indirect, via the raw `FreshFetch` / `FreshHit` counters at `GET /metrics`. A hit rate at or
 below what the sub-hourly refresh cohort alone would produce implies F2 fragmentation is preventing
 sharing, and that the cache key grain should move to F1 (or 0.05 degrees as a compromise for coastal
