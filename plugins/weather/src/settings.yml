@@ -85,5 +85,5 @@ custom_fields:
   - 12h
   - 24h
 name: LP Weather
-description: ''
+description: 'Weather: current, hourly, daily'
 refresh_interval: 60
