@@ -34,6 +34,35 @@ public class WeatherV2EndpointTests
         Assert.Equal(-71.06, place.GetProperty("longitude").GetDouble());
     }
 
+    [Theory]
+    [InlineData("&show_place=yes")]
+    [InlineData("&show_place=maybe")]
+    [InlineData("")]
+    public async Task Handle_ShowPlaceNotDeclined_KeepsThePlaceBlock(string setting)
+    {
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get($"?place=Boston{setting}");
+
+        Assert.Equal(200, status);
+        Assert.True(Json(body).TryGetProperty("place", out _));
+    }
+
+    [Fact]
+    public async Task Handle_ShowPlaceNo_OmitsThePlaceBlock()
+    {
+        // The title bar guards on the block being there, so dropping it is how the setting
+        // reaches a template that cannot read the setting itself.
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get("?place=Boston&show_place=no");
+
+        Assert.Equal(200, status);
+        Assert.False(Json(body).TryGetProperty("place", out _));
+        // Still resolved, just not echoed: the forecast has to come from somewhere.
+        Assert.Equal(1, harness.GeocodingClient.Calls);
+    }
+
     [Fact]
     public async Task Handle_Coordinates_SkipsTheGeocoderAndOmitsThePlaceBlock()
     {

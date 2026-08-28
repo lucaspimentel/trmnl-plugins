@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language:
-polling_url: https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}
+polling_url: https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -94,6 +94,14 @@ custom_fields:
   options:
   - 12h
   - 24h
+- keyname: show_place
+  field_type: select
+  name: Show Location
+  description: "Append the location the API matched to the plugin name in the title bar, as in 'LP Weather - Boston, MA'. The name itself is yours to change (the Name field at the top of this page), so you can set it to your city and turn this off. Worth leaving on at least once: a city name or postal code can quietly match somewhere else entirely, and this is how you would notice."
+  default: 'yes'
+  options:
+  - 'yes'
+  - 'no'
 name: LP Weather
 description: 'Weather: current, hourly, daily'
 refresh_interval: 60

@@ -72,6 +72,10 @@ public class WeatherV2Endpoint
         }
 
         var use24Hour = query["time_format"].FirstOrDefault() is "24h";
+
+        // A display preference rather than a data one, but custom field values are unreadable
+        // from Liquid, so the response body is the only way one can reach the template.
+        var showPlace = query["show_place"].FirstOrDefault() is not "no";
         var requestedProvider = query["provider"].FirstOrDefault();
 
         var placeParam = query["place"].FirstOrDefault();
@@ -210,7 +214,7 @@ public class WeatherV2Endpoint
 
         weatherResponse = weatherResponse with
         {
-            Place = place,
+            Place = showPlace ? place : null,
             Meta = new Meta(
                 Cache: cacheStatus,
                 Provider: outcome.WinningProvider,

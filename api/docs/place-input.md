@@ -257,6 +257,13 @@ The resolved location, echoed back beside the forecast:
 The plugin renders this block, which makes it required rather than decorative: it is how a user finds
 out they got Paris instead of Addison. See [Ambiguity](#ambiguity-first-result-wins).
 
+The block is **omitted when the request carries `show_place=no`**, which is the plugin's Show
+Location setting. Custom field values are unreadable from Liquid, so a setting that only affects
+rendering still has to make the round trip; suppressing the block at the source is what a template
+that cannot read the setting can act on. Showing it is the default, and an unrecognized value shows
+it, so nothing that omits the parameter changes behavior. A user who turns it off gives up the
+ambiguity mitigation above, which is the point of it being a choice rather than a default.
+
 `admin1` is the geocoder's display name, not an ISO code. Open-Meteo never returns ISO 3166-2, so the
 subdivision **code** can only come from the polygon lookup in
 [geographic-telemetry.md](geographic-telemetry.md#what-to-emit), which is a telemetry concern and is
