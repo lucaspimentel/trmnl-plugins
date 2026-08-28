@@ -55,6 +55,7 @@
 .wi-wmo4680-99:before { content: "\f056"; }
 .wi-na:before { content: "\f07b"; }
 .wi-umbrella:before { content: "\f084"; }
+.wi-refresh:before { content: "\f04c"; }
 .wi-strong-wind:before { content: "\f050"; }
 .wi-sunrise:before { content: "\f051"; }
 .wi-sunset:before { content: "\f052"; }
@@ -441,25 +442,32 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% when "pirate-weather" %}{% assign provider_label = "Pirate Weather" %}
   {% else %}{% assign provider_label = provider %}
 {% endcase %}
-{% if cache == "stale_served" %}{% assign updated_label = "Updated ⚠︎" %}{% else %}{% assign updated_label = "Updated" %}{% endif %}
+{%- comment -%}
+  compact drops what the narrow layouts have no room for: the plugin name, and the
+  provider those callers already leave out. What is left is the place and the
+  timestamp, in the format every layout uses.
+{%- endcomment -%}
 <div class="title_bar">
   {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
-  <span class="title">{{ plugin_name }}</span>
-  {% if place %}<span class="instance">{{ place.name }}{% if place.admin1 %}, {{ place.admin1 }}{% endif %}{% if updated_at %} ·{% endif %}</span>{% endif %}
+  {% unless compact %}<span class="title">{{ plugin_name }}</span>{% endunless %}
+{%- comment -%}
+  The place is echoed back so a wrong match is visible, but a full subdivision name
+  ("Stoneham, Massachusetts") outruns the line. Character count stands in for width:
+  the bar has no measurement to offer a template, and the name alone is always
+  preferable to a name the bar cuts off mid-word.
+{%- endcomment -%}
+{% assign place_label = place.name %}
+{% if place.admin1 %}{% assign with_admin1 = place.name | append: ", " | append: place.admin1 %}{% if with_admin1.size <= 18 %}{% assign place_label = with_admin1 %}{% endif %}{% endif %}
+  {% if place %}<span class="title">{% unless compact %}· {% endunless %}{{ place_label }}</span>{% endif %}
   {% if updated_at %}
-  {% if provider_label %}
-  {% if time_format == "24h" %}
-  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %H:%M" }} from {{ provider_label }}</span>
-  {% else %}
-  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%Y/%-m/%-d %-I:%M %p" }} from {{ provider_label }}</span>
-  {% endif %}
-  {% else %}
-  {% if time_format == "24h" %}
-  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%a %H:%M" }}</span>
-  {% else %}
-  <span class="instance">{{ updated_label }} {{ updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: "%a %-I:%M %p" }}</span>
-  {% endif %}
-  {% endif %}
+  {% if time_format == "24h" %}{% assign stamp_format = "%Y/%-m/%-d %H:%M" %}{% else %}{% assign stamp_format = "%Y/%-m/%-d %-I:%M %p" %}{% endif %}
+  {% assign stamp = updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: stamp_format %}
+{%- comment -%}
+  A refresh glyph carries what the word Updated used to, in a fraction of the width.
+  A stale serve swaps it for a warning: the timestamp alone cannot say that it is
+  older than it should be.
+{%- endcomment -%}
+  <span class="instance">{% if cache == "stale_served" %}⚠︎{% else %}<i class="wi wi-refresh wi-sz-sm"></i>{% endif %} {{ stamp }}{% if provider_label %} from {{ provider_label }}{% endif %}</span>
   {% endif %}
 </div>
 {% endtemplate %}

@@ -26,5 +26,5 @@
     <div class="title mt--4" data-pixel-perfect="true">No weather data available.</div>
   </div>
   {% endif %}
-  {% render "title_bar", plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, cache: meta.cache, time_format: meta.time_format, place: place %}
+  {% render "title_bar", compact: true, plugin_name: trmnl.plugin_settings.instance_name, updated_at: current.time, icon_class: current.icon_class, cache: meta.cache, time_format: meta.time_format, place: place %}
 </div>
