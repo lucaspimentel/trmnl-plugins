@@ -1,10 +1,49 @@
 # Bundled geographic data
 
-**Status: implemented.** `api/src/TrmnlApi.Geo` serves both directions - a typed place to
-coordinates, and coordinates to a label - from one bundled SQLite file, built by
+**Status: code shipped, no artifact yet.** `api/src/TrmnlApi.Geo` serves both directions - a typed
+place to coordinates, and coordinates to a label - from one bundled SQLite file, built by
 `api/tools/GeoDataBuilder` and fetched into the image by pinned URL and sha256
 (`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the `F1`
 coordinate tags listed in [observability.md](observability.md).
+
+**What's actually running on staging right now:** the code path is deployed
+(commit `e1261d7`), but `GEO_DATA_URL` / `GEO_DATA_SHA256` are unset, so the image has no dataset.
+`GeoDatabaseHolder` logs one warning at boot and both services fall back to their null
+implementations - every place lookup goes to Open-Meteo, and coordinate input still shows no
+`place` block. This is the documented degrade path working as designed, not a bug. Verified against
+`https://trmnl-plugins-staging.up.railway.app/api/v2/forecast` on 2026-08-28: `?place=42.36,-71.06`
+returns `place: null`; `?place=Boston` resolves via the vendor with `admin1: "Massachusetts"` (full
+name, not the short code), confirming the local geocoder missed and fell through cleanly.
+
+### Rollout checklist (pick up here next session)
+
+1. **Get the four upstream files** into one input directory: `ne_10m_admin_1_states_provinces.shp`
+   (+ `.dbf`/`.shx`) from Natural Earth, and `cities1000.txt`, `admin1CodesASCII.txt`, and the
+   *postal* `allCountries.txt` (not the GeoNames dump of the same name) from GeoNames. Links are in
+   the plan this feature was built from; none have been fetched yet in this repo.
+2. **Run the builder**: `dotnet run --project api/tools/GeoDataBuilder -- --input <dir> --output geo.sqlite`.
+   Never run. First run will shake out any shapefile attribute-name or parsing assumptions
+   `GeoDatabaseWriter` made without real input.
+3. **Check the artifact size** against the ~10-25 MB estimate in
+   [Keeping the polygons out of RAM](#keeping-the-polygons-out-of-ram). Wildly over means the
+   simplify/trim pass isn't working as intended.
+4. **Publish `geo.sqlite` as a GitHub release asset** on this repo, and compute its sha256.
+   This is a deliberate public publish of ~100 MB of derived Natural Earth / GeoNames data, not a
+   side effect - call it out before doing it.
+5. **Set `GEO_DATA_URL` and `GEO_DATA_SHA256`** as build args on the Railway **staging** service
+   first (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment), then
+   redeploy.
+6. **Re-run the smoke test** above against staging: `?place=42.36,-71.06` should now return a
+   populated `place` block, and `?place=Boston` should return `admin1: "MA"` rather than
+   `"Massachusetts"`.
+7. **Check on a real device** (push the plugin to staging with `bash tools/push-plugin.sh
+   plugins/weather --dry-run` first to review, then without `--dry-run`), confirm the title bar
+   renders correctly for both a coordinate-based and a place-based install.
+8. **Promote to production**: same two build args, on the `production` environment, then push the
+   prod plugin.
+9. **After about a week**, read `weather.geocoder` in the `ForecastServed` logs. A quiet
+   `open-meteo` count is what licenses deleting `OpenMeteoGeocodingClient` and the paid Open-Meteo
+   geocoding subscription - not before.
 
 Several decisions in the original design note were **wrong**, and were corrected during
 implementation by measuring against the live APIs and the actual datasets. Where this document now
