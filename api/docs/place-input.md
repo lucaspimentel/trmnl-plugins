@@ -36,7 +36,7 @@ status only.
 | 8 | v2 endpoint and response models | Done: `/api/v2/forecast`, verified end-to-end on staging and again on production |
 | 9 | `weather.input_kind` span tag | Done, plus full error tagging; both tags and the two spans that originally carried them were later consolidated onto the request's own span - see [Telemetry](#telemetry) |
 | 10 | Plugin v2: `settings.yml` gains `place`, template renders the place block and the error | Done. `place`, `latitude` and `longitude` are all `optional: true`, so either form can be given and coordinates can be cleared; the coordinate fields are labelled deprecated - see [Migrating the plugin](#migrating-the-plugin). A Show Location setting was added on the same route afterwards, since the matched place is reassurance a user only needs until they have had it - see [The `place` block](#the-place-block) |
-| 11 | Ship staging, then production, then push the plugin | Done, in that order. Not yet confirmed on hardware: every check so far has been API responses and `trmnlp lint` |
+| 11 | Ship staging, then production, then push the plugin | Done, in that order, and confirmed on hardware: every test scenario was stepped through on a real screen from the plugin's Place setting |
 | 12 | Watch v1 route traffic; retire the endpoint when it goes quiet | Now measurable. Whatever still reaches v1 is fork traffic, since every non-forked install has moved |
 | 13 | Read `weather.input_kind` on v2 traffic; decides whether the polygon work happens at all | Now measurable, but only from the plugin push onwards. Before it, installs sent coordinates from the old template, so earlier v2 traffic reads `coordinates` regardless of what users would choose |
 | 14 | If it does: measure Natural Earth memory first, then `TrmnlApi.Geo` and the SQLite R-tree | Deferred, gated on data |
@@ -480,7 +480,8 @@ name, so nothing a real user enters collides with the prefix; `Testerton` is geo
 The sentinel rides in `place` rather than a query parameter of its own because `place` is a custom
 field the plugin already forwards verbatim. Selecting a scenario is therefore typing into the
 plugin's settings - no edit to `polling_url`, no push, no revert - which is the point, since these
-exist to be stepped through one at a time while watching a screen.
+exist to be stepped through one at a time while watching a screen. That is what closed out item 11:
+every scenario was checked on a real device this way, rather than by reading API responses.
 
 Not gated by environment. The service has no environment switch anywhere, and these are read-only
 canned responses; the two that fetch a forecast stand in a fixed location so the scenario itself
