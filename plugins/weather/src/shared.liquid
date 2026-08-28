@@ -442,14 +442,9 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
   {% when "pirate-weather" %}{% assign provider_label = "Pirate Weather" %}
   {% else %}{% assign provider_label = provider %}
 {% endcase %}
-{%- comment -%}
-  compact drops what the narrow layouts have no room for: the plugin name, and the
-  provider those callers already leave out. What is left is the place and the
-  timestamp, in the format every layout uses.
-{%- endcomment -%}
 <div class="title_bar">
   {% if icon_class %}<i class="wi {{ icon_class }} text-stroke text-stroke--thick mr--1.5 wi-sz-sm"></i>{% endif %}
-  {% unless compact %}<span class="title">{{ plugin_name }}</span>{% endunless %}
+  <span class="title">{{ plugin_name }}</span>
 {%- comment -%}
   The place is echoed back so a wrong match is visible, but a full subdivision name
   ("Stoneham, Massachusetts") outruns the line. Character count stands in for width:
@@ -458,9 +453,14 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
 {%- endcomment -%}
 {% assign place_label = place.name %}
 {% if place.admin1 %}{% assign with_admin1 = place.name | append: ", " | append: place.admin1 %}{% if with_admin1.size <= 18 %}{% assign place_label = with_admin1 %}{% endif %}{% endif %}
-  {% if place %}<span class="title">{% unless compact %}· {% endunless %}{{ place_label }}</span>{% endif %}
+  {% if place %}<span class="title">·</span><span class="title">{{ place_label }}</span>{% endif %}
   {% if updated_at %}
-  {% if time_format == "24h" %}{% assign stamp_format = "%Y/%-m/%-d %H:%M" %}{% else %}{% assign stamp_format = "%Y/%-m/%-d %-I:%M %p" %}{% endif %}
+{%- comment -%}
+  short_time is for the narrow layouts, where the plugin name, the place and a full
+  date do not fit together. The weekday says enough there: a screen refreshing every
+  hour is rarely showing a timestamp whose year is in question.
+{%- endcomment -%}
+  {% if short_time %}{% if time_format == "24h" %}{% assign stamp_format = "%a %H:%M" %}{% else %}{% assign stamp_format = "%a %-I:%M %p" %}{% endif %}{% else %}{% if time_format == "24h" %}{% assign stamp_format = "%Y/%-m/%-d %H:%M" %}{% else %}{% assign stamp_format = "%Y/%-m/%-d %-I:%M %p" %}{% endif %}{% endif %}
   {% assign stamp = updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: stamp_format %}
 {%- comment -%}
   A refresh glyph carries what the word Updated used to, in a fraction of the width.
