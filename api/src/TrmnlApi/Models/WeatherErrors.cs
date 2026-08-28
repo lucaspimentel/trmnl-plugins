@@ -24,7 +24,7 @@ public static class WeatherErrors
     /// <param name="quoted">The caller's input, already quoted and clipped.</param>
     public static ErrorInfo PlaceInvalid(string quoted) => new(
         ErrorCodes.PlaceInvalid,
-        $"{quoted} is not a location.",
+        $"{quoted} doesn't look like a location.",
         "If you pasted coordinates, check the order: latitude first, then longitude.");
 
     /// <param name="quoted">The caller's input, already quoted and clipped.</param>
