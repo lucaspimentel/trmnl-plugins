@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
@@ -27,7 +28,7 @@ public class WeatherEndpointTests
         cache.Set(Primary, 42.0, -71.0, false, MakeResponse("stale-primary"));
         clock.Advance(TimeSpan.FromMinutes(30)); // stale, but inside the 2h StaleTtl
 
-        var (status, body) = await execute();
+        var (status, body) = await execute("");
 
         Assert.Equal(200, status);
         Assert.Contains("\"cache\":\"stale_served\"", body, StringComparison.Ordinal);
@@ -46,7 +47,7 @@ public class WeatherEndpointTests
         cache.Set(Primary, 42.0, -71.0, false, MakeResponse("stale-primary"));
         clock.Advance(TimeSpan.FromHours(3)); // past StaleTtl, so nothing is left to serve
 
-        var (status, body) = await execute();
+        var (status, body) = await execute("");
 
         Assert.Equal(502, status);
         Assert.Equal("Failed to fetch weather forecast from upstream provider.", body);
@@ -61,7 +62,7 @@ public class WeatherEndpointTests
             new StubProvider(Primary) { Failure = new HttpRequestException("boom") },
             new StubProvider(Secondary) { Failure = new HttpRequestException("also down") });
 
-        var (status, body) = await execute();
+        var (status, body) = await execute("");
 
         Assert.Equal(502, status);
         Assert.Equal("Failed to fetch weather forecast from upstream provider.", body);
@@ -75,13 +76,28 @@ public class WeatherEndpointTests
         // invisible here, which is what DefaultIgnoreCondition.WhenWritingNull buys.
         var (execute, _, _, _) = Build(new StubProvider(Primary) { Response = MakeResponse("live") });
 
-        var (status, body) = await execute();
+        var (status, body) = await execute("");
 
         Assert.Equal(200, status);
         Assert.DoesNotContain("\"place\"", body, StringComparison.Ordinal);
     }
 
-    private static (Func<Task<(int Status, string Body)>> Execute, WeatherCache Cache, TestClock Clock, ForecastMetrics Metrics) Build(
+    [Fact]
+    public async Task Handle_FakeParameter_StillFlattensTheLastTwoDailyHighs()
+    {
+        // Forked plugins poll v1 and use this to preview a rainy week, so it has to keep working.
+        // It now shares an implementation with v2's precipitation test scenario.
+        var (execute, _, _, _) = Build(new StubProvider(Primary) { Response = MakeResponseWithEntries() });
+
+        var (status, body) = await execute("&fake=true");
+
+        Assert.Equal(200, status);
+        var daily = JsonDocument.Parse(body).RootElement.GetProperty("daily").GetProperty("entries");
+        var last = daily[daily.GetArrayLength() - 1];
+        Assert.Equal(last.GetProperty("low").GetInt32(), last.GetProperty("high").GetInt32());
+    }
+
+    private static (Func<string, Task<(int Status, string Body)>> Execute, WeatherCache Cache, TestClock Clock, ForecastMetrics Metrics) Build(
         params StubProvider[] providers)
     {
         var clock = new TestClock();
@@ -95,10 +111,10 @@ public class WeatherEndpointTests
         // IResult.ExecuteAsync resolves ILoggerFactory off the request services.
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
 
-        async Task<(int, string)> Execute()
+        async Task<(int, string)> Execute(string extraQuery)
         {
             var context = new DefaultHttpContext { RequestServices = services };
-            context.Request.QueryString = new QueryString("?latitude=42.0&longitude=-71.0");
+            context.Request.QueryString = new QueryString("?latitude=42.0&longitude=-71.0" + extraQuery);
             var responseBody = new MemoryStream();
             context.Response.Body = responseBody;
 
@@ -122,6 +138,16 @@ public class WeatherEndpointTests
         Current: new CurrentConditions("", 0, 0, 0, 0, marker, "", 0, 0, "", true),
         Hourly: new HourlyForecast([]),
         Daily: new DailyForecast([]));
+
+    private static WeatherResponse MakeResponseWithEntries() => new(
+        Current: new CurrentConditions("", 0, 0, 0, 0, "live", "", 0, 0, "", true),
+        Hourly: new HourlyForecast([new HourlyEntry("2026-01-01T00:00", "12a", 40, 0, "wi-day-sunny", true)]),
+        Daily: new DailyForecast(
+        [
+            new DailyEntry("2026-01-01", 50, 30, "clear", "wi-day-sunny", 0, "", ""),
+            new DailyEntry("2026-01-02", 52, 32, "clear", "wi-day-sunny", 0, "", ""),
+            new DailyEntry("2026-01-03", 54, 34, "clear", "wi-day-sunny", 0, "", "")
+        ]));
 
     private sealed class StubProvider(string name) : IWeatherProvider
     {

@@ -191,6 +191,103 @@ public class WeatherV2EndpointTests
         Assert.False(Json(body).TryGetProperty("error", out _));
     }
 
+    [Theory]
+    [InlineData("test:place_missing", ErrorCodes.PlaceMissing)]
+    [InlineData("test:place_invalid", ErrorCodes.PlaceInvalid)]
+    [InlineData("test:place_not_found", ErrorCodes.PlaceNotFound)]
+    [InlineData("test:request_invalid", ErrorCodes.RequestInvalid)]
+    [InlineData("test:weather_unavailable", ErrorCodes.WeatherUnavailable)]
+    // Typed into a web form, so the case it arrives in is not worth caring about.
+    [InlineData("TEST:Place_Missing", ErrorCodes.PlaceMissing)]
+    // A name nobody defined is itself a scenario rather than a place to geocode.
+    [InlineData("test:nonsense", ErrorCodes.RequestInvalid)]
+    public async Task Handle_ErrorTestScenario_ReturnsThatErrorWithA200(string place, string expectedCode)
+    {
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get("?place=" + Uri.EscapeDataString(place));
+
+        Assert.Equal(200, status);
+        Assert.Equal(expectedCode, ErrorCode(body));
+        Assert.Equal(0, harness.GeocodingClient.Calls);
+    }
+
+    [Fact]
+    public async Task Handle_UnknownTestScenario_NamesTheOnesThatExist()
+    {
+        var harness = new Harness();
+
+        var (_, body) = await harness.Get("?place=test:nonsense");
+
+        var message = Json(body).GetProperty("error").GetProperty("message").GetString()!;
+        Assert.Contains("stale", message, StringComparison.Ordinal);
+        Assert.Contains(ErrorCodes.WeatherUnavailable, message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("test:499", 499)]
+    [InlineData("test:502", 502)]
+    public async Task Handle_StatusCodeTestScenario_ReturnsThatStatus(string place, int expected)
+    {
+        var harness = new Harness();
+
+        var (status, _) = await harness.Get("?place=" + place);
+
+        Assert.Equal(expected, status);
+    }
+
+    [Fact]
+    public async Task Handle_ServerErrorTestScenario_Throws()
+    {
+        // Deliberately not caught here: the point is to reach the real unhandled-exception handler,
+        // which is what turns this into the 500 a device would actually receive.
+        var harness = new Harness();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Get("?place=test:500"));
+    }
+
+    [Fact]
+    public async Task Handle_StaleTestScenario_ServesARealForecastReportedAsStale()
+    {
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get("?place=test:stale");
+
+        Assert.Equal(200, status);
+        var meta = Json(body).GetProperty("meta");
+        Assert.Equal("stale_served", meta.GetProperty("cache").GetString());
+        Assert.True(meta.GetProperty("age_seconds").GetInt64() > 3600);
+        Assert.False(Json(body).TryGetProperty("error", out _));
+    }
+
+    [Fact]
+    public async Task Handle_PrecipitationTestScenario_FlattensTheLastTwoDailyHighs()
+    {
+        // The same transformation v1's fake parameter applies, so the two cannot drift.
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get("?place=test:precipitation");
+
+        Assert.Equal(200, status);
+        var daily = Json(body).GetProperty("daily").GetProperty("entries");
+        var last = daily[daily.GetArrayLength() - 1];
+        Assert.Equal(last.GetProperty("low").GetInt32(), last.GetProperty("high").GetInt32());
+    }
+
+    [Theory]
+    // No colon, so not a sentinel however much it looks like one.
+    [InlineData("test")]
+    [InlineData("Testerton")]
+    public async Task Handle_PlaceThatMerelyLooksLikeAScenario_IsGeocodedNormally(string place)
+    {
+        var harness = new Harness();
+
+        var (status, _) = await harness.Get("?place=" + place);
+
+        Assert.Equal(200, status);
+        Assert.Equal(1, harness.GeocodingClient.Calls);
+    }
+
     private static JsonElement Json(string body) => JsonDocument.Parse(body).RootElement;
 
     private static string? ErrorCode(string body) =>
@@ -251,8 +348,13 @@ public class WeatherV2EndpointTests
 
     private static WeatherResponse MakeResponse() => new(
         Current: new CurrentConditions("2026-01-01T00:00", 0, 0, 0, 0, "clear", "", 0, 0, "", true),
-        Hourly: new HourlyForecast([]),
-        Daily: new DailyForecast([]));
+        Hourly: new HourlyForecast([new HourlyEntry("2026-01-01T00:00", "12a", 40, 0, "wi-day-sunny", true)]),
+        Daily: new DailyForecast(
+        [
+            new DailyEntry("2026-01-01", 50, 30, "clear", "wi-day-sunny", 0, "", ""),
+            new DailyEntry("2026-01-02", 52, 32, "clear", "wi-day-sunny", 0, "", ""),
+            new DailyEntry("2026-01-03", 54, 34, "clear", "wi-day-sunny", 0, "", "")
+        ]));
 
     private sealed class StubGeocodingClient : IOpenMeteoGeocodingClient
     {

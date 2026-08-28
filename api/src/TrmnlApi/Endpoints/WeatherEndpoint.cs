@@ -19,6 +19,12 @@ public class WeatherEndpoint
     // caller would widen the response for no benefit.
     private const int DefaultDays = 6;
 
+    /// <summary>
+    /// v1's body when every provider failed. Shared so the v2 test scenario that reproduces this
+    /// response cannot drift from the real one.
+    /// </summary>
+    internal const string UpstreamFailureMessage = "Failed to fetch weather forecast from upstream provider.";
+
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -49,7 +55,7 @@ public class WeatherEndpoint
         var unitsParam = query["units"].FirstOrDefault();
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
-            return BadRequest("units must be 'imperial' or 'metric'.");
+            return BadRequest(RequestValidator.UnitsMessage);
         }
         var metric = unitsParam is "metric";
 
@@ -92,7 +98,7 @@ public class WeatherEndpoint
                 "All weather providers failed for {Latitude},{Longitude}",
                 CoarseCoordinate.ToTag(latitude),
                 CoarseCoordinate.ToTag(longitude));
-            return Results.Text("Failed to fetch weather forecast from upstream provider.", statusCode: 502);
+            return Results.Text(UpstreamFailureMessage, statusCode: 502);
         }
 
         var weatherResponse = outcome.Response;
@@ -113,7 +119,7 @@ public class WeatherEndpoint
 
         if (query["fake"].FirstOrDefault() is "true" or "1")
         {
-            weatherResponse = FakePrecipitation(weatherResponse);
+            weatherResponse = TestScenarios.FakePrecipitation(weatherResponse);
         }
 
         var servedAt = timeProvider.GetUtcNow();
@@ -144,27 +150,4 @@ public class WeatherEndpoint
     }
 
     private static IResult BadRequest(string message) => Results.Text(message, statusCode: 400);
-
-    private static WeatherResponse FakePrecipitation(WeatherResponse response)
-    {
-        var hourly = response.Hourly.Entries
-            .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
-            .ToList();
-
-        var daily = response.Daily.Entries
-            .Select(e => e with { PrecipitationProbability = Random.Shared.Next(0, 100) })
-            .ToList();
-
-        var last = daily[^1];
-        daily[^1] = last with { High = last.Low };
-
-        var secondLast = daily[^2];
-        daily[^2] = secondLast with { High = secondLast.Low + 2 };
-
-        return response with
-        {
-            Hourly = new HourlyForecast(hourly),
-            Daily = new DailyForecast(daily)
-        };
-    }
 }

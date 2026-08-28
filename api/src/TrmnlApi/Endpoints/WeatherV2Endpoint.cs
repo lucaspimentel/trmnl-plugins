@@ -31,6 +31,9 @@ public class WeatherV2Endpoint
     /// <summary>Longest echo of a user's input in an error message.</summary>
     private const int MaxQuotedLength = 80;
 
+    /// <summary>How old the stale test scenario claims its forecast is.</summary>
+    private static readonly TimeSpan StaleScenarioAge = TimeSpan.FromHours(6);
+
     private const string TagInputKind = "weather.input_kind";
     private const string TagErrorCode = "weather.error_code";
 
@@ -54,7 +57,7 @@ public class WeatherV2Endpoint
         var unitsParam = query["units"].FirstOrDefault();
         if (!RequestValidator.IsValidUnits(unitsParam))
         {
-            return RequestInvalid(span, "units must be 'imperial' or 'metric'.");
+            return RequestInvalid(span, RequestValidator.UnitsMessage);
         }
         var metric = unitsParam is "metric";
 
@@ -72,6 +75,26 @@ public class WeatherV2Endpoint
         var requestedProvider = query["provider"].FirstOrDefault();
 
         var placeParam = query["place"].FirstOrDefault();
+
+        // A sentinel in the place field selects a canned result. It rides in a custom field the
+        // plugin already forwards, so stepping through these on a real screen is typing in the
+        // plugin's settings rather than editing and re-pushing polling_url. See TestScenarios.
+        var scenario = TestScenarios.Parse(placeParam);
+        if (scenario is not null)
+        {
+            span?.SetTag(TestScenarios.SpanTag, scenario.Name);
+
+            var canned = TestScenarioResult(span, logger, scenario);
+            if (canned is not null)
+            {
+                return canned;
+            }
+
+            // The rest need a forecast to alter, so they stand in a fixed location and let the
+            // ordinary path fetch one, then change a single detail of the result further down.
+            placeParam = TestScenarios.Location;
+        }
+
         var input = PlaceInput.Parse(
             placeParam,
             query["latitude"].FirstOrDefault(),
@@ -88,18 +111,13 @@ public class WeatherV2Endpoint
         switch (input)
         {
             case PlaceInput.Missing:
-                return Error(
-                    span,
-                    ErrorCodes.PlaceMissing,
-                    "No location is set.",
-                    "Open this plugin's settings and enter a city, postal code, or coordinates.");
+                return Error(span, WeatherErrors.PlaceMissing);
 
             case PlaceInput.Invalid:
                 return Error(
                     span,
-                    ErrorCodes.PlaceInvalid,
-                    $"{Quote(placeParam ?? $"{query["latitude"].FirstOrDefault()}, {query["longitude"].FirstOrDefault()}")} is not a location.",
-                    "If you pasted coordinates, check the order: latitude first, then longitude.");
+                    WeatherErrors.PlaceInvalid(
+                        Quote(placeParam ?? $"{query["latitude"].FirstOrDefault()}, {query["longitude"].FirstOrDefault()}")));
 
             case PlaceInput.Coordinates coordinates:
                 latitude = coordinates.Latitude;
@@ -125,11 +143,7 @@ public class WeatherV2Endpoint
 
                 if (place is null)
                 {
-                    return Error(
-                        span,
-                        ErrorCodes.PlaceNotFound,
-                        $"No place matches {Quote(typed.Text)}.",
-                        "Try adding a state or country, as in Portland, ME.");
+                    return Error(span, WeatherErrors.PlaceNotFound(Quote(typed.Text)));
                 }
 
                 latitude = place.Latitude;
@@ -177,36 +191,52 @@ public class WeatherV2Endpoint
             };
         }
 
+        if (scenario?.Kind is TestScenarioKind.FakePrecipitation)
+        {
+            weatherResponse = TestScenarios.FakePrecipitation(weatherResponse);
+        }
+
         var servedAt = timeProvider.GetUtcNow();
+
+        var cacheStatus = outcome.CacheStatus;
+        var fetchedAt = outcome.FetchedAt;
+        if (scenario?.Kind is TestScenarioKind.StaleForecast)
+        {
+            // Backdated rather than actually aged: a stale serve otherwise needs every provider to
+            // fail against a cache entry old enough to have fallen out of its fresh window.
+            cacheStatus = WeatherForecastOrchestrator.CacheStaleServed;
+            fetchedAt = servedAt - StaleScenarioAge;
+        }
+
         weatherResponse = weatherResponse with
         {
             Place = place,
             Meta = new Meta(
-                Cache: outcome.CacheStatus,
+                Cache: cacheStatus,
                 Provider: outcome.WinningProvider,
                 RequestedProvider: outcome.RequestedProvider,
-                FetchedAt: outcome.FetchedAt,
+                FetchedAt: fetchedAt,
                 DataTime: weatherResponse.Current.Time,
                 ServedAt: servedAt,
-                AgeSeconds: (long)(servedAt - outcome.FetchedAt).TotalSeconds,
+                AgeSeconds: (long)(servedAt - fetchedAt).TotalSeconds,
                 TimeFormat: use24Hour ? "24h" : "12h",
                 Upstream: outcome.Upstream)
         };
 
-        metrics.RecordServed(outcome.CacheStatus, outcome.WinningProvider);
+        metrics.RecordServed(cacheStatus, outcome.WinningProvider);
         // Its own category, not this class's: see TrmnlApi.Observability.ForecastServed.
         servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider}",
             CoarseCoordinate.ToTag(latitude),
             CoarseCoordinate.ToTag(longitude),
-            outcome.CacheStatus,
+            cacheStatus,
             outcome.WinningProvider,
             outcome.RequestedProvider);
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
 
-    private static IResult Error(ISpan? span, string code, string message, string hint)
+    private static IResult Error(ISpan? span, ErrorInfo error)
     {
         // Error rate and error tracking read the span, not the status code, so a response that
         // deliberately carries a 200 still has to be counted as the failure it is. Setting this on
@@ -215,24 +245,36 @@ public class WeatherV2Endpoint
         if (span is not null)
         {
             span.Error = true;
-            span.SetTag(Tags.ErrorType, code);
-            span.SetTag(Tags.ErrorMsg, message);
+            span.SetTag(Tags.ErrorType, error.Code);
+            span.SetTag(Tags.ErrorMsg, error.Message);
             // Faceted separately from ErrorType so a dashboard can group on it without parsing.
-            span.SetTag(TagErrorCode, code);
+            span.SetTag(TagErrorCode, error.Code);
         }
 
-        return Results.Json(new ErrorResponse(new ErrorInfo(code, message, hint)), WeatherEndpoint.JsonOptions);
+        return Results.Json(new ErrorResponse(error), WeatherEndpoint.JsonOptions);
     }
 
     private static IResult RequestInvalid(ISpan? span, string message) =>
-        Error(span, ErrorCodes.RequestInvalid, message, "This is a plugin configuration problem, not something the screen's settings can fix.");
+        Error(span, WeatherErrors.RequestInvalid(message));
 
     private static IResult Unavailable(ISpan? span) =>
-        Error(
-            span,
-            ErrorCodes.WeatherUnavailable,
-            "Weather is temporarily unavailable.",
-            "This usually clears on its own by the next refresh.");
+        Error(span, WeatherErrors.WeatherUnavailable);
+
+    /// <summary>
+    /// The scenarios that need no forecast. Returns null for the two that do, leaving them to the
+    /// ordinary path so what reaches the screen is a real response with one detail changed.
+    /// </summary>
+    private static IResult? TestScenarioResult(ISpan? span, ILogger logger, TestScenario scenario) =>
+        scenario.Kind switch
+        {
+            TestScenarioKind.Error => Error(span, scenario.Error!),
+            TestScenarioKind.ClientGone => ClientGone(span, logger),
+            TestScenarioKind.UpstreamFailure => Results.Text(WeatherEndpoint.UpstreamFailureMessage, statusCode: 502),
+            // Thrown rather than returned, so the response really does come from the handler that
+            // serves an unplanned 500 - which is the only part of it worth previewing.
+            TestScenarioKind.ServerError => throw new InvalidOperationException("Deliberate failure from the 500 test scenario."),
+            _ => null
+        };
 
     // Nobody is left to render anything, so this is the one case that keeps a status code, and the
     // one failure that is not the service's fault. Deliberately not tagged as a span error.

@@ -25,7 +25,7 @@ status only.
 | # | Item | Status |
 |---|---|---|
 | 1 | Error shape scope: geocoding failures only, or also the 502 when all providers fail | Settled: every device-visible failure, including `weather_unavailable` |
-| 2 | Whether `provider` and `fake` carry over to v2 | Settled: kept |
+| 2 | Whether `provider` and `fake` carry over to v2 | Settled: `provider` kept as-is; `fake` stayed v1-only and is reached on v2 through a test scenario instead - see [Test scenarios](#test-scenarios) |
 | 3 | v2 schema specifics: `place` block fields, stable error codes | Settled: see [Response shape](#response-shape-v2) |
 | 4 | Verify the `customer-geocoding-api.open-meteo.com` host | Verified against the deployed staging service |
 | 5 | Whether a removed `custom_field`'s stored value still interpolates into `polling_url` | Unverified, not blocking: the plan keeps the fields declared |
@@ -50,7 +50,7 @@ status only.
 | Errors | HTTP **200** with a renderable error in the body, for **every failure the device can see** |
 | Error body | A stable `code`, a human `message`, and an actionable `hint` |
 | Response shape | A nested **`place`** object beside the existing forecast keys |
-| Debug parameters | `provider` and `fake` carry over from v1 unchanged |
+| Debug parameters | `provider` carries over from v1 unchanged. `fake` does not: v2 selects it, and every other result, through a `place` sentinel |
 | Versioning | New **`/api/v2/`** endpoint. `/api/v1/` is frozen, and retired once fork traffic stops |
 
 ## Why a new version rather than extending v1
@@ -429,3 +429,44 @@ No `api.version` tag is needed - the versions are separate paths, so the route a
 Because these tags share a span with `http.route`, filtering them to v2 is an ordinary facet rather
 than a trace-level query. That filter matters, because v1 is coordinates-only by definition and the
 interesting read is what **v2** users choose.
+
+## Test scenarios
+
+Most of the failures above were only reachable by causing them. Two could not be produced on
+purpose at all: `weather_unavailable` needs every provider down at once, and a stale serve needs a
+cache entry to have aged out of its fresh window. That left the templates' error branch shipping
+unseen, since nothing could put one on a screen deliberately.
+
+v2 therefore reads a sentinel in `place`: **`place=test:<name>`** returns a canned result.
+
+| `place` | Result |
+|---|---|
+| `test:place_missing` | 200 + `error.code=place_missing` |
+| `test:place_invalid` | 200 + `error.code=place_invalid` |
+| `test:place_not_found` | 200 + `error.code=place_not_found` |
+| `test:request_invalid` | 200 + `error.code=request_invalid` |
+| `test:weather_unavailable` | 200 + `error.code=weather_unavailable` |
+| `test:stale` | A real forecast reported as `meta.cache=stale_served`, six hours old |
+| `test:precipitation` | A real forecast filled with random precipitation - v1's `fake` parameter |
+| `test:499` | 499, empty. What a device that hung up mid-request produces |
+| `test:500` | 500, `text/plain`, from the real unhandled-exception handler |
+| `test:502` | 502, `text/plain`. v1's body when every provider fails |
+| any other name | `request_invalid` listing the names that exist |
+
+Matched case-insensitively, since these are typed into a web form. A colon cannot appear in a place
+name, so nothing a real user enters collides with the prefix; `Testerton` is geocoded normally.
+
+The sentinel rides in `place` rather than a query parameter of its own because `place` is a custom
+field the plugin already forwards verbatim. Selecting a scenario is therefore typing into the
+plugin's settings - no edit to `polling_url`, no push, no revert - which is the point, since these
+exist to be stepped through one at a time while watching a screen.
+
+Not gated by environment. The service has no environment switch anywhere, and these are read-only
+canned responses; the two that fetch a forecast stand in a fixed location so the scenario itself
+cannot be the thing that fails. Each sets a `weather.test_scenario` span tag, so test polls stay
+filterable and are never mistaken for real traffic. `test:500` does log through the real unhandled
+-exception path and will appear in error tracking, which is the point of it.
+
+The five errors are built by `WeatherErrors`, the same factory the real failures use, so a preview
+cannot show a message that differs from the one a user would get. `test:precipitation` and v1's
+`fake` call one shared implementation for the same reason.

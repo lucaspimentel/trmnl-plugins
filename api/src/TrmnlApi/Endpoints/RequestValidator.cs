@@ -4,6 +4,9 @@ namespace TrmnlApi.Endpoints;
 
 public static class RequestValidator
 {
+    /// <summary>Shared so v1's plain-text body and v2's error message cannot drift apart.</summary>
+    public const string UnitsMessage = "units must be 'imperial' or 'metric'.";
+
     public static bool TryParseCoordinates(string? lat, string? lon, out double latitude, out double longitude)
     {
         latitude = 0;
