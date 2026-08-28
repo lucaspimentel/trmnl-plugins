@@ -2,7 +2,7 @@
 
 **Status: proposed, decisions made.** Nothing in this document is in the code yet. The tags described
 under [What to emit](#what-to-emit) do not exist; the only location data on a span today is
-`weather.latitude` / `weather.longitude`, both `F1`, as listed in
+`weather.coord` / `weather.latitude` / `weather.longitude`, all `F1`, as listed in
 [observability.md](observability.md).
 
 The goal is to group forecast telemetry by place - country, subdivision, city - instead of by a

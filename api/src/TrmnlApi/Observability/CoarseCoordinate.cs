@@ -55,4 +55,17 @@ public static class CoarseCoordinate
 
     /// <summary>Coarsens and formats a coordinate already snapped to the cache grid.</summary>
     public static string SnappedToTag(double snapped) => Format(RoundSnapped(snapped));
+
+    /// <summary>
+    /// Formats an already-coarsened pair as <c>"&lt;lat&gt;,&lt;lon&gt;"</c>, the single-tag form.
+    /// </summary>
+    /// <remarks>
+    /// This exists so one location is one facet value. Counting distinct locations across the
+    /// separate latitude and longitude tags counts a bounding box rather than the pairs actually
+    /// seen: two requests from (42.4, -71.1) and (47.6, -122.3) give two distinct latitudes and two
+    /// distinct longitudes, which multiplies out to four locations instead of two. Never pass raw
+    /// values; coarsen with <see cref="Round"/> or <see cref="RoundSnapped"/> first.
+    /// </remarks>
+    public static string FormatPair(double coarsenedLatitude, double coarsenedLongitude) =>
+        $"{Format(coarsenedLatitude)},{Format(coarsenedLongitude)}";
 }

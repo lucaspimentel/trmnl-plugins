@@ -86,4 +86,51 @@ public class CoarseCoordinateTests
             Thread.CurrentThread.CurrentCulture = original;
         }
     }
+
+    [Theory]
+    [InlineData(42.36, -71.06, "42.4,-71.1")]
+    [InlineData(0, 0, "0.0,0.0")]
+    [InlineData(-33.87, 151.21, "-33.9,151.2")]
+    public void FormatPair_joins_the_two_coarsened_values(double latitude, double longitude, string expected)
+    {
+        Assert.Equal(expected, CoarseCoordinate.FormatPair(
+            CoarseCoordinate.Round(latitude),
+            CoarseCoordinate.Round(longitude)));
+    }
+
+    [Fact]
+    public void FormatPair_agrees_with_the_separate_tags()
+    {
+        // weather.coord and weather.latitude/longitude sit on the same span, so a request that
+        // disagreed between them would make the pair untrustworthy for grouping.
+        var rng = new Random(11);
+        for (var i = 0; i < 10_000; i++)
+        {
+            var latitude = CoarseCoordinate.Round(rng.NextDouble() * 180 - 90);
+            var longitude = CoarseCoordinate.Round(rng.NextDouble() * 360 - 180);
+            var pair = CoarseCoordinate.FormatPair(latitude, longitude);
+            Assert.Equal(
+                $"{CoarseCoordinate.Format(latitude)},{CoarseCoordinate.Format(longitude)}",
+                pair);
+        }
+    }
+
+    [Fact]
+    public void FormatPair_is_culture_invariant()
+    {
+        // Under a comma-decimal culture an interpolated pair would read "42,4,-71,1", which cannot
+        // be split back into two coordinates and would silently become a different facet value.
+        var original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+            Assert.Equal("42.4,-71.1", CoarseCoordinate.FormatPair(
+                CoarseCoordinate.Round(42.36),
+                CoarseCoordinate.Round(-71.06)));
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = original;
+        }
+    }
 }

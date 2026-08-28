@@ -170,6 +170,7 @@ numeric-looking ones, so they stay facets rather than measures.
 
 | Tag | Meaning |
 |---|---|
+| `weather.coord` | the same coordinates as one `"<lat>,<lon>"` tag, so counting distinct values counts distinct locations |
 | `weather.latitude`, `weather.longitude` | the request coordinates as separate `F1` tags, rounded to ~11 km |
 | `weather.units` | `metric` or `imperial` |
 | `weather.hours`, `weather.days` | requested forecast limits |
@@ -198,7 +199,9 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
 
 - the same two-span tree as above
 - `aspnet_core.request` carrying the tags listed above, in particular `weather.cache_status`,
-  `weather.winning_provider`, and `weather.fallback`
+  `weather.winning_provider`, `weather.fallback`, and `weather.coord`
+- `weather.coord` agreeing with `weather.latitude` and `weather.longitude` on the same span, since
+  a disagreement would make distinct-location counts wrong rather than merely noisy
 - no `weather.*` coordinate finer than one decimal place, and no `http.url_details.queryString.*`
   tags at all
 - `GET /health` spans **are** expected. `DD_APM_IGNORE_RESOURCES` used to drop them on the full

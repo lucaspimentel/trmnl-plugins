@@ -37,6 +37,7 @@ public class WeatherForecastOrchestrator(
     public const string CacheStaleServed = "stale_served";
     public const string CacheAllFailed = "all_failed";
 
+    private const string TagCoord = "weather.coord";
     private const string TagLatitude = "weather.latitude";
     private const string TagLongitude = "weather.longitude";
     private const string TagUnits = "weather.units";
@@ -75,6 +76,9 @@ public class WeatherForecastOrchestrator(
         // CoarseCoordinate for the two rounding hazards it exists to contain.
         var taggedLatitude = CoarseCoordinate.RoundSnapped(latitude);
         var taggedLongitude = CoarseCoordinate.RoundSnapped(longitude);
+        // The pair as one value as well as two, so that counting distinct locations counts
+        // locations: see CoarseCoordinate.FormatPair.
+        span?.SetTag(TagCoord, CoarseCoordinate.FormatPair(taggedLatitude, taggedLongitude));
         span?.SetTag(TagLatitude, CoarseCoordinate.Format(taggedLatitude));
         span?.SetTag(TagLongitude, CoarseCoordinate.Format(taggedLongitude));
         span?.SetTag(TagUnits, metric ? "metric" : "imperial");
