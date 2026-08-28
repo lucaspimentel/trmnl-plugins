@@ -41,17 +41,22 @@ custom_fields:
 - keyname: place
   field_type: string
   name: Location
-  description: City, postal code, or 'latitude, longitude' (latitude first). Blank uses your saved Latitude and Longitude. Postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX). Swapped coordinates silently show the wrong place.
+  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX), and swapped coordinates silently show the wrong place."
+  optional: true
   placeholder: 'Boston, MA'
 - keyname: latitude
   field_type: number
   name: Latitude
+  description: "Deprecated: use the Location field above instead. Move your location there, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
+  optional: true
   min: -90
   max: 90
   step: any
 - keyname: longitude
   field_type: number
   name: Longitude
+  description: "Deprecated: use the Location field above instead. Move your location there, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
+  optional: true
   min: -180
   max: 180
   step: any
