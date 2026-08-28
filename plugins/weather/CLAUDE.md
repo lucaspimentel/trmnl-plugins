@@ -29,15 +29,50 @@ The staging id lives in `STAGING_IDS` in `tools/push-plugin.sh` as well as here;
 
 ## API: TrmnlApi
 
-- **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v1/forecast?latitude={lat}&longitude={lon}`
+- **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={place}` (the plugin also sends `latitude`/`longitude` as the fallback for a blank `place`). `/api/v1/forecast` is frozen for forked copies of the plugin; never change what a v1 caller can observe
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `latitude`, `longitude` (required), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`), `show_place` (`yes` default; `no` omits the `place` block, v2 only); `fake=true` injects random precipitation for testing (**v1 only** - on v2 use `place=test:precipitation`)
+- **Query params**: `place` (v2, city / postal code / `latitude, longitude` pair), `latitude`, `longitude` (required on v1; on v2 the fallback when `place` is blank), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`), `show_place` (`yes` default; `no` omits the `place` block, v2 only); `fake=true` injects random precipitation for testing (**v1 only** - on v2 use `place=test:precipitation`)
 - **Test scenarios (v2)**: `place=test:<name>` returns a canned result, so each error the templates can render can be put on screen by typing into the plugin's Place setting - no `settings.yml` edit or push. Names: the five `error.code` values, plus `stale`, `precipitation`, `499`, `500`, `502`. Full table in `api/docs/place-input.md`
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting. The plugin never sends `provider` (there is no user-facing provider setting), so the server default always applies
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
 
 ### Response Shape
+
+v2 adds a `place` block and an `error` object to the v1 shape below. `current`, `hourly`, `daily`,
+and `meta` are unchanged.
+
+```json
+{
+  "place": {
+    "name": "Boston",
+    "admin1": "Massachusetts",     // geocoder display name, not an ISO code
+    "country": "United States",
+    "country_code": "US",
+    "latitude": 42.36,
+    "longitude": -71.06
+  }
+}
+```
+
+`place` is omitted when the request carries `show_place=no`, and when the input was a coordinate
+pair: nothing was geocoded, so there is no matched name to echo.
+
+Every failure a device can see comes back as **HTTP 200 with an `error` object** instead of the
+forecast, which is what the layouts branch on (`{{ error.message }}` / `{{ error.hint }}`):
+
+```json
+{
+  "error": {
+    "code": "place_not_found",     // stable: branch on this, not on the wording
+    "message": "No place matches zzzzqqqq.",
+    "hint": "Try adding a state or country, as in Portland, ME."
+  }
+}
+```
+
+`code` is one of `place_missing`, `place_invalid`, `place_not_found`, `request_invalid`,
+`weather_unavailable`. Details in `api/docs/place-input.md`.
 
 ```json
 {
@@ -109,6 +144,8 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 ```
 
 Key access patterns:
+- `error.code` / `error.message` / `error.hint` — every layout renders these instead of the forecast when `error` is present
+- `place.name`, `place.admin1` — the matched location, shown in the title bar (`shared.liquid`); absent when Show Location is off
 - `current.temperature`, `current.condition`, `current.icon_class`, `current.is_day`
 - `hourly.entries` — array of up to 25 entries (current hour + next 24h)
 - `daily.entries` — array of up to `days` entries (today + next N-1 days), max 14 (7 when served by Pirate Weather)

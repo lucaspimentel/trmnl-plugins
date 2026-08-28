@@ -22,9 +22,12 @@ The [Weather](./plugins/weather) plugin polls a custom ASP.NET Core backend in [
 
 Endpoints (base `https://trmnl-plugins-prod.lucasp.net`):
 
-- `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — normalized weather forecast (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
+- `GET /api/v2/forecast?place=<city|postal code|lat,lon>` — normalized weather forecast; this is what the Weather plugin polls (see the [Weather plugin README](./plugins/weather/README.md#data-source) for all parameters)
+- `GET /api/v1/forecast?latitude=<lat>&longitude=<lon>` — the previous version, frozen and kept alive for forked copies of the plugin that still poll it
 - `GET /health` — liveness/readiness check
 - `GET /metrics` — process-lifetime cache and provider counters
+
+Design notes for the backend live in [`api/docs/`](./api/docs): the `place` input and the v1-to-v2 move ([place-input.md](./api/docs/place-input.md)), tracing and logging setup ([observability.md](./api/docs/observability.md)), and geographic telemetry ([geographic-telemetry.md](./api/docs/geographic-telemetry.md)).
 
 Build and test locally (.NET 10 SDK required):
 
@@ -97,6 +100,7 @@ trmnlp serve          # preview at http://localhost:4567
 ```
 ## Tools
 
+- **[push-plugin.sh](./tools/push-plugin.sh)** - Lint a plugin and push it to TRMNL; defaults to the staging copy of the plugin, `--env prod` targets the production one, `--dry-run` prints the settings overrides without pushing
 - **[build-preview.sh](./tools/build-preview.sh)** - Build static HTML previews for all device variants (OG, X, X portrait) under `_build/{og,x,x-portrait}/`; `--screenshot` captures `render-<variant>-<layout>.png` via playwright-cli
 - **[Get-Trmnl-Image.ps1](./tools/Get-Trmnl-Image.ps1)** - Fetch current TRMNL screen image and display in Sixel format (black/white); saves timestamped PNG files
 - **[Trmnl.Cli](./tools/Trmnl.Cli/)** - .NET 10 app that fetches and displays the current screen image in Sixel (full color)

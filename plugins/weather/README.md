@@ -13,6 +13,8 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 - Multi-day forecast with temperature range bars and weather icons (up to 14 days)
 - 12-hour (am/pm) or 24-hour clock for all displayed times
 - Configurable location by city name, postal code, or coordinates (defaults to Boston, MA)
+- The matched location shown in the title bar, so a wrong match is visible (toggle with **Show Location**)
+- Failures render as a readable on-screen message and a suggested fix rather than a blank or stale screen
 
 ## Setup
 
