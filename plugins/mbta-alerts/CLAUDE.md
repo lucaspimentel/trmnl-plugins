@@ -9,12 +9,20 @@ Displays current service alerts from the MBTA, filtered to subway and light rail
 
 ### Pushing to staging
 
-Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (do not commit them; revert with `git checkout -- src/settings.yml` afterward):
+```bash
+bash tools/push-plugin.sh plugins/mbta-alerts              # lint + push to staging
+bash tools/push-plugin.sh plugins/mbta-alerts --dry-run    # show the overrides, push nothing
+```
+
+The script applies these overrides to `src/settings.yml`, pushes, then restores the file:
 
 1. `id:` → `316556`
 2. `name:` → append ` (staging)` (e.g. `MBTA Alerts (staging)`) so it's distinguishable from prod in the TRMNL UI
 
-(No `polling_url` swap: this plugin polls the public MBTA API directly, same for prod and staging.)
+(No `polling_url` swap: this plugin polls the public MBTA API directly, same for prod and staging. The
+script's host swap is a no-op here, since the URL never mentions the prod host.)
+
+The staging id lives in `STAGING_IDS` in `tools/push-plugin.sh` as well as here; keep the two in step.
 
 ## API
 

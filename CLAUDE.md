@@ -15,10 +15,26 @@ For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.tr
 ## Deploy a Plugin
 
 ```bash
+bash tools/push-plugin.sh plugins/<name>                  # lint + push to the staging plugin
+bash tools/push-plugin.sh plugins/<name> --dry-run       # show the overrides, push nothing
+bash tools/push-plugin.sh plugins/<name> --env prod      # lint + push to the prod plugin
+```
+
+Each plugin exists twice on TRMNL, as a prod and a staging plugin with different ids. The script
+applies the staging overrides (id, `polling_url` host, ` (staging)` name suffix) to
+`src/settings.yml`, pushes, then restores the file. It refuses to start if that file has
+uncommitted changes, since the restore would discard them.
+
+The underlying commands, if you need them directly:
+
+```bash
 cd plugins/<name>
 trmnlp lint            # same check .github/workflows/plugins.yml runs on push/PR
 trmnlp push --force    # --force skips confirmation prompt
 ```
+
+Note `trmnlp push` rewrites the local `src/settings.yml` with the server's copy of the settings,
+so revert it afterwards when running these by hand.
 
 `plugins.yml` pins `trmnl_preview` to a specific gem version so a new lint rule upstream can't
 turn the repo red on its own; bump the pin deliberately.

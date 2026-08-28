@@ -14,11 +14,18 @@ See `README.md` for contributor setup and external dependency details.
 
 ### Pushing to staging
 
-Before `trmnlp push` to staging, make these local edits to `src/settings.yml` (do not commit them; revert with `git checkout -- src/settings.yml` afterward):
+```bash
+bash tools/push-plugin.sh plugins/weather              # lint + push to staging
+bash tools/push-plugin.sh plugins/weather --dry-run    # show the overrides, push nothing
+```
+
+The script applies these three overrides to `src/settings.yml`, pushes, then restores the file:
 
 1. `id:` → `316595`
 2. `polling_url` host → `trmnl-plugins-staging.lucasp.net`
 3. `name:` → append ` (staging)` (e.g. `LP Weather (staging)`) so it's distinguishable from prod in the TRMNL UI
+
+The staging id lives in `STAGING_IDS` in `tools/push-plugin.sh` as well as here; keep the two in step.
 
 ## API: TrmnlApi
 
