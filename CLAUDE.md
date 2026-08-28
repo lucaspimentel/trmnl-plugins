@@ -80,7 +80,8 @@ dotnet run --project api/src/TrmnlApi             # local run (http://localhost:
 ```
 
 - Deploy: push to `main` (prod) or `staging`; Railway auto-builds from `api/Dockerfile` (service root `/api`) and deploys the single replica. Healthcheck: `GET /health`.
-- Routes: `GET /api/v1/forecast` (anonymous), `GET /health`, `GET /metrics` (process-lifetime cache counters)
+- Routes: `GET /api/v1/forecast`, `GET /api/v2/forecast` (what the plugin uses), `GET /health`, `GET /metrics` (process-lifetime cache counters)
+- **`/api/v1/forecast` is frozen: never change anything a caller can observe.** The plugin moved to v2, so v1 looks like dead code ripe for cleanup. It is not - the plugin is public and has been forked, and forked copies still poll v1 with their own `settings.yml`. They cannot be updated. Treat v1's routes, query parameters (including the undocumented `fake=true`), response bytes, and status codes as a public contract; refactors that move implementation behind it are fine. New debug or test affordances go on v2 only. v1 retires when its traffic stops, not before - see `api/docs/place-input.md`
 - `WeatherProviders` env var is **required** (comma-separated, e.g. `open-meteo,pirate-weather`); the first entry is the default provider and the list defines the fallback order
 - Provider keys: `OPEN_METEO_API_KEY`, `PIRATE_WEATHER_API_KEY`
 - Cache TTL env vars use the `__` separator: `WeatherCache__FreshTtl`/`WeatherCache__StaleTtl` in `hh:mm:ss` form (a bare number parses as days, not minutes)

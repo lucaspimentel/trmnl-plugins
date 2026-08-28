@@ -10,8 +10,8 @@ numeric coordinate, so a dashboard can answer "which regions see provider failur
 rate vary by geography", and "where are the users" without a human decoding coordinates.
 
 Related: [place-input.md](place-input.md), which covers the inverse problem (a user-supplied place
-name to coordinates) and proposes the v2 API. The two features meet in the middle, and that one
-should probably be built first: see [Sequencing](#sequencing-build-v2-first).
+name to coordinates) and specifies the v2 API. The two features meet in the middle, and that one was
+built first, deliberately: see [Sequencing](#sequencing-build-v2-first).
 
 ## Decisions
 
@@ -27,18 +27,24 @@ should probably be built first: see [Sequencing](#sequencing-build-v2-first).
 
 ## Sequencing: build v2 first
 
-This work only ever serves **coordinate** input. [place-input.md](place-input.md) proposes a single
-free-form `place` parameter accepting a city name or postal code, and forward geocoding returns
-country, country code, and a city name directly, with no polygons involved.
+**v2 has shipped**, so this is now a question of reading the data rather than deciding what to build
+next. See [place-input.md](place-input.md).
 
-Non-forked installs upgrade automatically, so most traffic will move to v2 on its own. If place input
+This work only ever serves **coordinate** input. v2 takes a single free-form `place` parameter
+accepting a city name or postal code, and forward geocoding returns country, country code, and a city
+name directly, with no polygons involved.
+
+Non-forked installs upgrade automatically, so most traffic has already moved to v2. If place input
 dominates there, the polygon lookup serves a small minority and a much cheaper approximation may be
-enough. So ship v2 with its `weather.input_kind` tag (`coordinates` or `place`), read the real split,
-and decide then rather than now.
+enough. v2 carries the `weather.input_kind` tag (`coordinates` or `place`) for exactly this reading.
 
 Read that split on **v2 traffic only**, identified by the route. v1 takes coordinates and nothing
 else, and forks will keep it alive for a while, so an unfiltered reading measures how many installs
 have upgraded rather than what anyone prefers.
+
+Read it from the **plugin** push onwards, too. v2 served production for a short window before the
+plugin moved, and during it every install was still sending coordinates from the old template, so
+that traffic reads `coordinates` regardless of what those users would have chosen.
 
 What forward geocoding does **not** supply is an ISO-3166-2 subdivision code - Open-Meteo returns
 `admin1` as a display name with a GeoNames id, verified against the live API. So if `weather.subdivision` matters, the polygon lookup remains the

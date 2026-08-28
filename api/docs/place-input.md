@@ -1,9 +1,11 @@
 # Place input and API v2
 
-**Status: `/api/v2/forecast` is live on staging (items 1-9 below), not yet on production and not
-yet used by the plugin.** `GET /api/v1/forecast` is unchanged: it still requires `latitude` and
-`longitude` as separate numeric query parameters (`Endpoints/RequestValidator.cs`) and returns
-plain text on every error path (`Endpoints/WeatherEndpoint.cs`).
+**Status: shipped (items 1-11 below).** `/api/v2/forecast` is live on staging and production, and
+the plugin pushed to both sends `place`. Every non-forked install moved to v2 when the plugin was
+pushed. What is left is items 12-14, all gated on reading the telemetry this rollout produces.
+`GET /api/v1/forecast` is unchanged: it still requires `latitude` and `longitude` as separate
+numeric query parameters (`Endpoints/RequestValidator.cs`) and returns plain text on every error
+path (`Endpoints/WeatherEndpoint.cs`), which was reconfirmed against production after v2 shipped.
 
 The Open-Meteo geocoding behaviour described below was checked against the live API rather than
 assumed, including the customer host, which was confirmed working through the deployed staging
@@ -31,12 +33,12 @@ status only.
 | 5 | Whether a removed `custom_field`'s stored value still interpolates into `polling_url` | Unverified, not blocking: the plan keeps the fields declared |
 | 6 | `PlaceResolver` - input sniffing | Done, as `PlaceInput.Parse` (pure sniffing) plus `PlaceResolver` (the async lookup and memo) |
 | 7 | Geocoding client | Done: free/customer switch, absent-`results` handling, `PPL*` filter, bounded memo with negative caching |
-| 8 | v2 endpoint and response models | Done: `/api/v2/forecast`, verified end-to-end on staging |
+| 8 | v2 endpoint and response models | Done: `/api/v2/forecast`, verified end-to-end on staging and again on production |
 | 9 | `weather.input_kind` span tag | Done, plus full error tagging; both tags and the two spans that originally carried them were later consolidated onto the request's own span - see [Telemetry](#telemetry) |
-| 10 | Plugin v2: `settings.yml` gains `place`, template renders the place block and the error | Not started |
-| 11 | Ship staging, then production, then push the plugin | Not started |
-| 12 | Watch v1 route traffic; retire the endpoint when it goes quiet | Deferred, gated on data |
-| 13 | Read `weather.input_kind` on v2 traffic; decides whether the polygon work happens at all | Deferred, gated on data |
+| 10 | Plugin v2: `settings.yml` gains `place`, template renders the place block and the error | Done. `place`, `latitude` and `longitude` are all `optional: true`, so either form can be given and coordinates can be cleared; the coordinate fields are labelled deprecated - see [Migrating the plugin](#migrating-the-plugin) |
+| 11 | Ship staging, then production, then push the plugin | Done, in that order. Not yet confirmed on hardware: every check so far has been API responses and `trmnlp lint` |
+| 12 | Watch v1 route traffic; retire the endpoint when it goes quiet | Now measurable. Whatever still reaches v1 is fork traffic, since every non-forked install has moved |
+| 13 | Read `weather.input_kind` on v2 traffic; decides whether the polygon work happens at all | Now measurable, but only from the plugin push onwards. Before it, installs sent coordinates from the old template, so earlier v2 traffic reads `coordinates` regardless of what users would choose |
 | 14 | If it does: measure Natural Earth memory first, then `TrmnlApi.Geo` and the SQLite R-tree | Deferred, gated on data |
 
 ## Decisions
@@ -369,8 +371,15 @@ Keep `latitude` and `longitude` **declared** in `custom_fields` through the tran
 a removed field's stored value still interpolates into `polling_url` is unverified - not something to
 bet every upgraded screen on. Declared fields interpolate for certain.
 
-The `place` field's description should say that saved coordinates still work if it is left blank, or
-upgraded users will see an empty field and assume the plugin is broken.
+All three fields are `optional: true`, which is what makes either form workable: an upgraded user can
+save without typing a place, and a user who has typed one can clear the coordinates. Without it every
+field is required, and the migration is blocked from both directions. The key is undocumented in the
+skill reference but is used by TRMNL's own plugins, and the server round-trips it back on push.
+
+`place`'s description says that saved coordinates still work if it is left blank, or upgraded users
+would see an empty field and assume the plugin is broken. `latitude` and `longitude` are labelled
+deprecated and point at `place`, noting that a pasted `latitude, longitude` pair works there, so an
+exact position does not have to be given up to migrate.
 
 Drop the coordinate fields, and the v2 fallback that reads them, once telemetry shows no requests
 arriving with coordinates alone.
@@ -389,9 +398,14 @@ timestamp span behind `{% if updated_at %}`, leaving just the instance name.
 So this is not new markup, it is a reason attached to markup that exists. Today that branch fires
 whenever `current.temperature` is nil, which makes a mistyped place, an expired key, a provider
 outage, and a malformed `polling_url` produce one identical screen. v2 changes the trigger from
-absent data to a reported error: each layout gains an `{% if error %}` arm rendering `error.message`
-and, where the slot has room, `error.hint`, keeping the current text as the fallback for a response
-that carries neither forecast nor error.
+absent data to a reported error: each layout now has an `{% elsif error %}` arm rendering
+`error.message` and, where the slot has room, `error.hint`, keeping the fixed text as the fallback
+for a response that carries neither forecast nor error. `title_bar` also renders the resolved place
+name (`shared.liquid:448`), which is the on-screen half of the ambiguity mitigation.
+
+That mitigation is narrower in practice than it looks. `place` is only populated when the input was
+geocoded, so a user who pastes a coordinate pair sees no place name and gets no signal that the pair
+was swapped. Closing that needs the reverse lookup, which is item 13's decision.
 
 ## Sharing internals across versions
 
