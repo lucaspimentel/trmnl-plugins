@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TrmnlApi.Endpoints;
+using TrmnlApi.Geo;
 using TrmnlApi.Observability;
 using TrmnlApi.Services;
 
@@ -16,6 +17,9 @@ public class DatadogLogAllowlistTests
     private const string EndpointCategory = "TrmnlApi.Endpoints.WeatherEndpoint";
     private const string V2EndpointCategory = "TrmnlApi.Endpoints.WeatherV2Endpoint";
     private const string PlaceResolverCategory = "TrmnlApi.Services.PlaceResolver";
+    private const string GeoDatabaseCategory = "TrmnlApi.Geo.GeoDatabaseHolder";
+    private const string GeocoderCategory = "TrmnlApi.Geo.SqliteLocalGeocoder";
+    private const string PlaceLookupCategory = "TrmnlApi.Geo.SqlitePlaceLookup";
     private const string OrchestratorCategory = "TrmnlApi.Services.WeatherForecastOrchestrator";
     private const string ResilienceCategory = "TrmnlApi.Services.WeatherResilience";
     private const string UnhandledCategory = "TrmnlApi.Observability.UnhandledExceptionLogger";
@@ -26,6 +30,9 @@ public class DatadogLogAllowlistTests
     [InlineData(EndpointCategory, LogLevel.Error, true)]           // all providers failed, 502
     [InlineData(V2EndpointCategory, LogLevel.Error, true)]         // all providers failed, or the geocoder did
     [InlineData(PlaceResolverCategory, LogLevel.Warning, true)]    // a lookup turned away before it was made
+    [InlineData(GeoDatabaseCategory, LogLevel.Warning, true)]      // no bundled dataset in the image
+    [InlineData(GeocoderCategory, LogLevel.Warning, true)]         // the dataset failed, so we are paying the vendor
+    [InlineData(PlaceLookupCategory, LogLevel.Warning, true)]      // the dataset failed, so screens show no location
     [InlineData(OrchestratorCategory, LogLevel.Warning, true)]     // provider failure / stale rescue
     [InlineData(ResilienceCategory, LogLevel.Warning, true)]       // circuit opened or closed
     [InlineData(UnhandledCategory, LogLevel.Error, true)]
@@ -58,6 +65,9 @@ public class DatadogLogAllowlistTests
         Assert.Equal(EndpointCategory, typeof(WeatherEndpoint).FullName);
         Assert.Equal(V2EndpointCategory, typeof(WeatherV2Endpoint).FullName);
         Assert.Equal(PlaceResolverCategory, typeof(PlaceResolver).FullName);
+        Assert.Equal(GeoDatabaseCategory, typeof(GeoDatabaseHolder).FullName);
+        Assert.Equal(GeocoderCategory, typeof(SqliteLocalGeocoder).FullName);
+        Assert.Equal(PlaceLookupCategory, typeof(SqlitePlaceLookup).FullName);
         Assert.Equal(OrchestratorCategory, typeof(WeatherForecastOrchestrator).FullName);
         Assert.Equal(ResilienceCategory, typeof(WeatherResilience).FullName);
         Assert.Equal(UnhandledCategory, typeof(UnhandledExceptionLogger).FullName);

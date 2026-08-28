@@ -1,0 +1,21 @@
+This service bundles third-party geographic data.
+
+GeoNames
+--------
+Place names, coordinates, populations, administrative division names and postal
+code centroids come from the GeoNames geographical database.
+
+    https://www.geonames.org/
+
+Licensed under the Creative Commons Attribution 4.0 International License
+(CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+
+Natural Earth
+-------------
+First-order administrative subdivision boundaries and their ISO 3166-2 codes come
+from Natural Earth (ne_10m_admin_1_states_provinces).
+
+    https://www.naturalearthdata.com/
+
+Natural Earth is in the public domain. No permission is needed to use it, and
+crediting the authors is requested but not required.

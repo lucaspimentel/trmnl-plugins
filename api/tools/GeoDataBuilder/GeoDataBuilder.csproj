@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>TrmnlApi.GeoDataBuilder</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NetTopologySuite lives here and only here. It reads shapefiles well and stores geometry as
+         an object per coordinate, which is why the runtime unpacks its own float32 blobs instead
+         of taking a dependency on it. See PolygonBlob. -->
+    <PackageReference Include="NetTopologySuite" Version="2.6.0" />
+    <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The schema, the packed geometry format and the text normalization are shared with the
+         runtime so the writer and the reader cannot drift apart. -->
+    <ProjectReference Include="..\..\src\TrmnlApi.Geo\TrmnlApi.Geo.csproj" />
+  </ItemGroup>
+
+</Project>

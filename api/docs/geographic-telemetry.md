@@ -1,11 +1,17 @@
-# Place names from coordinates (design, not yet implemented)
+# Bundled geographic data
 
-**Status: proposed, decisions made.** Nothing in this document is in the code yet. The tags described
-under [What to emit](#what-to-emit) do not exist; the only location data on a span today is
-`weather.coord` / `weather.latitude` / `weather.longitude`, all `F1`, as listed in
-[observability.md](observability.md). On the response side, today's `place` block comes from
-Open-Meteo's forward geocoding and is **omitted entirely** when the caller sent coordinates, so a
-coordinate user currently sees no location on screen at all.
+**Status: implemented.** `api/src/TrmnlApi.Geo` serves both directions - a typed place to
+coordinates, and coordinates to a label - from one bundled SQLite file, built by
+`api/tools/GeoDataBuilder` and fetched into the image by pinned URL and sha256
+(`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the `F1`
+coordinate tags listed in [observability.md](observability.md).
+
+Several decisions in the original design note were **wrong**, and were corrected during
+implementation by measuring against the live APIs and the actual datasets. Where this document now
+disagrees with what it once said, the disagreement is marked. The corrections are: 50m polygons are
+unusable rather than a tradeoff; the ISO country-name table is unnecessary; the memory estimate was
+an artifact of the geometry library rather than of the data; and forward geocoding moved in-house
+too, which the note had left with the vendor.
 
 Bundled geographic data serves two goals, one user-facing and one internal:
 
@@ -30,13 +36,15 @@ first step differs between the two input shapes:
 
 | Step | Case 1: input is coordinates | Case 2: input is a place name or postal code |
 |---|---|---|
-| 1. Get coordinates | Parse them. **No geocoding request** | **Open-Meteo forward geocoding**, as today |
+| 1. Get coordinates | Parse them. **No geocoding request** | **Bundled data first**, Open-Meteo only on a miss |
 | 2. Fetch the forecast | By coordinates | By coordinates - identical |
 | 3. Get a display name | Our own data | Our own data, **except `name`** - see below |
 | 4. Emit telemetry | Our own data | Our own data |
 
-Open-Meteo's geocoding API keeps exactly one job: **turning a user's typed place into coordinates**.
-Every name and code that reaches a screen or a span comes from bundled data instead.
+Open-Meteo's geocoding API keeps exactly one job, and now only when the bundled data cannot do it:
+**turning a user's typed place into coordinates**. Every name and code that reaches a screen or a
+span comes from bundled data. See [Forward geocoding moved in-house
+too](#forward-geocoding-moved-in-house-too).
 
 ### Except the name the user typed
 
@@ -52,7 +60,7 @@ So the rule is a hybrid, and it is the same rule this document already applies t
 
 | Field | Case 1 (coordinates) | Case 2 (place name) |
 |---|---|---|
-| `name` | Nearest populated place, from our data | **The geocoder's matched name** - the place the user named |
+| `name` | Nearest populated place, from our data | **The matched city's name** - the place the user named. A postal code matches no name, so it falls back to the nearest populated place |
 | `admin1` / subdivision | Our data | Our data |
 | `country` / `country_code` | Our data | Our data |
 
@@ -98,8 +106,9 @@ The `place` block already exists in the v2 response and the title bar already re
 (`plugins/weather/src/shared.liquid:456`, guarded by `{% if place %}`). Two things change, and
 **neither is a template change**:
 
-1. The block gets populated for coordinate input, where it is omitted today.
-2. `admin1` carries a code rather than a display name.
+1. The block gets populated for coordinate input, where it was omitted before.
+2. `admin1` carries a short label rather than the vendor's display name. See [The display
+   rule](#the-display-rule).
 
 ### The 18-character problem
 
@@ -116,8 +125,77 @@ for Pennsylvania, North Carolina, and every other long subdivision name. `Boston
 
 This is why codes are load-bearing rather than cosmetic. The ambiguity mitigation that `Place.cs`
 describes as the entire reason for the block - letting someone see they got Portland, Maine rather
-than Portland, Oregon - is not working today for a large share of US users, because the state is
-precisely the part being dropped.
+than Portland, Oregon - was not working for a large share of US users, because the state is
+precisely the part being dropped. `Vancouver, British Columbia` (27) and `Sydney, New South Wales`
+(23) truncate the same way.
+
+### The display rule
+
+**Corrects the note's "`admin1` carries a code".** A code is right for the US and wrong elsewhere:
+56% of the subdivision codes in the 10m layer are alphabetic, and the rest are numeric. France and
+Japan are numeric, so `FR-59` on a title bar reads `Lille, 59` and `JP-46` reads `Kagoshima, 46`. A
+numeric code is worse than a name.
+
+So `place.admin1` carries the best available **short** label, not raw ISO:
+
+- The alphabetic ISO subdivision part when there is one: `US-MA` gives `MA`.
+- Otherwise the subdivision display name: `FR-59` gives `Nord`, never `59`.
+
+One field, **no `shared.liquid` change**, and the 18-character rule stays as the final guard. The
+full ISO code still goes to telemetry, where numeric is both correct and readable.
+
+The United Kingdom is the exception that is neither. The 10m layer has 232 GB features and they are
+districts, not nations, so the code path renders `Cambridge, CAM`. GB is on a name-first list, which
+gives `Cambridge, Cambridgeshire` - too long for the title bar, so it truncates to `Cambridge`.
+Longer and honest beats short and meaningless. The implementation is
+`TrmnlApi.Geo.SubdivisionLabel`.
+
+## Forward geocoding moved in-house too
+
+**This is new; the note left forward geocoding with the vendor.** Testing against the live API found
+the vendor is the problem in three ways, not one, and the third is disqualifying:
+
+| Input | Open-Meteo | Bundled data |
+|---|---|---|
+| `00784` (Guayama PR) | **No results** | Guayama, PR (17.98, -66.11) |
+| `00784, PR` / `Guayama, PR` | **No results** | Guayama, PR |
+| `Guayama` | Works, but `admin1='Guayama'`, so it renders **"Guayama, Guayama"** | "Guayama, PR" |
+| `Munich, DE` / `Paris, FR` / `Toronto, CA` | **No results** | All resolve |
+| `Munich, Germany` / `Toronto, Canada` | Works | Works |
+
+Two-letter **country** qualifiers mostly fail, while two-letter **US state** qualifiers work. The
+plugin's own placeholder is `Boston, MA` (`plugins/weather/src/settings.yml`), which teaches a
+pattern that silently fails outside the US. A Puerto Rico user had **no working input form at all**.
+
+A ~30-line ranker over `cities1000` - exact name or alias match, comma qualifiers filtered by
+country code, country name, subdivision code and subdivision name, ranked by population -
+reproduced **12 of 12** of Open-Meteo's answers, including `Portland` to Oregon, `Portland, ME` to
+Maine, `Cambridge` to GB and `Munich` to DE. Coordinates agree: `Boston` gives 42.36,-71.06, which
+is what `WeatherV2EndpointTests` already asserted.
+
+### Local first, vendor as the fallback
+
+Open-Meteo is called only when the local search finds nothing, and `weather.geocoder`
+(`local` / `open-meteo` / `none`) records which path served. Nobody ends up worse off than before,
+and the vendor retires when the fallback count goes quiet - the same measured retirement v1 gets.
+
+This matters because **we do not log place inputs**, so there is no corpus to replay a ranking
+regression against. The fallback *is* the safety net. It also covers the one thing the local
+geocoder deliberately does not do: the vendor forgives some misspellings and exact-and-alias
+matching does not.
+
+### Postal codes supply coordinates only
+
+Their place names are unusable as labels. `CA M5V` is
+`"Downtown Toronto (CN Tower / King and Spadina / Railway Lands / ...)"` and `GB SW1A` is
+`"Westminster Abbey"`, so the label always comes from the city lookup instead. The postal table
+carries country, code and coordinates and nothing else.
+
+GeoNames postal is 1,826,904 rows over 121 countries. Where one code exists in several countries -
+`75001` is both the first arrondissement of Paris and Addison, Texas - the candidates rank by the
+largest population within 15 km of the centroid, which picks Paris. The radius has to be small for
+that to mean anything: at 60 km, Addison borrows Dallas and the comparison stops being about the
+postal code at all.
 
 ## Display and telemetry are separate decisions
 
@@ -145,11 +223,12 @@ that is merely near enough to group by is not near enough to show.
 | Question | Decision |
 |---|---|
 | Purpose | A user-facing display name **and** telemetry grouping, from one lookup |
-| What Open-Meteo still does | Forward geocoding only: a typed place to coordinates |
-| Display `name`, case 2 | The **geocoder's matched name**, not our nearest place |
+| What Open-Meteo still does | Forward geocoding, and only when the bundled data misses |
+| Display `name`, case 2 | The **matched city's name**, not our nearest place |
+| Display `admin1` | The **short label**: alphabetic ISO part, else the subdivision name |
 | Codes and subdivision | Always bundled data, both cases |
 | Input precision | **F2** (~1.1 km), the already-snapped orchestrator values |
-| Country + subdivision | Point-in-polygon against Natural Earth **50m admin-1** |
+| Country + subdivision | Point-in-polygon against Natural Earth **10m admin-1**. 50m is unusable; see below |
 | City | Nearest populated place from GeoNames, at the grain set in [How to resolve a coordinate](#how-to-resolve-a-coordinate) |
 | No match (ocean, unmapped) | Snap to nearest within a bounded radius, else blank |
 | Timing | **Synchronous, in the request path**, behind a memo and a time budget |
@@ -194,7 +273,8 @@ home.
 | Tag | Format | Source |
 |---|---|---|
 | `weather.country_code` | ISO 3166-1 alpha-2, e.g. `US` | NE admin-1 `iso_a2` |
-| `weather.country` | display name, e.g. `United States` | static ISO name table keyed on the code |
+| `weather.country` | display name, e.g. `United States of America` | NE admin-1 `admin` |
+| `weather.geocoder` | `local` / `open-meteo` / `none` | which path resolved the input |
 | `weather.subdivision` | ISO-3166-2, e.g. `US-MA` | NE admin-1 `iso_3166_2` |
 | `weather.subdivision_name` | display name, e.g. `Massachusetts` | NE admin-1 `name` |
 | `weather.city` | display name, e.g. `Boston` | GeoNames nearest populated place |
@@ -241,7 +321,7 @@ Lazy and memoized, not precomputed.
 | Concern | Decision |
 |---|---|
 | Input | The **F2** coordinates the orchestrator has already snapped |
-| Dataset, country + subdivision | Natural Earth **50m admin-1** polygons, bundled in the image |
+| Dataset, country + subdivision | Natural Earth **10m admin-1** polygons, bundled in the image |
 | Dataset, city | GeoNames `cities1000`, bundled in the image - see [City grain is set by display](#city-grain-is-set-by-display) |
 | Country / subdivision | **Point-in-polygon** |
 | City | Nearest populated place, display-only |
@@ -252,10 +332,20 @@ Lazy and memoized, not precomputed.
 
 ### One dataset covers three fields
 
-`ne_50m_admin_1_states_provinces` carries `iso_a2`, `iso_3166_2`, and `name` on every feature, so a
-single containment query yields country code, subdivision code, and subdivision name together. A
-separate countries layer is unnecessary. The country display name comes from a static ~250-row ISO
-table keyed on `iso_a2`, not from a dataset.
+`ne_10m_admin_1_states_provinces` carries `iso_a2`, `iso_3166_2`, `name` **and `admin`** on every
+feature, so a single containment query yields country code, country name, subdivision code and
+subdivision name together. A separate countries layer is unnecessary.
+
+**Corrects the note's "static ~250-row ISO name table".** `admin` - the country display name - is
+populated on all 4,596 features, so the table is redundant and is not built. The same column is what
+resolves a spelled-out qualifier such as `Munich, Germany` to a country code.
+
+### GeoNames codes are not a shortcut
+
+An early idea was to skip polygons entirely and take the subdivision straight from the GeoNames
+`admin1` column on the nearest city. That would have been US-only: **89% of GeoNames admin1 codes
+are numeric** (`CA.01`, not `CA-ON`). The column is still carried, because it is what makes
+`Portland, ME` resolve, but it cannot produce an ISO code. Polygons earn their place.
 
 ### Why two datasets and not one
 
@@ -266,7 +356,8 @@ The fields pull in opposite directions, which is why neither source alone is eno
   GeoNames does not, so the subdivision *code* has to come from Natural Earth regardless of any
   border-accuracy argument.
 - **Natural Earth is thin on cities.** ~1,250 populated places at 50m and ~7,350 at 10m, against
-  ~26,000 in GeoNames `cities15000` and ~150,000 in `cities1000`. The city label has to come from
+  ~26,000 in GeoNames `cities15000` and 170,856 in `cities1000` (28 MB, 82% of rows carrying
+  alternate names inline). The city label has to come from
   GeoNames or rural users all resolve to the same handful of metros - which was tolerable when this
   was a grouping key and is not once it is on a screen.
 
@@ -306,16 +397,23 @@ itself.
 F2 sharpens this. At 11 km granularity a border error was arguably within the noise; at 1.1 km,
 nearest-city would claim a precision the method does not have.
 
-### 50m polygons, with 10m as a deliberate upgrade
+### 10m is the only option; 50m is unusable
 
-50m resolution carries ~1-2 km of positional error. At F1 that sat comfortably inside an 11 km cell,
-which is why an earlier draft treated 10m as pure waste. **At F2 that reasoning no longer holds**: the
-polygon error now exceeds the 1.1 km cell.
+**Corrects the note's "start at 50m, 10m is the upgrade path".** That framing presented a tradeoff
+that does not exist. Counted directly:
 
-Start at 50m anyway. Users within 2 km of a subdivision border are a small population and this is
-telemetry, not billing. But it is now a deliberate accuracy tradeoff rather than a free one, and
-`ne_10m_admin_1_states_provinces` is the upgrade path if border misassignment ever shows up as a real
-problem.
+| Layer | Features | Countries covered | `iso_3166_2` usable |
+|---|---|---|---|
+| `ne_50m_admin_1_states_provinces` | 294 | **9** (RU, US, IN, ID, CN, BR, CA, AU, ZA) | - |
+| `ne_10m_admin_1_states_provinces` | 4,596 | **241** | 4,595 of 4,596 |
+
+At 50m, every user outside those nine countries resolves to blank. That is not a resolution
+tradeoff, it is missing data. 10m is the only option, its coverage is effectively complete, and
+Puerto Rico is one feature carrying `US-PR`.
+
+The geometry is 1,295,319 points, which is ~21 MB as float64 and ~10 MB as float32. Simplified at
+build time to 0.01 degrees - finer than the grid the query point has already been snapped to - it is
+smaller again.
 
 ### Coastal cells need the radius fallback
 
@@ -381,13 +479,14 @@ data-update cadence ever makes extraction worthwhile.
 
 ### Keeping the polygons out of RAM
 
-The real risk in bundling Natural Earth is memory, not deployment. ~4,600 admin-1 multipolygons held
-as live NetTopologySuite geometries is plausibly 60-100 MB resident, on a container that also holds
-the forecast cache. **Measure this before committing to the approach.**
+**Corrects the note's "60-100 MB resident".** That figure was an artifact of NetTopologySuite's
+object-per-coordinate model, not of the data: the 1,295,319 points in the admin-1 layer are ~10 MB
+packed as float32. So NetTopologySuite is a **build-time** dependency of `GeoDataBuilder` only. The
+runtime unpacks its own flat blobs (`TrmnlApi.Geo.PolygonBlob`) and never constructs a geometry
+object.
 
-The fix is not a separate service, which only moves the memory somewhere it costs more. The fix is to
-stop holding polygons in RAM. Ship the data as a **SQLite file with an R-tree index**, bundled in the
-image:
+The storage decision stands on its own merits anyway. Ship the data as a **SQLite file with an
+R-tree index**, bundled in the image:
 
 1. The R-tree returns the handful of admin-1 polygons whose bounding boxes contain the point,
    typically one to three.
@@ -395,9 +494,42 @@ image:
 3. Resident memory stays flat. The OS page cache holds the few pages actually touched, and the
    working set is a few hundred cells.
 
-The same file serves the nearest-city query. Cost is image size (roughly 20-50 MB) and a build step
-to produce the file. Simplifying the polygons at build time with mapshaper is the other lever, and it
-costs about the error already being accepted at 50m.
+The same file serves the nearest-city query, the forward geocoder and the postal lookup. Cost is
+image size and a build step to produce the file. `GeoDataBuilder` simplifies the polygons at build
+time (Douglas-Peucker, 0.01 degrees by default), drops every column nothing reads, and vacuums; the
+artifact is 60-120 MB without that trimming.
+
+### The file layout
+
+| Table | Contents |
+|---|---|
+| `admin1` | `iso_3166_2, iso_a2, admin_name, subdiv_name, geom` blob, plus an R-tree over bounding boxes |
+| `country` | `iso_a2` to display name, derived from the admin-1 layer's own `admin` column |
+| `admin1_name` | GeoNames division names, so `Portland, Oregon` resolves like `Portland, OR` |
+| `city` | `name, normalized_name, country, admin1, lat, lon, population`, plus an R-tree and an alias table |
+| `postal` | `country, code, lat, lon` only - no place names |
+
+The schema lives in `TrmnlApi.Geo.GeoSchema` rather than in the builder, so the writer and every
+reader are looking at one definition, and the tests build a small fixture database from it.
+
+### Building and shipping the artifact
+
+```bash
+dotnet run --project api/tools/GeoDataBuilder -- --input <dir> --output geo.sqlite
+```
+
+The input directory needs `ne_10m_admin_1_states_provinces.shp` (with its `.dbf` and `.shx`),
+`cities1000.txt`, `admin1CodesASCII.txt` and the postal `allCountries.txt`. Publish the result as a
+GitHub release asset and point `GEO_DATA_URL` / `GEO_DATA_SHA256` at it in `api/Dockerfile`, which
+verifies the checksum the same way the tracer tarball is verified.
+
+Leave `GEO_DATA_URL` empty and the image still runs: `Geo__DatabasePath` finds nothing, the null
+implementations are registered, every query goes to the vendor geocoder and no location is shown. A
+service that will not boot without a 100 MB download is a worse outage than one that shows no
+location.
+
+**Nobody owns the refresh cadence.** Bundling means a data update rides a deliberate release, and no
+one is named for checking Natural Earth or GeoNames revisions.
 
 ## PII
 
@@ -427,8 +559,8 @@ more accurate, not less, but it means the city is not reproducible from the tagg
 
 ### Dataset licensing
 
-Natural Earth is public domain. GeoNames is CC BY 4.0 and **requires attribution**, so shipping a
-NOTICE file in the image is unconditional: the city label is a display field now, not a tag that
+Natural Earth is public domain. GeoNames is CC BY 4.0 and **requires attribution**, so `api/NOTICE`
+is copied into the image unconditionally: the city label is a display field now, not a tag that
 could be dropped on privacy grounds, so there is no version of this design that omits GeoNames.
 
 Existing NuGet options were checked and rejected: `ReverseGeocoder` (0.3.0) and

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Http.Resilience;
 using TrmnlApi.Endpoints;
+using TrmnlApi.Geo;
 using TrmnlApi.Observability;
 using TrmnlApi.Providers;
 using TrmnlApi.Services;
@@ -50,6 +51,11 @@ builder.Services.AddSingleton(sp => new PlaceResolver(
     new MemoryCache(new MemoryCacheOptions { SizeLimit = placeCacheSizeLimit }),
     sp.GetRequiredService<IOptions<PlaceCacheOptions>>(),
     sp.GetRequiredService<ILogger<PlaceResolver>>()));
+// Local geocoding and the on-screen location, both served by the bundled dataset. Registered
+// beside PlaceResolver because they are the same job: the local pair goes first and the vendor
+// resolver is what answers when they miss. See docs/geographic-telemetry.md.
+builder.Services.Configure<GeoOptions>(builder.Configuration.GetSection("Geo"));
+builder.Services.AddTrmnlGeo();
 builder.Services.AddSingleton<WeatherCache>();
 builder.Services.AddSingleton<WeatherForecastOrchestrator>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -63,6 +69,10 @@ app.UseExceptionHandler(_ => { });
 // Build the resolver eagerly so a missing provider API key fails at startup with a clear
 // message instead of 500ing the first forecast request.
 app.Services.GetRequiredService<WeatherProviderResolver>();
+
+// Same reason, one step weaker: opening the geo dataset here turns a mispackaged image into a log
+// line at boot rather than a location that is quietly missing from every screen.
+app.Services.GetRequiredService<GeoDatabaseHolder>();
 
 app.MapGet("/api/v1/forecast", WeatherEndpoint.Handle);
 app.MapGet("/api/v2/forecast", WeatherV2Endpoint.Handle);

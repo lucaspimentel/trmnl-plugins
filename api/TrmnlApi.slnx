@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/TrmnlApi/TrmnlApi.csproj" />
+    <Project Path="src/TrmnlApi.Geo/TrmnlApi.Geo.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/GeoDataBuilder/GeoDataBuilder.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TrmnlApi.Tests/TrmnlApi.Tests.csproj" />

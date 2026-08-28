@@ -55,8 +55,14 @@ and `meta` are unchanged.
 }
 ```
 
-`place` is omitted when the request carries `show_place=no`, and when the input was a coordinate
-pair: nothing was geocoded, so there is no matched name to echo.
+`place` is omitted when the request carries `show_place=no`, and when the API's bundled geographic
+data has no name for the coordinates at all (mid-ocean, or nowhere near a settlement). A coordinate
+pair **does** get a `place` block: everything but `name` comes from the bundled reverse lookup on
+every input path.
+
+`admin1` is a short label rather than a display name - `MA`, not `Massachusetts` - so that
+`Boston, MA` fits the title bar's 18-character rule where `Boston, Massachusetts` did not. Where the
+subdivision code is numeric, as in France and Japan, it falls back to the name (`Nord`, never `59`).
 
 Every failure a device can see comes back as **HTTP 200 with an `error` object** instead of the
 forecast, which is what the layouts branch on (`{{ error.message }}` / `{{ error.hint }}`):

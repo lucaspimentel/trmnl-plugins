@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TrmnlApi.Endpoints;
+using TrmnlApi.Geo;
 using TrmnlApi.Models;
 using TrmnlApi.Models.OpenMeteo;
 using TrmnlApi.Observability;
@@ -28,7 +29,9 @@ public class WeatherV2EndpointTests
         Assert.Equal(200, status);
         var place = Json(body).GetProperty("place");
         Assert.Equal("Boston", place.GetProperty("name").GetString());
-        Assert.Equal("Massachusetts", place.GetProperty("admin1").GetString());
+        // The short label now, not the display name: "Boston, MA" fits the title bar's 18
+        // characters where "Boston, Massachusetts" did not.
+        Assert.Equal("MA", place.GetProperty("admin1").GetString());
         Assert.Equal("US", place.GetProperty("country_code").GetString());
         Assert.Equal(42.36, place.GetProperty("latitude").GetDouble());
         Assert.Equal(-71.06, place.GetProperty("longitude").GetDouble());
@@ -64,16 +67,90 @@ public class WeatherV2EndpointTests
     }
 
     [Fact]
-    public async Task Handle_Coordinates_SkipsTheGeocoderAndOmitsThePlaceBlock()
+    public async Task Handle_Coordinates_SkipsTheGeocoderButStillShowsThePlace()
     {
+        // Before the bundled dataset, a coordinate caller saw no location at all and so had no
+        // way to notice a transposed pair.
         var harness = new Harness();
 
         var (status, body) = await harness.Get("?place=42.35,-71.05");
 
         Assert.Equal(200, status);
         Assert.Equal(0, harness.GeocodingClient.Calls);
-        // Nothing was resolved, so there is nothing truthful to show. Omitted, not null.
+        Assert.Equal(0, harness.LocalGeocoder.Calls);
+        var place = Json(body).GetProperty("place");
+        Assert.Equal("Boston", place.GetProperty("name").GetString());
+        Assert.Equal("MA", place.GetProperty("admin1").GetString());
+    }
+
+    [Fact]
+    public async Task Handle_LocalGeocoderHit_NeverCallsTheVendor()
+    {
+        var harness = new Harness();
+        harness.LocalGeocoder.Result = new GeoMatch(42.36, -71.06, "Boston");
+
+        var (status, body) = await harness.Get("?place=Boston");
+
+        Assert.Equal(200, status);
+        Assert.Equal(0, harness.GeocodingClient.Calls);
+        Assert.Equal("Boston", Json(body).GetProperty("place").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Handle_LocalGeocoderMiss_FallsBackToTheVendor()
+    {
+        // The safety net that lets the vendor be retired on measurement rather than on hope.
+        var harness = new Harness();
+
+        var (status, _) = await harness.Get("?place=Boston");
+
+        Assert.Equal(200, status);
+        Assert.Equal(1, harness.LocalGeocoder.Calls);
+        Assert.Equal(1, harness.GeocodingClient.Calls);
+    }
+
+    [Fact]
+    public async Task Handle_PostalHit_TakesItsNameFromTheReverseLookup()
+    {
+        // Postal place names are unusable as labels, so a postal match carries coordinates only.
+        var harness = new Harness();
+        harness.LocalGeocoder.Result = new GeoMatch(17.98, -66.11, CityName: null);
+        harness.PlaceLookup.Result = new GeoPlace("Guayama", "US-PR", "Puerto Rico", "US", "United States of America");
+
+        var (_, body) = await harness.Get("?place=00784");
+
+        var place = Json(body).GetProperty("place");
+        Assert.Equal("Guayama", place.GetProperty("name").GetString());
+        Assert.Equal("PR", place.GetProperty("admin1").GetString());
+    }
+
+    [Fact]
+    public async Task Handle_LookupFindsNothing_StillServesTheForecast()
+    {
+        var harness = new Harness();
+        harness.PlaceLookup.Result = GeoPlace.Empty;
+
+        var (status, body) = await harness.Get("?place=42.35,-71.05");
+
+        Assert.Equal(200, status);
+        Assert.True(Json(body).TryGetProperty("current", out _));
+        // Nothing truthful to show. Omitted, not invented.
         Assert.False(Json(body).TryGetProperty("place", out _));
+    }
+
+    [Fact]
+    public async Task Handle_LookupFindsNothingForANamedPlace_KeepsTheVendorsOwnLabels()
+    {
+        // Nobody ends up worse off than before the dataset existed.
+        var harness = new Harness();
+        harness.PlaceLookup.Result = GeoPlace.Empty;
+
+        var (_, body) = await harness.Get("?place=Boston");
+
+        var place = Json(body).GetProperty("place");
+        Assert.Equal("Boston", place.GetProperty("name").GetString());
+        Assert.Equal("Massachusetts", place.GetProperty("admin1").GetString());
+        Assert.Equal("US", place.GetProperty("country_code").GetString());
     }
 
     [Fact]
@@ -330,6 +407,8 @@ public class WeatherV2EndpointTests
         private readonly ServiceProvider _services = new ServiceCollection().AddLogging().BuildServiceProvider();
 
         public StubGeocodingClient GeocodingClient { get; } = new();
+        public StubLocalGeocoder LocalGeocoder { get; } = new();
+        public StubPlaceLookup PlaceLookup { get; } = new();
         public ForecastMetrics Metrics { get; }
 
         public Harness(bool providerFails = false, bool providerDelay = false)
@@ -363,6 +442,8 @@ public class WeatherV2EndpointTests
             var result = await WeatherV2Endpoint.Handle(
                 context.Request,
                 _placeResolver,
+                LocalGeocoder,
+                PlaceLookup,
                 _orchestrator,
                 _clock,
                 Metrics,
@@ -405,6 +486,37 @@ public class WeatherV2EndpointTests
             return Failure is not null
                 ? Task.FromException<OpenMeteoGeocodingResult?>(Failure)
                 : Task.FromResult(Result);
+        }
+    }
+
+    // Misses by default, so the tests that are about the vendor path stay about the vendor path.
+    private sealed class StubLocalGeocoder : ILocalGeocoder
+    {
+        public int Calls { get; private set; }
+        public GeoMatch? Result { get; set; }
+
+        public GeoMatch? Find(string text)
+        {
+            Calls++;
+            return Result;
+        }
+    }
+
+    private sealed class StubPlaceLookup : IPlaceLookup
+    {
+        public int Calls { get; private set; }
+
+        public GeoPlace Result { get; set; } = new(
+            City: "Boston",
+            SubdivisionCode: "US-MA",
+            SubdivisionName: "Massachusetts",
+            CountryCode: "US",
+            Country: "United States of America");
+
+        public GeoPlace Find(double latitude, double longitude)
+        {
+            Calls++;
+            return Result;
         }
     }
 

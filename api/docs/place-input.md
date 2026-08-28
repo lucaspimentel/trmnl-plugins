@@ -87,9 +87,9 @@ arriving with coordinates alone.
 | `42.35843	-71.05977` | coordinates | parsed directly, no geocoding call |
 | `42.35,71.05` | coordinates | parsed directly, no geocoding call |
 | `42.35, -71.05` | coordinates | parsed directly, no geocoding call |
-| `02180` | not coordinates | Open-Meteo search |
-| `Boston, MA` | not coordinates | Open-Meteo search |
-| `SW1A 1AA` | not coordinates | Open-Meteo search, which finds nothing |
+| `02180` | not coordinates | bundled search, Open-Meteo on a miss |
+| `Boston, MA` | not coordinates | bundled search, Open-Meteo on a miss |
+| `SW1A 1AA` | not coordinates | bundled search, Open-Meteo on a miss |
 
 The rule: normalize whitespace, split on `[,\s]+`, and treat the value as coordinates only when there
 are **exactly two tokens, both parse as invariant-culture doubles, and both fall in range** (latitude
@@ -213,17 +213,23 @@ The two features layer rather than compete:
 |---|---|
 | Coordinates | Given directly, or from forward geocoding |
 | `country_code`, `subdivision` | **Always** the Natural Earth polygon lookup, run on the final coordinates |
-| `city` / `name` | The geocoding result when there was one, else the GeoNames nearest-place fallback |
+| `city` / `name` | The matched city when the input named one, else the GeoNames nearest-place fallback |
 
 Running the polygon lookup for both input paths keeps the ISO codes consistent and gives one code
 path instead of two sources of truth. Using the geocoded name for `city` is strictly better than
 nearest-place when it is available, because it is the place the user actually named.
 
-The same rule now governs what reaches the **screen**, not only what reaches a span: the plan is for
-the bundled data to populate the `place` block on coordinate input too, where it is omitted today,
-and to supply a subdivision **code** in place of Open-Meteo's display name. That makes this document
-the source of `place` only for the geocoded `name`; everything else in the block comes from
+The same rule now governs what reaches the **screen**, not only what reaches a span: the bundled
+data populates the `place` block on coordinate input too, and supplies a short subdivision label in
+place of Open-Meteo's display name. That makes this document the source of `place` only for the
+matched `name`; everything else in the block comes from
 [geographic-telemetry.md](geographic-telemetry.md#the-two-use-cases).
+
+Forward geocoding has since moved in-house as well, with Open-Meteo kept as the fallback for a local
+miss. Everything about *parsing* below is unchanged - the same free-form `place`, the same
+coordinate probe - but the search that follows hits the bundled data first, which is what makes
+`00784` and `Munich, DE` resolve at all. See [Forward geocoding moved in-house
+too](geographic-telemetry.md#forward-geocoding-moved-in-house-too).
 
 ### This was built first
 
@@ -271,11 +277,16 @@ that cannot read the setting can act on. Showing it is the default, and an unrec
 it, so nothing that omits the parameter changes behavior. A user who turns it off gives up the
 ambiguity mitigation above, which is the point of it being a choice rather than a default.
 
-`admin1` is the geocoder's display name, not an ISO code. Open-Meteo never returns ISO 3166-2, so the
-subdivision **code** can only come from the polygon lookup in
-[geographic-telemetry.md](geographic-telemetry.md#what-to-emit), which is a telemetry concern and is
-not part of this response. When the request carried coordinates rather than a place, `place` is
-populated by the same reverse lookup if it exists, and omitted otherwise.
+`admin1` is a short display label, not a raw ISO code: the alphabetic ISO subdivision part where
+there is one (`US-MA` gives `MA`), and the subdivision name where the code is numeric (`FR-59` gives
+`Nord`). The full ISO code goes to telemetry instead. See [The display
+rule](geographic-telemetry.md#the-display-rule).
+
+**The block is now populated for coordinate input too.** Everything but `name` comes from the
+bundled reverse lookup on every path, so a coordinate caller sees a location where before they saw
+none - which is how a transposed pair becomes visible. The block is omitted only when the lookup
+finds no name at all: mid-ocean, or a coordinate pair with no settlement in range. Nothing is
+invented to fill it.
 
 ### The error object
 

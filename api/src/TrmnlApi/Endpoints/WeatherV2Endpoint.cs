@@ -1,6 +1,7 @@
 using Datadog.Trace;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using TrmnlApi.Geo;
 using TrmnlApi.Mappings;
 using TrmnlApi.Models;
 using TrmnlApi.Observability;
@@ -36,10 +37,23 @@ public class WeatherV2Endpoint
 
     private const string TagInputKind = "weather.input_kind";
     private const string TagErrorCode = "weather.error_code";
+    private const string TagGeocoder = "weather.geocoder";
+    private const string TagCity = "weather.city";
+    private const string TagSubdivision = "weather.subdivision";
+    private const string TagSubdivisionName = "weather.subdivision_name";
+    private const string TagCountryCode = "weather.country_code";
+    private const string TagCountry = "weather.country";
+
+    /// <summary>Which geocoder answered. The measurement that licenses retiring the vendor one.</summary>
+    private const string GeocoderLocal = "local";
+    private const string GeocoderVendor = "open-meteo";
+    private const string GeocoderNone = "none";
 
     public static async Task<IResult> Handle(
         HttpRequest req,
         PlaceResolver placeResolver,
+        ILocalGeocoder localGeocoder,
+        IPlaceLookup placeLookup,
         WeatherForecastOrchestrator orchestrator,
         TimeProvider timeProvider,
         ForecastMetrics metrics,
@@ -110,7 +124,14 @@ public class WeatherV2Endpoint
 
         double latitude;
         double longitude;
-        Place? place = null;
+
+        // The name the caller's own input picked out, when it picked one out. A postal code and a
+        // coordinate pair both leave this null, and the label then comes from the reverse lookup.
+        string? matchedName = null;
+        // What the vendor said, kept only so its subdivision and country can stand in when the
+        // bundled dataset has nothing. Nobody ends up worse off than before the dataset existed.
+        Place? vendorPlace = null;
+        var geocoder = GeocoderNone;
 
         switch (input)
         {
@@ -124,14 +145,29 @@ public class WeatherV2Endpoint
                         Quote(placeParam ?? $"{query["latitude"].FirstOrDefault()}, {query["longitude"].FirstOrDefault()}")));
 
             case PlaceInput.Coordinates coordinates:
-                latitude = coordinates.Latitude;
-                longitude = coordinates.Longitude;
+                // Snapped to the same grid the resolvers snap to, so that one place has one memo
+                // entry and one forecast cache entry however it was typed.
+                latitude = Snap(coordinates.Latitude);
+                longitude = Snap(coordinates.Longitude);
                 break;
 
             case PlaceInput.Query typed:
+                // The bundled dataset first, the vendor only when it misses. The vendor forgives
+                // misspellings this does not, so it stays wired up as the safety net: we do not
+                // log place inputs, so there is no corpus to replay a ranking regression against.
+                var localMatch = localGeocoder.Find(typed.Text);
+                if (localMatch is { } hit)
+                {
+                    geocoder = GeocoderLocal;
+                    latitude = hit.Latitude;
+                    longitude = hit.Longitude;
+                    matchedName = hit.CityName;
+                    break;
+                }
+
                 try
                 {
-                    place = await placeResolver.ResolveAsync(typed.Text, cancellationToken);
+                    vendorPlace = await placeResolver.ResolveAsync(typed.Text, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -145,18 +181,28 @@ public class WeatherV2Endpoint
                     return Unavailable(span);
                 }
 
-                if (place is null)
+                if (vendorPlace is null)
                 {
+                    // Both geocoders missed, which is the only thing that is now a not-found.
+                    span?.SetTag(TagGeocoder, GeocoderNone);
                     return Error(span, WeatherErrors.PlaceNotFound(Quote(typed.Text)));
                 }
 
-                latitude = place.Latitude;
-                longitude = place.Longitude;
+                geocoder = GeocoderVendor;
+                matchedName = vendorPlace.Name;
+                latitude = vendorPlace.Latitude;
+                longitude = vendorPlace.Longitude;
                 break;
 
             default:
                 throw new InvalidOperationException($"Unhandled place input {input.GetType().Name}.");
         }
+
+        // One labelling pass for every path, coordinates included. Before this, a coordinate
+        // caller saw no location at all and had no way to notice a transposed pair.
+        var geo = placeLookup.Find(latitude, longitude);
+        var place = BuildPlace(geo, matchedName, vendorPlace, latitude, longitude);
+        TagPlace(span, geo, geocoder);
 
         ForecastOutcome outcome;
         try
@@ -230,15 +276,83 @@ public class WeatherV2Endpoint
         metrics.RecordServed(cacheStatus, outcome.WinningProvider);
         // Its own category, not this class's: see TrmnlApi.Observability.ForecastServed.
         servedLogger.LogInformation(
-            "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider}",
+            "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider} "
+                + "geocoder={Geocoder} city={City} subdivision={Subdivision} country={CountryCode}",
             CoarseCoordinate.ToTag(latitude),
             CoarseCoordinate.ToTag(longitude),
             cacheStatus,
             outcome.WinningProvider,
-            outcome.RequestedProvider);
+            outcome.RequestedProvider,
+            geocoder,
+            geo.City,
+            geo.SubdivisionCode,
+            geo.CountryCode);
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
+
+    /// <summary>
+    /// The single place a <see cref="Place"/> is assembled, whatever the caller typed.
+    /// </summary>
+    /// <remarks>
+    /// The name is the only field the input gets a say in: someone who typed "Cambridge" should
+    /// see the word they typed, not the nearest settlement to its centroid. Everything else comes
+    /// from the bundled dataset, which is what makes the label consistent between a coordinate
+    /// caller and a name caller. The vendor's own subdivision and country stand in only where the
+    /// dataset is blank.
+    /// <para>
+    /// <see cref="Place.Admin1"/> takes the short label, not the ISO code: see
+    /// <c>SubdivisionLabel</c>. The full code goes to telemetry instead, where "FR-59" is more
+    /// useful than "Nord".
+    /// </para>
+    /// </remarks>
+    private static Place? BuildPlace(GeoPlace geo, string? matchedName, Place? vendorPlace, double latitude, double longitude)
+    {
+        var name = matchedName ?? geo.City;
+        if (string.IsNullOrEmpty(name))
+        {
+            // Mid-ocean, or a coordinate pair with no settlement in range. Omitted rather than
+            // invented: an empty title bar is honest and a wrong one is not.
+            return null;
+        }
+
+        return new Place(
+            Name: name,
+            Admin1: geo.ShortSubdivision ?? vendorPlace?.Admin1,
+            Country: geo.Country ?? vendorPlace?.Country,
+            CountryCode: geo.CountryCode ?? vendorPlace?.CountryCode,
+            Latitude: latitude,
+            Longitude: longitude);
+    }
+
+    private static void TagPlace(ISpan? span, GeoPlace geo, string geocoder)
+    {
+        if (span is null)
+        {
+            return;
+        }
+
+        span.SetTag(TagGeocoder, geocoder);
+
+        // Set only when known. A tag whose value is the empty string is a fact about the tag
+        // rather than about the request, and it shows up in facets as though it were one.
+        SetIfPresent(span, TagCity, geo.City);
+        SetIfPresent(span, TagSubdivision, geo.SubdivisionCode);
+        SetIfPresent(span, TagSubdivisionName, geo.SubdivisionName);
+        SetIfPresent(span, TagCountryCode, geo.CountryCode);
+        SetIfPresent(span, TagCountry, geo.Country);
+
+        static void SetIfPresent(ISpan span, string tag, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                span.SetTag(tag, value);
+            }
+        }
+    }
+
+    /// <summary>The 0.01-degree grid the forecast cache keys on. See <c>PlaceResolver</c>.</summary>
+    private static double Snap(double value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static IResult Error(ISpan? span, ErrorInfo error)
     {

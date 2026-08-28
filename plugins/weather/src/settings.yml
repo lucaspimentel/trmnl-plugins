@@ -41,7 +41,7 @@ custom_fields:
 - keyname: place
   field_type: string
   name: Location
-  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX), and swapped coordinates silently show the wrong place. To check what a place will match before you save it, search for it at https://open-meteo.com/en/docs/geocoding-api"
+  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Narrow an ambiguous name with a state or country after a comma: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
   optional: true
   placeholder: 'Boston, MA'
 - keyname: latitude
