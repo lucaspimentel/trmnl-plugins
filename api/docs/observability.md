@@ -152,8 +152,11 @@ aspnet_core.request   GET /api/v1/forecast        (p_id: null)
   http.request        GET api.open-meteo.com/v1/forecast
 ```
 
-A v2 request adds a second `http.request` child for the geocoding call, unless the place was
-already memoized, in which case there is no span for it at all.
+A v2 request adds a second `http.request` child for the geocoding call, but only when the vendor is
+actually reached. There is no span for it when the place was already memoized, and none when the
+bundled dataset resolved the input, which is the ordinary case once an artifact is deployed. A
+coordinate pair never had one. So the absence of that child span is not a sign the lookup was
+skipped: read `weather.geocoder` to find out which path answered.
 
 ## Span tags on `aspnet_core.request`
 
@@ -182,6 +185,12 @@ numeric-looking ones, so they stay facets rather than measures.
 | `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
 | `weather.input_kind` | v2 only: `coordinates`, `place`, `missing`, or `invalid` |
 | `weather.error_code` | v2 only: which failure, or `client_cancelled` |
+
+v2 also tags where the request resolved to - `weather.geocoder`, `weather.country_code`,
+`weather.country`, `weather.subdivision`, `weather.subdivision_name` and `weather.city`, set by
+`TagPlace`. Their formats and sources are specified once, in
+[geographic-telemetry.md](geographic-telemetry.md#what-to-emit), rather than repeated here where the
+two lists would drift apart.
 
 Coordinates are rounded to `F1` before tagging, the same rule the logs follow. That rule only binds
 the tags set here: automatic instrumentation will tag raw query strings at full precision unless

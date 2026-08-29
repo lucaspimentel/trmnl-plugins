@@ -47,8 +47,8 @@ status only.
 |---|---|
 | Input shape | A **single** free-form `place` parameter |
 | Coordinates | Detected by parsing, not by a separate parameter |
-| Geocoder | Open-Meteo forward geocoding, on the paid customer endpoint |
-| Ambiguity | **Take the first result.** Qualifiers already work via full-text search |
+| Geocoder | **Bundled data first**, Open-Meteo forward geocoding on a miss. Originally the vendor alone; see [geographic-telemetry.md](geographic-telemetry.md#forward-geocoding-moved-in-house-too) |
+| Ambiguity | **Take the most prominent match.** Qualifiers typed into `place` narrow it, and a **Country** setting settles what is left |
 | Errors | HTTP **200** with a renderable error in the body, for **every failure the device can see** |
 | Error body | A stable `code`, a human `message`, and an actionable `hint` |
 | Response shape | A nested **`place`** object beside the existing forecast keys |
@@ -120,7 +120,9 @@ modes should be called out in the plugin's field description and README rather t
 
 1. Normalize the input: trim, casefold for the memo key, collapse internal whitespace.
 2. Probe for coordinates per the rule above. If it parses, resolution is done.
-3. Otherwise call Open-Meteo forward geocoding and take the first result.
+3. Otherwise search the bundled dataset, which ranks by population and honours both a typed
+   qualifier and the caller's `country`. On a miss, call Open-Meteo forward geocoding and take
+   the first result.
 4. Snap the resulting coordinates to F2, exactly as `WeatherForecastOrchestrator` already does.
 5. Enter the existing cache and provider path unchanged.
 
