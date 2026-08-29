@@ -41,13 +41,13 @@ custom_fields:
 - keyname: place
   field_type: string
   name: Location
-  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Narrow an ambiguous name with a state or country after a comma: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
+  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Narrow an ambiguous name with a state or country after a comma: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX, or set Country below), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
   optional: true
   placeholder: 'Boston, MA'
 - keyname: country
   field_type: select
   name: Country
-  description: "Your country, used only to settle an ambiguous Location. A bare postal code is rarely unique: 02180 is a real code in six countries, and 75001 is both central Paris and Addison, Texas. Left on Auto, the busiest match wins, which is not always yours. Setting this never overrides a country you typed into Location yourself, and never stops a location abroad from working, so you can still look up another country's weather."
+  description: "Your country, used only to settle an ambiguous Location. A bare postal code is rarely unique: 02180 is a real code in six countries, and 75001 is both central Paris and Addison, Texas. On Auto your device's time zone is used instead, which is right for most people; set this if your weather comes back from the wrong country, or if you are away from home. Setting it never overrides a country you typed into Location yourself, and never stops a location abroad from working, so you can still look up another country's weather."
   default: Auto
   options:
   - Auto

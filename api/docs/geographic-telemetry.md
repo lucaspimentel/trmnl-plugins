@@ -172,7 +172,21 @@ more than the checkbox.
 
 7. **Then wait about a week** - production has been serving the dataset since 2026-08-29 - and
    read `weather.geocoder`, per step 9. A quiet `open-meteo` count is what licenses retiring the
-   vendor geocoder, and it is the whole point of the exercise.
+   vendor geocoder, and it is the whole point of the exercise. Read `hint=` in the same pass: a
+   large `hint=none` share among requests that *do* carry a `tz=` would mean the zone arrived and
+   `TimeZoneCountry` did not recognise it, which is otherwise invisible.
+
+8. **Refresh `api/src/TrmnlApi.Geo/zone.tab`** when a new IANA release lands. Nothing will tell
+   you it has gone stale, and the only thing that would notice a bad copy is
+   `TimeZoneCountryTests.TheEmbeddedTableLoads`. Currently tzdb **2026c**.
+
+9. **The postal-punctuation defect is open and deliberately deferred.** `NormalizePostal` strips
+   hyphens, so Poland's `02-180` answers to a typed `02180`; Poland, Japan, Portugal, Brazil,
+   Czechia, Slovakia and Sweden punctuate 100% of their codes. It is 5.3% of US ZIP collisions
+   against 82% that are genuine. The fix is a raw-code column on `postal`, `GeoSchema.Version` 3,
+   a rebuild, a release and a re-pin of both environments - a full dataset cycle for a twentieth of
+   the problem, which is why the time zone went first. See
+   [place-input.md](place-input.md).
 
 The `ForecastServed` log now carries `declared=`, the parsed country preference, which is what
 would have answered the dropdown question above in one look instead of several.

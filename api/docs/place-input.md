@@ -120,8 +120,8 @@ modes should be called out in the plugin's field description and README rather t
 
 1. Normalize the input: trim, casefold for the memo key, collapse internal whitespace.
 2. Probe for coordinates per the rule above. If it parses, resolution is done.
-3. Otherwise search the bundled dataset, which ranks by population and honours both a typed
-   qualifier and the caller's `country`. On a miss, call Open-Meteo forward geocoding and take
+3. Otherwise search the bundled dataset, which ranks by population and honours a typed qualifier,
+   the caller's `country`, and their `tz`. On a miss, call Open-Meteo forward geocoding and take
    the first result.
 4. Snap the resulting coordinates to F2, exactly as `WeatherForecastOrchestrator` already does.
 5. Enter the existing cache and provider path unchanged.
@@ -239,6 +239,75 @@ filtering it was never doing anything.
 
 This is also why the option text puts the code first: it is the only part that survives
 slugification in a recoverable position.
+
+##### And then by the caller's time zone, for everyone who set nothing
+
+The Country setting works, and almost nobody will touch it. `02180` with `Auto` still answered
+**Seoul**, and the measurements say that is the common case rather than a corner: **87.6%** of US
+ZIP codes collide with an identically-typed code somewhere else, and on a 400-code sample the
+population ranking answered with a country outside the US and the EU **half the time**.
+
+Two fixes were tried on paper first, against the real data, and both failed.
+
+- **"Five digits means a US ZIP."** It does not. **50 countries** write bare five-digit codes and
+  the US is only the fourth largest by volume, behind Mexico, Peru and Indonesia. Ranking the US
+  first fixes `02180` and `02139` and breaks `75001` (Paris → Plano), `28001` (Madrid → Albemarle,
+  North Carolina), `69001` (Lyon → McCook, Nebraska) and more. It trades one continent's wrong
+  answers for another's.
+- **Preferring the US and the EU together.** Better - it removes the Korea class entirely - but it
+  cannot separate two countries that are both inside it, so `02180` becomes **Warsaw** and `10115`
+  stays **New York** rather than Berlin. It is kept, but only as the floor.
+
+What actually settles it is that **`{{ trmnl.user.time_zone_iana }}` interpolates in
+`polling_url`**. That had to be proved rather than assumed - Liquid filters do not work there, and
+`trmnl.plugin_settings.*` does not resolve in templates at all - so the parameter was shipped
+logging-only first, and a forced refresh produced a real TRMNL request carrying
+`tz=America/New_York`. The plugin now sends it and the API acts on it.
+
+| | Signal | Applies to | Source |
+|---|---|---|---|
+| 1 | A qualifier typed into Location, `75001, FR` | names and codes | what you said this time |
+| 2 | The **Country** dropdown | names and codes | what you set once |
+| 3 | A **ZIP+4**, `02180-1234` | codes | the input itself |
+| 4 | The caller's **time zone** | codes | their device |
+| 5 | The **home region**, US + EU | codes | a guess about the audience |
+| 6 | Population | names and codes | the dataset |
+
+Every level is still a preference and never a filter: each one only reorders matches that were
+already valid, and an empty intersection keeps every candidate rather than producing a miss.
+
+**ZIP+4 is the one postal form that names its own country.** No country in the source data writes
+`NNNNN-NNNN`, checked against every raw code in it. It also used to miss outright: the full form
+normalized to nine digits and matched no row at all.
+
+**Levels 3 to 5 are postal-only.** Applied to names, the home region would answer Santiago de
+Compostela for bare `Santiago` instead of the Chilean capital fifty times its size. Names rarely
+need the help - a name usually has one dominant bearer, which is what population already finds.
+
+**The zone table is IANA `zone.tab`, not `zone1970.tab`.** The 1970 file groups countries that have
+agreed on civil time, so `Europe/Berlin` reads `DE,DK,NO,SE,SJ` - true about clocks and useless
+here. `zone.tab` gives one country per zone. `UTC` maps to nothing, which is correct: it is what a
+user who never set a time zone reports.
+
+Three limits, all worth stating because each is a support question waiting to happen. A time zone
+says where the **device** is, not what the user is asking about, so a traveller gets nudged toward
+home - the dropdown outranks it, one setting away. The home region is a **regression for everyone
+outside it** who has no time zone either: a bare code from a stale fork in Seoul or Mexico City can
+now answer in the US or the EU, which is the accepted cost of serving the measured majority. And
+none of this reaches the **vendor** fallback, which still ranks by prominence.
+
+##### Known and deferred: stripped punctuation invents collisions
+
+`GeoText.NormalizePostal` removes spaces and hyphens, so Poland's `02-180` and a US `02180` become
+one key. Poland, Japan, Portugal, Brazil, Czechia, Slovakia and Sweden write **100%** of their codes
+with punctuation, and the normalization makes every one of them collide with a bare code nobody
+would confuse them with. It accounts for **5.3%** of US ZIP collisions; the other 82% are genuine.
+
+Fixing it needs a raw-code column on `postal`, a `GeoSchema` version bump, a dataset rebuild, a new
+release and a re-pin of both environments, which is why it is deferred rather than done. Note the
+time zone makes it **more** visible, not less: a Polish user typing `02-180` from `Europe/Warsaw`
+is fine, but the same user with no time zone now loses to the home region where they used to win on
+Warsaw's population.
 
 ### Quota and abuse
 
