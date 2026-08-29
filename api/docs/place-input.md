@@ -211,6 +211,16 @@ So the plugin asks. A **Country** dropdown supplies `country=<alpha-2>` on v2, a
 The same preference breaks city ties, so bare `Boston` stays Massachusetts for everyone who has
 not said otherwise and becomes Lincolnshire for someone who declared `GB`.
 
+**A declared country accepts its own postal territories.** GeoNames files Puerto Rico under `PR`,
+not `US`, so declaring the United States originally matched no row for `00784` at all, fell through
+to population, and answered **Warsaw** - which also has a 00784. Declaring your country correctly
+and getting another continent is worse than not declaring it. `PostalJurisdictions` maps a
+sovereign onto the territories whose codes its postal system issues: `US` also accepts
+`PR`/`VI`/`GU`/`AS`/`MP`, `FR` also accepts the `97xxx` and `98xxx` territories, and so on. The
+relationship is **one-directional** - declaring `PR` keeps only Puerto Rico, because that choice is
+more precise, not less. Membership is about which postal system issues the code, not about
+sovereignty in any wider sense.
+
 Two limits worth stating. The preference reaches the **local geocoder only**: on a fall-through the
 vendor still ranks by prominence, so a declared country cannot fix a code the bundled data misses.
 And the dropdown carries `US - United States of America`, split back to the code by Liquid in

@@ -16,13 +16,26 @@ public class SqliteLocalGeocoderTests : IDisposable
     [Fact]
     public void Find_PostalCode_ResolvesWhereTheVendorReturnedNothing()
     {
-        var match = Build().Find("00784");
+        // A Puerto Rico ZIP, which the vendor geocoder does not resolve at all. The country is
+        // declared because the bare code is genuinely ambiguous with a Warsaw postcode - this
+        // test used to pass without it only because the fixture was missing the Polish row.
+        var match = Build().Find("00784", preferredCountry: "US");
 
         Assert.NotNull(match);
         Assert.Equal(17.98, match.Value.Latitude);
         Assert.Equal(-66.11, match.Value.Longitude);
         // Postal place names are unusable as labels, so the label comes from the reverse lookup.
         Assert.Null(match.Value.CityName);
+    }
+
+    [Fact]
+    public void Find_PostalCodeSharedWithABiggerCity_StillRanksByPopulationWhenNothingIsDeclared()
+    {
+        // The honest bare-code answer, and what staging returns: Warsaw outranks Caguas.
+        var match = Build().Find("00784");
+
+        Assert.NotNull(match);
+        Assert.Equal(52.21, match.Value.Latitude);
     }
 
     [Fact]
@@ -123,6 +136,38 @@ public class SqliteLocalGeocoderTests : IDisposable
 
         Assert.NotNull(match);
         Assert.Equal(42.36, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_PostalCodeOfADeclaredCountrysTerritory_StaysInThatTerritory()
+    {
+        // 00784 is a Puerto Rico ZIP and a Warsaw postcode. Someone in Caguas who declares the
+        // United States - which issued their ZIP - must not be sent to Poland.
+        var match = Build().Find("00784", preferredCountry: "US");
+
+        Assert.NotNull(match);
+        Assert.Equal(17.98, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_PostalCodeWithTheTerritoryItselfDeclared_AlsoWorks()
+    {
+        var match = Build().Find("00784", preferredCountry: "PR");
+
+        Assert.NotNull(match);
+        Assert.Equal(17.98, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_DeclaringATerritory_DoesNotWidenToTheSovereign()
+    {
+        // The relationship is one-directional. Declaring PR is more precise than declaring US, so
+        // it must not start accepting mainland matches: 75001 exists in the US but not in PR, and
+        // the population ranking, not the preference, has to settle it.
+        var match = Build().Find("75001", preferredCountry: "PR");
+
+        Assert.NotNull(match);
+        Assert.Equal(48.86, match.Value.Latitude);
     }
 
     [Fact]

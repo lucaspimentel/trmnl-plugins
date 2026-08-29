@@ -65,7 +65,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             // dropdown label that arrived unsplit - means no preference rather than an error,
             // because a setting nobody can see is a bad reason to refuse a forecast.
             var preference = preferredCountry is { Length: 2 } code && code.All(char.IsAsciiLetter)
-                ? code.ToUpperInvariant()
+                ? PostalJurisdictions.Accepting(code.ToUpperInvariant())
                 : null;
 
             if (GeoText.LooksPostal(subject))
@@ -144,7 +144,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
     }
 
     private GeoMatch? FindCity(
-        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, string? preferredCountry)
+        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, IReadOnlySet<string>? preferredCountry)
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -192,12 +192,12 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
 
         return best is null ? null : new GeoMatch(Snap(best.Lat), Snap(best.Lon), best.Name);
 
-        static bool Ranks(Candidate candidate, Candidate best, string? preferredCountry)
+        static bool Ranks(Candidate candidate, Candidate best, IReadOnlySet<string>? preferredCountry)
         {
             if (preferredCountry is not null)
             {
-                var candidateMatches = candidate.Country.Equals(preferredCountry, StringComparison.OrdinalIgnoreCase);
-                var bestMatches = best.Country.Equals(preferredCountry, StringComparison.OrdinalIgnoreCase);
+                var candidateMatches = preferredCountry.Contains(candidate.Country);
+                var bestMatches = preferredCountry.Contains(best.Country);
                 if (candidateMatches != bestMatches)
                 {
                     return candidateMatches;
@@ -209,7 +209,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
     }
 
     private GeoMatch? FindPostal(
-        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, string? preferredCountry)
+        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, IReadOnlySet<string>? preferredCountry)
     {
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT country, lat, lon FROM postal WHERE code = $c";
@@ -244,10 +244,12 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
         // A declared country settles it outright, and this is the input that most needs settling:
         // a bare five-digit code is a real postal code in six countries at once, so ranking them
         // by the biggest city nearby sends 02180 to Seoul rather than to Stoneham, Massachusetts.
+        // The set covers the declared country's own postal territories too - see
+        // PostalJurisdictions, which exists because 00784 with the US declared answered Warsaw.
         if (preferredCountry is not null)
         {
             var preferred = filtered
-                .Where(r => r.Country.Equals(preferredCountry, StringComparison.OrdinalIgnoreCase))
+                .Where(r => preferredCountry.Contains(r.Country))
                 .ToList();
             if (preferred.Count > 0)
             {

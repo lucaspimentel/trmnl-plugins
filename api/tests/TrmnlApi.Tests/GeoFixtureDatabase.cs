@@ -100,6 +100,10 @@ public sealed class GeoFixtureDatabase : IDisposable
         AddPostal(connection, "FR", "75001", 48.8592, 2.3417);
         AddPostal(connection, "US", "75001", 32.9618, -96.8292);
         AddPostal(connection, "PR", "00784", 17.9839, -66.1136);
+        // The same code in Warsaw. GeoNames files Puerto Rico under PR, not US, so a US user
+        // typing their own ZIP matched nothing and fell through to the biggest city on the code.
+        AddPostal(connection, "PL", "00784", 52.2054, 21.0245);
+        AddCity(connection, 13, "Warsaw", "PL", "MZ", 52.2298, 21.0118, 1790658);
     }
 
     public GeoDatabase Open() => GeoDatabase.TryOpen(_path)!;
