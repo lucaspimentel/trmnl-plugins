@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Data.Sqlite;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO.Esri;
+using NetTopologySuite.IO.Esri.Shapefiles.Readers;
 using NetTopologySuite.Simplify;
 using TrmnlApi.Geo;
 
@@ -50,7 +51,16 @@ public sealed class GeoDatabaseWriter : IDisposable
         var points = 0L;
         var countries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var feature in Shapefile.ReadAllFeatures(shapefile))
+        // Natural Earth 10m admin-1 contains rings the strict polygon builder rejects outright
+        // (it throws on the first one). QuickFix repairs ring orientation and hole nesting instead;
+        // the alternatives either drop the offending subdivision or skip validation altogether and
+        // build a hole as a shell, which would quietly corrupt the point-in-polygon answer.
+        var readerOptions = new ShapefileReaderOptions
+        {
+            GeometryBuilderMode = GeometryBuilderMode.QuickFixInvalidShapes
+        };
+
+        foreach (var feature in Shapefile.ReadAllFeatures(shapefile, readerOptions))
         {
             var iso = Attribute(feature, "iso_3166_2");
             var admin = Attribute(feature, "admin");
