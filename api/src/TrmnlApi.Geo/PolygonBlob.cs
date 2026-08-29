@@ -95,4 +95,97 @@ public static class PolygonBlob
 
         return inside;
     }
+
+    /// <summary>
+    /// Great-circle-ish distance in kilometres from a point to the nearest polygon edge. Used only
+    /// when <see cref="Contains"/> has already said no, so a point inside a ring is not a case
+    /// this has to answer for.
+    /// </summary>
+    /// <remarks>
+    /// Distance to the real edges, not to a bounding box. A box is worthless for a feature whose
+    /// parts are spread across an ocean: Natural Earth ships Kiribati as one feature straddling
+    /// the antimeridian, so its box spans 349 degrees of longitude and covers points more than a
+    /// thousand kilometres from any of its land.
+    /// <para>
+    /// Longitude differences are taken relative to the query point and wrapped to
+    /// [-180, 180], which is what keeps that same antimeridian feature from measuring its own
+    /// width the long way round. Everything is then flat: at the radius this is compared against,
+    /// an equirectangular plane centred on the query point is far closer than the 0.01-degree
+    /// simplification the rings already carry.
+    /// </para>
+    /// </remarks>
+    public static double DistanceKm(ReadOnlySpan<byte> blob, double longitude, double latitude)
+    {
+        if (blob.Length < 4)
+        {
+            return double.MaxValue;
+        }
+
+        // One degree of longitude shrinks towards the poles; one of latitude does not.
+        var lonScale = Math.Cos(latitude * Math.PI / 180.0) * GeoDistance.KmPerDegree;
+        var best = double.MaxValue;
+        var ringCount = BinaryPrimitives.ReadInt32LittleEndian(blob);
+        var offset = 4;
+
+        for (var r = 0; r < ringCount; r++)
+        {
+            if (offset + 4 > blob.Length)
+            {
+                return best;
+            }
+
+            var pointCount = BinaryPrimitives.ReadInt32LittleEndian(blob[offset..]);
+            offset += 4;
+            var ringBytes = pointCount * 8;
+            if (pointCount < 3 || ringBytes < 0 || offset + ringBytes > blob.Length)
+            {
+                return best;
+            }
+
+            var ring = blob.Slice(offset, ringBytes);
+            offset += ringBytes;
+
+            var previous = (pointCount - 1) * 8;
+            Project(ring, previous, longitude, latitude, lonScale, out var jx, out var jy);
+
+            for (var i = 0; i < pointCount; i++)
+            {
+                Project(ring, i * 8, longitude, latitude, lonScale, out var ix, out var iy);
+                var distance = SegmentDistance(ix, iy, jx, jy);
+                if (distance < best)
+                {
+                    best = distance;
+                }
+
+                jx = ix;
+                jy = iy;
+            }
+        }
+
+        return best;
+
+        static void Project(
+            ReadOnlySpan<byte> ring, int at, double longitude, double latitude, double lonScale,
+            out double x, out double y)
+        {
+            var lon = (double)BinaryPrimitives.ReadSingleLittleEndian(ring[at..]);
+            var lat = (double)BinaryPrimitives.ReadSingleLittleEndian(ring[(at + 4)..]);
+            x = Math.IEEERemainder(lon - longitude, 360.0) * lonScale;
+            y = (lat - latitude) * GeoDistance.KmPerDegree;
+        }
+
+        // Distance from the origin to the segment, both endpoints already relative to it.
+        static double SegmentDistance(double ax, double ay, double bx, double by)
+        {
+            var dx = bx - ax;
+            var dy = by - ay;
+            var lengthSquared = (dx * dx) + (dy * dy);
+            var t = lengthSquared > 0
+                ? Math.Clamp(-((ax * dx) + (ay * dy)) / lengthSquared, 0.0, 1.0)
+                : 0.0;
+            var cx = ax + (t * dx);
+            var cy = ay + (t * dy);
+            return Math.Sqrt((cx * cx) + (cy * cy));
+        }
+    }
 }

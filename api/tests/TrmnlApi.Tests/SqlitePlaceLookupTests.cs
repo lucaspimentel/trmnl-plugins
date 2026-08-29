@@ -57,11 +57,34 @@ public class SqlitePlaceLookupTests : IDisposable
     [Fact]
     public void Find_MidOcean_ReturnsNothingRatherThanInventingACountry()
     {
+        // Kiribati's bounding box covers this point and its nearest land is thousands of
+        // kilometres away, so ranking the candidates by box hands the whole Pacific to Kiribati.
         var place = Build().Find(0.0, -140.0);
 
         Assert.True(place.IsEmpty);
         Assert.Null(place.CountryCode);
         Assert.Null(place.City);
+    }
+
+    [Fact]
+    public void Find_JustAcrossTheAntimeridian_MeasuresTheShortWayRound()
+    {
+        // 0.2 degrees west of a Kiribati island that sits at 179.9E. Subtracting the longitudes
+        // without wrapping makes that 359.8 degrees and loses the country entirely.
+        var place = Build().Find(0.0, -179.9);
+
+        Assert.Equal("KI", place.CountryCode);
+    }
+
+    [Fact]
+    public void Find_OnAScatteredIsland_StillResolves()
+    {
+        // The other half of the fix: discounting a far-flung bounding box must not cost the
+        // feature its own land.
+        var place = Build().Find(1.9, -157.4);
+
+        Assert.Equal("KI-X01~", place.SubdivisionCode);
+        Assert.Equal("KI", place.CountryCode);
     }
 
     [Fact]

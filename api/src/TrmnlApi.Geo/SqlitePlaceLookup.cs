@@ -98,8 +98,7 @@ public sealed class SqlitePlaceLookup : IPlaceLookup
     private readonly record struct Subdivision(string? Code, string? Name, string? CountryCode, string? Country);
 
     private const string SelectSubdivision = """
-        SELECT a.iso_3166_2, a.iso_a2, a.admin_name, a.subdiv_name, a.geom,
-               b.min_lon, b.max_lon, b.min_lat, b.max_lat
+        SELECT a.iso_3166_2, a.iso_a2, a.admin_name, a.subdiv_name, a.geom
         FROM admin1_bbox b
         JOIN admin1 a ON a.id = b.id
         WHERE b.max_lon >= $west AND b.min_lon <= $east
@@ -129,24 +128,22 @@ public sealed class SqlitePlaceLookup : IPlaceLookup
         var latPad = GeoDistance.LatitudeDegrees(_options.CountryRadiusKm);
         var lonPad = GeoDistance.LongitudeDegrees(_options.CountryRadiusKm, latitude);
 
-        using (var command = connection.CreateCommand())
+        var bestDistance = double.MaxValue;
+        Subdivision best = default;
+
+        foreach (var (west, east) in LongitudeRanges(longitude - lonPad, longitude + lonPad))
         {
+            using var command = connection.CreateCommand();
             command.CommandText = SelectSubdivision;
-            Bind(command, longitude - lonPad, longitude + lonPad, latitude - latPad, latitude + latPad);
+            Bind(command, west, east, latitude - latPad, latitude + latPad);
 
             using var reader = command.ExecuteReader();
-            var bestDistance = double.MaxValue;
-            Subdivision best = default;
-
             while (reader.Read())
             {
-                var distance = BoxDistanceKm(
-                    latitude,
-                    longitude,
-                    reader.GetDouble(5),
-                    reader.GetDouble(6),
-                    reader.GetDouble(7),
-                    reader.GetDouble(8));
+                // Distance to the polygon itself. Ranking by bounding box instead would hand
+                // every mid-ocean point in the Pacific to Kiribati, whose one feature straddles
+                // the antimeridian and boxes in a third of the planet.
+                var distance = PolygonBlob.DistanceKm(ReadGeometry(reader), longitude, latitude);
 
                 if (distance < bestDistance)
                 {
@@ -154,20 +151,20 @@ public sealed class SqlitePlaceLookup : IPlaceLookup
                     best = Read(reader);
                 }
             }
-
-            if (bestDistance > _options.CountryRadiusKm)
-            {
-                // Mid-ocean. A blank record, never an invented country.
-                return default;
-            }
-
-            // A near miss keeps the subdivision - a coastal city sitting a few kilometres outside
-            // a simplified polygon is still in its own state. A distant one keeps the country
-            // only, which is the weaker claim the distance can still support.
-            return bestDistance <= _options.CityRadiusKm
-                ? best
-                : new Subdivision(null, null, best.CountryCode, best.Country);
         }
+
+        if (bestDistance > _options.CountryRadiusKm)
+        {
+            // Mid-ocean. A blank record, never an invented country.
+            return default;
+        }
+
+        // A near miss keeps the subdivision - a coastal city sitting a few kilometres outside
+        // a simplified polygon is still in its own state. A distant one keeps the country
+        // only, which is the weaker claim the distance can still support.
+        return bestDistance <= _options.CityRadiusKm
+            ? best
+            : new Subdivision(null, null, best.CountryCode, best.Country);
 
         static void Bind(SqliteCommand command, double west, double east, double south, double north)
         {
@@ -184,47 +181,55 @@ public sealed class SqlitePlaceLookup : IPlaceLookup
             Country: reader.GetString(2));
     }
 
-    private static byte[] ReadGeometry(SqliteDataReader reader) => reader.GetFieldValue<byte[]>(4);
+    /// <summary>
+    /// The one or two longitude ranges a search box covers, split when it runs off the end of the
+    /// world.
+    /// </summary>
+    /// <remarks>
+    /// Every stored box has a longitude in [-180, 180], so a padded search box that reaches past
+    /// either end matches nothing on the far side unless it is asked for separately. Without the
+    /// split, a point at 179.9W finds no country at all - not a wrong answer, but a blank one, for
+    /// everyone in Fiji, Kiribati and the eastern edge of New Zealand.
+    /// </remarks>
+    private static (double West, double East)[] LongitudeRanges(double west, double east) =>
+        west < -180.0 ? [(-180.0, east), (west + 360.0, 180.0)]
+        : east > 180.0 ? [(west, 180.0), (-180.0, east - 360.0)]
+        : [(west, east)];
 
-    /// <summary>Great-circle distance from a point to the nearest edge of a bounding box, zero inside it.</summary>
-    private static double BoxDistanceKm(
-        double latitude, double longitude,
-        double minLon, double maxLon, double minLat, double maxLat)
-    {
-        var nearestLat = Math.Clamp(latitude, minLat, maxLat);
-        var nearestLon = Math.Clamp(longitude, minLon, maxLon);
-        return GeoDistance.Haversine(latitude, longitude, nearestLat, nearestLon);
-    }
+    private static byte[] ReadGeometry(SqliteDataReader reader) => reader.GetFieldValue<byte[]>(4);
 
     private string? FindNearestCity(SqliteConnection connection, double latitude, double longitude)
     {
         var latPad = GeoDistance.LatitudeDegrees(_options.CityRadiusKm);
         var lonPad = GeoDistance.LongitudeDegrees(_options.CityRadiusKm, latitude);
 
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT c.name, c.lat, c.lon
-            FROM city_bbox b
-            JOIN city c ON c.id = b.id
-            WHERE b.min_lon >= $west AND b.max_lon <= $east
-              AND b.min_lat >= $south AND b.max_lat <= $north
-            """;
-        command.Parameters.AddWithValue("$west", longitude - lonPad);
-        command.Parameters.AddWithValue("$east", longitude + lonPad);
-        command.Parameters.AddWithValue("$south", latitude - latPad);
-        command.Parameters.AddWithValue("$north", latitude + latPad);
-
-        using var reader = command.ExecuteReader();
         string? best = null;
         var bestDistance = _options.CityRadiusKm;
 
-        while (reader.Read())
+        foreach (var (west, east) in LongitudeRanges(longitude - lonPad, longitude + lonPad))
         {
-            var distance = GeoDistance.Haversine(latitude, longitude, reader.GetDouble(1), reader.GetDouble(2));
-            if (distance <= bestDistance)
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT c.name, c.lat, c.lon
+                FROM city_bbox b
+                JOIN city c ON c.id = b.id
+                WHERE b.min_lon >= $west AND b.max_lon <= $east
+                  AND b.min_lat >= $south AND b.max_lat <= $north
+                """;
+            command.Parameters.AddWithValue("$west", west);
+            command.Parameters.AddWithValue("$east", east);
+            command.Parameters.AddWithValue("$south", latitude - latPad);
+            command.Parameters.AddWithValue("$north", latitude + latPad);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                bestDistance = distance;
-                best = reader.GetString(0);
+                var distance = GeoDistance.Haversine(latitude, longitude, reader.GetDouble(1), reader.GetDouble(2));
+                if (distance <= bestDistance)
+                {
+                    bestDistance = distance;
+                    best = reader.GetString(0);
+                }
             }
         }
 

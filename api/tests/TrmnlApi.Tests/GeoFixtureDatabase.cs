@@ -41,10 +41,20 @@ public sealed class GeoFixtureDatabase : IDisposable
         AddSubdivision(connection, 5, "US-OR", "US", "United States of America", "Oregon", -124.6, -116.5, 42.0, 46.3);
         AddSubdivision(connection, 6, "US-TX", "US", "United States of America", "Texas", -106.7, -93.5, 25.8, 36.5);
 
+        // Natural Earth ships Kiribati as a single feature whose islands sit either side of the
+        // antimeridian, so its bounding box spans most of the planet while its land is specks.
+        // Anything that ranks candidates by bounding box hands it every point in the Pacific.
+        AddScatteredSubdivision(
+            connection, 7, "KI-X01~", "KI", "Kiribati", "Kiribati",
+            [
+                (179.5, 179.9, -0.2, 0.2),
+                (-157.6, -157.2, 1.7, 2.1)
+            ]);
+
         foreach (var (code, name) in new[]
                  {
                      ("US", "United States of America"), ("FR", "France"), ("GB", "United Kingdom"),
-                     ("DE", "Germany"), ("CA", "Canada"), ("PR", "Puerto Rico")
+                     ("DE", "Germany"), ("CA", "Canada"), ("PR", "Puerto Rico"), ("KI", "Kiribati")
                  })
         {
             Execute(connection,
@@ -103,6 +113,36 @@ public sealed class GeoFixtureDatabase : IDisposable
         Execute(connection,
             "INSERT INTO admin1_bbox (id, min_lon, max_lon, min_lat, max_lat) VALUES ($id, $w, $e, $s, $n)",
             ("$id", id), ("$w", west), ("$e", east), ("$s", south), ("$n", north));
+    }
+
+    /// <summary>
+    /// A subdivision made of several separate islands, with the single bounding box that covers
+    /// all of them - the shape that makes bounding-box ranking wrong.
+    /// </summary>
+    private static void AddScatteredSubdivision(
+        SqliteConnection connection, int id, string iso, string a2, string country, string name,
+        (double West, double East, double South, double North)[] parts)
+    {
+        var rings = parts
+            .Select(p => (IReadOnlyList<(double, double)>)new List<(double, double)>
+            {
+                (p.West, p.South), (p.East, p.South), (p.East, p.North), (p.West, p.North), (p.West, p.South)
+            })
+            .ToList();
+
+        Execute(connection,
+            """
+            INSERT INTO admin1 (id, iso_3166_2, iso_a2, admin_name, subdiv_name, geom)
+            VALUES ($id, $iso, $a2, $admin, $name, $geom)
+            """,
+            ("$id", id), ("$iso", iso), ("$a2", a2), ("$admin", country), ("$name", name),
+            ("$geom", PolygonBlob.Encode(rings)));
+
+        Execute(connection,
+            "INSERT INTO admin1_bbox (id, min_lon, max_lon, min_lat, max_lat) VALUES ($id, $w, $e, $s, $n)",
+            ("$id", id),
+            ("$w", parts.Min(p => p.West)), ("$e", parts.Max(p => p.East)),
+            ("$s", parts.Min(p => p.South)), ("$n", parts.Max(p => p.North)));
     }
 
     private static void AddCity(
