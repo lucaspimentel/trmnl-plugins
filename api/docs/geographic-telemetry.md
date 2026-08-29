@@ -97,12 +97,25 @@ still open.
    `allCountries.txt` from GeoNames. Fetched to a scratch directory, not into this repo.
 2. ~~**Run the builder**~~ Done, after the reader fix above.
 3. ~~**Check the artifact size**~~ Done: 111.5 MB, of which 3.0 MB is geometry. See above.
-4. **Publish `geo.sqlite` as a GitHub release asset** on this repo, and compute its sha256.
-   This is a deliberate public publish of ~100 MB of derived Natural Earth / GeoNames data, not a
-   side effect - call it out before doing it.
-5. **Set `GEO_DATA_URL` and `GEO_DATA_SHA256`** as build args on the Railway **staging** service
-   first (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment), then
-   redeploy.
+4. ~~**Publish `geo.sqlite` as a GitHub release asset**~~ Done, 2026-08-28, as release
+   [`geo-data-20260828`](https://github.com/lucaspimentel/trmnl-plugins/releases/tag/geo-data-20260828).
+   The release notes carry the attribution this obliges us to give: Natural Earth is public domain,
+   GeoNames is CC BY 4.0. Verified downloadable anonymously, which is what the image build does.
+
+   | | |
+   |---|---|
+   | `GEO_DATA_URL` | `https://github.com/lucaspimentel/trmnl-plugins/releases/download/geo-data-20260828/geo.sqlite` |
+   | `GEO_DATA_SHA256` | `af366d1ce21768b5c232b1775c2d94bf87fbcc7f9c7c8d47428428ce143c5c8c` |
+
+5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on the **staging** service
+   (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment).
+
+   **A build started before those variables existed will not pick them up, and looks like a
+   success.** The Dockerfile's fetch step is a no-op when the URL is empty, so the build log reads
+   `RUN mkdir -p /opt/geo && if [ -n "" ]; then ...` and the image ships with no dataset. That is
+   exactly what happened on the first attempt. Confirm a build actually fetched by looking for the
+   real URL inside that `RUN` line in the build log, not by the deployment going green. The URL is
+   substituted into the command, so changing it invalidates the layer cache on its own.
 6. **Re-run the smoke test** above against staging: `?place=42.36,-71.06` should now return a
    populated `place` block, and `?place=Boston` should return `admin1: "MA"` rather than
    `"Massachusetts"`. Add `?place=02180&country=US`, which must give Stoneham rather than Seoul.
