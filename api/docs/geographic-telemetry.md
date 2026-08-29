@@ -20,6 +20,11 @@ Verified against `https://trmnl-plugins-staging.up.railway.app/api/v2/forecast` 
 | `?place=02180` | `Guri-si, Seoul, KR` - unchanged for anyone who has not set a country, which is the point of the setting being a preference |
 | `?place=1.87,-157.4` | `Banana, Kiribati, KI` with **no** subdivision code, rather than the invented `KI-X01~` |
 
+The 2026-08-29 rebuild is the one now pinned, and the disputed territories read as intended on the
+live service: `?place=44.95,34.10` is `Simferopol` and `?place=45.35,36.47` is `Kerch`, each with
+no `admin1`, no `country` and no `country_code` at all, while `?place=46.64,32.62` is still
+`Kherson, Ukraine` and `?place=45.04,38.98` is still `Krasnodar, Russia`.
+
 **Nothing has been touched on `production`**: its `GEO_DATA_URL` and `GEO_DATA_SHA256` are still
 unset, so it is still serving the vendor-geocoder degrade path.
 
