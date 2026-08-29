@@ -1,12 +1,12 @@
 # Bundled geographic data
 
-**Status: live on staging, verified. Production untouched.** `api/src/TrmnlApi.Geo` serves both
+**Status: live on staging and production, verified on both.** `api/src/TrmnlApi.Geo` serves both
 directions - a typed place to coordinates, and coordinates to a label - from one bundled SQLite
 file, built by `api/tools/GeoDataBuilder` and fetched into the image by pinned URL and sha256
 (`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the `F1`
 coordinate tags listed in [observability.md](observability.md).
 
-**What's actually running on staging right now:** the dataset. The build log shows the real
+**What's actually running on both environments:** the dataset. Each build log shows the real
 `.gz` URL inside the fetch step and `/opt/geo/geo.sqlite: OK` from the checksum, which is the only
 proof that matters - see the note under step 5 for why a green deployment is not.
 
@@ -25,8 +25,12 @@ live service: `?place=44.95,34.10` is `Simferopol` and `?place=45.35,36.47` is `
 no `admin1`, no `country` and no `country_code` at all, while `?place=46.64,32.62` is still
 `Kherson, Ukraine` and `?place=45.04,38.98` is still `Krasnodar, Russia`.
 
-**Nothing has been touched on `production`**: its `GEO_DATA_URL` and `GEO_DATA_SHA256` are still
-unset, so it is still serving the vendor-geocoder degrade path.
+**Production was promoted the same day**, once staging had run the rebuild: both variables set on
+the `production` environment first, then `main` fast-forwarded to `staging`, then the build log
+read for the real URL and the checksum line rather than for a green tick. The same six requests
+answer identically on `https://trmnl-plugins-prod.lucasp.net`, including `?place=00784` with the
+country set, which gives `Guayama, PR`. The production plugin has been pushed too, so the corrected
+Country list is on both.
 
 ### The first build (2026-08-28)
 
@@ -130,9 +134,10 @@ label - while Kherson stays `Kherson, UA-65, Ukraine` and Krasnodar stays `RU-KD
 
 ### Open, and where to pick up (2026-08-29)
 
-Staging serves the dataset and the smoke tests pass. What is left is a look at a real screen and
-production. Nothing below is deployed-and-broken; the struck-through items are done, kept here
-because the reasoning is worth more than the checkbox.
+Both environments serve the dataset and the smoke tests pass. What is left is a look at a real
+screen, and then the telemetry reading that this was all for. Nothing below is
+deployed-and-broken; the struck-through items are done, kept here because the reasoning is worth
+more than the checkbox.
 
 1. ~~**`TK - New Zealand` is wrong in the Country dropdown.**~~ Fixed. `TK` is Tokelau; the option
    list had been generated from the bundled `country` table, whose name column is Natural Earth's
@@ -156,9 +161,8 @@ because the reasoning is worth more than the checkbox.
    the browser once and abandoned when the extension disconnected; the live `declared=US` line in
    the logs is the evidence standing in for it.
 
-4. **Production is untouched** and still has no dataset: `GEO_DATA_URL` and `GEO_DATA_SHA256` are
-   unset there. Promoting means setting both on the `production` environment, pushing to `main`,
-   confirming the build log the same way as step 5 below, then `push-plugin.sh --env prod`.
+4. ~~**Promote to production.**~~ Done, in that order: variables first, then `main`, then the
+   build log, then `push-plugin.sh --env prod`. Both environments now pin the same artifact.
 
 5. ~~**Crimea and Sevastopol.**~~ Settled: they keep their outlines and carry no attribution at
    all. See [the section above](#a-disputed-territory-keeps-its-outline-and-loses-its-labels).
@@ -166,8 +170,9 @@ because the reasoning is worth more than the checkbox.
 6. ~~**The uncompressed `geo.sqlite` on the release.**~~ Deleted from `geo-data-20260828`, which now
    carries only the `.gz`. The 2026-08-29 release was published with the `.gz` alone.
 
-7. **Then wait about a week** and read `weather.geocoder`, per step 9. That reading is what licenses
-   retiring the vendor geocoder, and it is the whole point of the exercise.
+7. **Then wait about a week** - production has been serving the dataset since 2026-08-29 - and
+   read `weather.geocoder`, per step 9. A quiet `open-meteo` count is what licenses retiring the
+   vendor geocoder, and it is the whole point of the exercise.
 
 The `ForecastServed` log now carries `declared=`, the parsed country preference, which is what
 would have answered the dropdown question above in one look instead of several.
@@ -205,8 +210,8 @@ would have answered the dropdown question above in one look instead of several.
    anything wrong - checked, along with the empty-URL and 404 paths - but it has been deleted
    anyway so the mistake is not available to make.
 
-5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on the **staging** service
-   (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment).
+5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on **both** environments of the
+   `trmnl-plugins` service in the `trmnl-plugins-api` project.
 
    Setting a variable does not rebuild anything on its own, and **a Markdown-only commit does not
    either**: the service's watch patterns are `/api/**` and `!**/*.md`, so a docs push is reported
