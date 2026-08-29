@@ -36,12 +36,18 @@ public static class GeoSchema
         -- and country '-1' for Somaliland - and an invented code is worse than no code at all: it
         -- is unusable as a group-by and it reads on screen as though it were real. The names are
         -- kept, so those places still resolve and still label themselves.
+        --
+        -- The names are nullable for a different reason: a row may carry geometry and no label at
+        -- all. That is how a disputed territory is stored. The polygon has to stay, or the point
+        -- falls through to the nearest neighbour and gets attributed to whichever side happens to
+        -- be closer; with the labels gone it matches its own outline and is simply not named. See
+        -- ContestedTerritories in the builder.
         CREATE TABLE admin1 (
             id          INTEGER PRIMARY KEY,
             iso_3166_2  TEXT,
             iso_a2      TEXT,
-            admin_name  TEXT NOT NULL,
-            subdiv_name TEXT NOT NULL,
+            admin_name  TEXT,
+            subdiv_name TEXT,
             geom        BLOB NOT NULL
         );
         CREATE VIRTUAL TABLE admin1_bbox USING rtree(id, min_lon, max_lon, min_lat, max_lat);

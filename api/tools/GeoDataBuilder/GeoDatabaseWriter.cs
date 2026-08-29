@@ -107,6 +107,18 @@ public sealed class GeoDatabaseWriter : IDisposable
             var a2 = IsCountryCode(rawA2) ? rawA2.ToUpperInvariant() : null;
             var subdivisionCode = IsSubdivisionCode(iso) ? iso.ToUpperInvariant() : null;
 
+            // A disputed territory keeps its outline and loses everything else, the fallbacks
+            // below included. See ContestedTerritories for why the row is not simply dropped.
+            var unattributed = ContestedTerritories.IsUnattributed(iso);
+            if (unattributed)
+            {
+                a2 = null;
+                subdivisionCode = null;
+            }
+
+            var adminName = unattributed ? null : admin ?? a2 ?? name ?? iso;
+            var subdivisionName = unattributed ? null : name ?? iso;
+
             var rings = ExtractRings(Simplify(feature.Geometry, tolerance));
             if (rings.Count == 0)
             {
@@ -121,8 +133,8 @@ public sealed class GeoDatabaseWriter : IDisposable
                 ("$id", id),
                 ("$iso", (object?)subdivisionCode ?? DBNull.Value),
                 ("$a2", (object?)a2 ?? DBNull.Value),
-                ("$admin", admin ?? a2 ?? name ?? iso),
-                ("$subdiv", name ?? iso),
+                ("$admin", (object?)adminName ?? DBNull.Value),
+                ("$subdiv", (object?)subdivisionName ?? DBNull.Value),
                 ("$geom", PolygonBlob.Encode(rings)));
             Run(insertBox,
                 ("$id", id),
@@ -132,9 +144,9 @@ public sealed class GeoDatabaseWriter : IDisposable
             // Only real countries reach the country table. It is keyed by code, so admitting the
             // invented '-1' would collapse a dozen unrelated territories into one row whose name
             // is whichever of them was written last.
-            if (admin is not null && a2 is not null)
+            if (adminName is not null && a2 is not null)
             {
-                countries[a2] = admin;
+                countries[a2] = adminName;
             }
         }
 

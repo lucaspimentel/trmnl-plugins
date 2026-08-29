@@ -112,6 +112,34 @@ public class SqlitePlaceLookupTests : IDisposable
     }
 
     [Fact]
+    public void Find_InADisputedTerritory_NamesTheCityAndNothingElse()
+    {
+        // The point is inside the unattributed outline, so it is answered there and never reaches
+        // the nearest-neighbour pass. The nearest city is still an honest label; the state and the
+        // country are the parts that would be taking a side.
+        var place = Build().Find(21.0, 31.0);
+
+        Assert.Equal("Disputown", place.City);
+        Assert.Null(place.SubdivisionCode);
+        Assert.Null(place.SubdivisionName);
+        Assert.Null(place.CountryCode);
+        Assert.Null(place.Country);
+        Assert.False(place.IsEmpty);
+    }
+
+    [Fact]
+    public void Find_InADisputedTerritory_DoesNotDriftToTheNeighbour()
+    {
+        // Northshire's border is 11 km north, well inside both radii. Deleting the disputed
+        // outline rather than blanking it would make this point Northshire, XA - the same claim
+        // the blanking is there to avoid, arrived at by accident.
+        var place = Build().Find(21.99, 31.0);
+
+        Assert.Null(place.CountryCode);
+        Assert.Null(place.ShortSubdivision);
+    }
+
+    [Fact]
     public void Find_JustOffACoastline_KeepsTheSubdivision()
     {
         // Coastlines are simplified, so a point a few kilometres outside a polygon is still in

@@ -59,6 +59,13 @@ public sealed class GeoFixtureDatabase : IDisposable
             connection, 8, null, null, "Somaliland", "Somaliland",
             [(43.0, 49.0, 8.0, 11.5)]);
 
+        // A disputed territory as the builder stores it: geometry, and not one word of attribution.
+        // Its neighbour sits close enough that deleting the outline instead would hand every point
+        // inside it to that neighbour. See ContestedTerritories in the builder.
+        AddSubdivision(connection, 9, null, null, null, null, 30.0, 32.0, 20.0, 22.0);
+        AddSubdivision(connection, 10, "XA-N", "XA", "Northland", "Northshire", 30.0, 32.0, 22.1, 24.0);
+        AddCity(connection, 14, "Disputown", "XA", "N", 21.0, 31.0, 400000);
+
         foreach (var (code, name) in new[]
                  {
                      ("US", "United States of America"), ("FR", "France"), ("GB", "United Kingdom"),
@@ -109,7 +116,7 @@ public sealed class GeoFixtureDatabase : IDisposable
     public GeoDatabase Open() => GeoDatabase.TryOpen(_path)!;
 
     private static void AddSubdivision(
-        SqliteConnection connection, int id, string iso, string a2, string country, string name,
+        SqliteConnection connection, int id, string? iso, string? a2, string? country, string? name,
         double west, double east, double south, double north)
     {
         var ring = new List<(double, double)>
@@ -122,7 +129,8 @@ public sealed class GeoFixtureDatabase : IDisposable
             INSERT INTO admin1 (id, iso_3166_2, iso_a2, admin_name, subdiv_name, geom)
             VALUES ($id, $iso, $a2, $admin, $name, $geom)
             """,
-            ("$id", id), ("$iso", iso), ("$a2", a2), ("$admin", country), ("$name", name),
+            ("$id", id), ("$iso", (object?)iso ?? DBNull.Value), ("$a2", (object?)a2 ?? DBNull.Value),
+            ("$admin", (object?)country ?? DBNull.Value), ("$name", (object?)name ?? DBNull.Value),
             ("$geom", PolygonBlob.Encode([ring])));
 
         Execute(connection,
