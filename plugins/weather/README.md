@@ -18,9 +18,9 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Location** field with a city name, postal code, or coordinate pair (latitude first). Your saved **Latitude** and **Longitude** still apply when **Location** is blank. Optionally override the **Units**, **Hours**, **Days**, **Time Format**, and **Show Location** fields. The plugin polls the API every 60 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Location** field with a city name, postal code, or coordinate pair (latitude first). Your saved **Latitude** and **Longitude** still apply when **Location** is blank. Set **Country** if you use a bare postal code, since the same code is often valid in several countries. Optionally override the **Units**, **Hours**, **Days**, **Time Format**, and **Show Location** fields. The plugin polls the API every 60 minutes.
 
-> **Note:** Coordinate pairs are not checked for order, so a swapped pair can silently show the wrong place. Postal codes are not unique across countries (`75001` resolves to Paris, France; add `, US` for Addison, TX).
+> **Note:** Coordinate pairs are not checked for order, so a swapped pair can silently show the wrong place. Postal codes are not unique across countries (`02180` is a real code in six, and `75001` is both central Paris and Addison, TX). Set the **Country** field to settle those, or add the country to **Location** directly (`75001, US`).
 
 ## Data Source
 
@@ -44,6 +44,7 @@ Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, 
 | `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather`. The plugin does not send it, so the server default applies |
 | `time_format` | no | `12h` | `12h` (am/pm) or `24h` clock for the hourly labels |
 | `show_place` | no | `yes` | `no` omits the `place` block, which is how the plugin hides the matched location in the title bar. v2 only |
+| `country` | no | — | ISO 3166-1 alpha-2 of the user's country, used only to settle an ambiguous `place`. A preference, not a filter: a location outside it still resolves, and a country typed into `place` wins over it. Anything that is not two letters is ignored. v2 only |
 
 ## Development
 

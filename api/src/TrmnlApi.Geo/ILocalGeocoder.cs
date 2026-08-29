@@ -15,11 +15,17 @@ public readonly record struct GeoMatch(double Latitude, double Longitude, string
 /// </summary>
 public interface ILocalGeocoder
 {
-    GeoMatch? Find(string text);
+    /// <param name="preferredCountry">
+    /// ISO 3166-1 alpha-2 of the country the user says they are in, or null when they have not
+    /// said. A preference and never a filter: it breaks ties between equally valid matches and
+    /// must not turn a match the caller would otherwise have got into a miss. See
+    /// <c>SqliteLocalGeocoder</c>.
+    /// </param>
+    GeoMatch? Find(string text, string? preferredCountry = null);
 }
 
 /// <summary>Used when no dataset is configured. Every lookup misses, so the vendor serves.</summary>
 public sealed class NullLocalGeocoder : ILocalGeocoder
 {
-    public GeoMatch? Find(string text) => null;
+    public GeoMatch? Find(string text, string? preferredCountry = null) => null;
 }

@@ -46,6 +46,96 @@ public class SqliteLocalGeocoderTests : IDisposable
         Assert.Equal(32.96, match.Value.Latitude);
     }
 
+    [Fact]
+    public void Find_AmbiguousPostalCode_PrefersTheDeclaredCountry()
+    {
+        // The dropdown the user set, rather than a qualifier they typed. Without it 75001 is
+        // Paris on population; with US declared it is Addison, Texas.
+        var match = Build().Find("75001", preferredCountry: "US");
+
+        Assert.NotNull(match);
+        Assert.Equal(32.96, match.Value.Latitude);
+    }
+
+    [Theory]
+    [InlineData("us")]
+    [InlineData("Us")]
+    public void Find_DeclaredCountry_IsCaseInsensitive(string country)
+    {
+        var match = Build().Find("75001", preferredCountry: country);
+
+        Assert.NotNull(match);
+        Assert.Equal(32.96, match.Value.Latitude);
+    }
+
+    [Theory]
+    // An install that predates the setting, a fork that never had it, and the dropdown's own
+    // "Auto" reaching the API unsplit. None of them may change the answer or cause an error.
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("Auto")]
+    [InlineData("US - United States")]
+    public void Find_WithoutAUsableCountry_RanksByPopulationAsBefore(string? country)
+    {
+        var match = Build().Find("75001", preferredCountry: country);
+
+        Assert.NotNull(match);
+        Assert.Equal(48.86, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_DeclaredCountryTheCodeIsNotIn_KeepsThePopulationWinner()
+    {
+        // A preference, not a filter. 75001 exists in neither Germany nor anywhere else in the
+        // fixture bar France and the US, and a German user still deserves an answer.
+        var match = Build().Find("75001", preferredCountry: "DE");
+
+        Assert.NotNull(match);
+        Assert.Equal(48.86, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_TypedQualifierBeatsTheDeclaredCountry()
+    {
+        // What the user typed this time outranks what they set once.
+        var match = Build().Find("75001, FR", preferredCountry: "US");
+
+        Assert.NotNull(match);
+        Assert.Equal(48.86, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_CityName_PrefersTheDeclaredCountry()
+    {
+        // Bare "Boston" is Massachusetts on population, and stays that way for everyone who has
+        // not said otherwise. A user in the UK means Lincolnshire.
+        var match = Build().Find("Boston", preferredCountry: "GB");
+
+        Assert.NotNull(match);
+        Assert.Equal("Boston", match.Value.CityName);
+        Assert.Equal(52.98, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_CityName_WithoutADeclaredCountry_StillRanksByPopulation()
+    {
+        var match = Build().Find("Boston");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.36, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_CityNotInTheDeclaredCountry_StillResolves()
+    {
+        // The regression that would matter most: a preference must never send a plain, correct
+        // name to the vendor just because it is abroad.
+        var match = Build().Find("Munich", preferredCountry: "US");
+
+        Assert.NotNull(match);
+        Assert.Equal("Munich", match.Value.CityName);
+    }
+
     [Theory]
     // Two-letter country qualifiers, which the vendor rejects outright.
     [InlineData("Munich, DE", "Munich", 48.14, 11.58)]

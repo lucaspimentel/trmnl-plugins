@@ -85,6 +85,9 @@ public sealed class GeoFixtureDatabase : IDisposable
         AddCity(connection, 10, "Cambridge", "GB", "ENG", 52.2, 0.11667, 158434);
         // Close enough to Addison to be inside the postal ranking radius, and far short of Paris.
         AddCity(connection, 11, "Plano", "US", "TX", 33.01984, -96.69889, 287677);
+        // The same name in two countries, which is what a declared country has to settle. Both
+        // are real: Boston, Lincolnshire is the one Boston, Massachusetts was named after.
+        AddCity(connection, 12, "Boston", "GB", "ENG", 52.97633, -0.02664, 45339);
 
         AddPostal(connection, "FR", "75001", 48.8592, 2.3417);
         AddPostal(connection, "US", "75001", 32.9618, -96.8292);

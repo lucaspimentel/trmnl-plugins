@@ -92,6 +92,11 @@ public class WeatherV2Endpoint
         var showPlace = query["show_place"].FirstOrDefault() is not "no";
         var requestedProvider = query["provider"].FirstOrDefault();
 
+        // The country the user picked in the plugin's dropdown, used only to break ties between
+        // matches that are all already valid. Never validated into an error: an install that
+        // predates the setting, or a fork that never had it, sends nothing and must keep working.
+        var preferredCountry = query["country"].FirstOrDefault();
+
         var placeParam = query["place"].FirstOrDefault();
 
         // A sentinel in the place field selects a canned result. It rides in a custom field the
@@ -155,7 +160,7 @@ public class WeatherV2Endpoint
                 // The bundled dataset first, the vendor only when it misses. The vendor forgives
                 // misspellings this does not, so it stays wired up as the safety net: we do not
                 // log place inputs, so there is no corpus to replay a ranking regression against.
-                var localMatch = localGeocoder.Find(typed.Text);
+                var localMatch = localGeocoder.Find(typed.Text, preferredCountry);
                 if (localMatch is { } hit)
                 {
                     geocoder = GeocoderLocal;

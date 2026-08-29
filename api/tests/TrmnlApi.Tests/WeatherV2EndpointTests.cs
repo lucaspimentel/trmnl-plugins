@@ -494,10 +494,12 @@ public class WeatherV2EndpointTests
     {
         public int Calls { get; private set; }
         public GeoMatch? Result { get; set; }
+        public string? LastPreferredCountry { get; private set; }
 
-        public GeoMatch? Find(string text)
+        public GeoMatch? Find(string text, string? preferredCountry = null)
         {
             Calls++;
+            LastPreferredCountry = preferredCountry;
             return Result;
         }
     }

@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language:
-polling_url: https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}
+polling_url: "https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}&country={{ country | split: ' - ' | first }}"
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -44,6 +44,260 @@ custom_fields:
   description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Narrow an ambiguous name with a state or country after a comma: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
   optional: true
   placeholder: 'Boston, MA'
+- keyname: country
+  field_type: select
+  name: Country
+  description: "Your country, used only to settle an ambiguous Location. A bare postal code is rarely unique: 02180 is a real code in six countries, and 75001 is both central Paris and Addison, Texas. Left on Auto, the busiest match wins, which is not always yours. Setting this never overrides a country you typed into Location yourself, and never stops a location abroad from working, so you can still look up another country's weather."
+  default: Auto
+  options:
+  - Auto
+  - AF - Afghanistan
+  - AX - Aland
+  - AL - Albania
+  - DZ - Algeria
+  - AS - American Samoa
+  - AD - Andorra
+  - AO - Angola
+  - AI - Anguilla
+  - AG - Antigua and Barbuda
+  - AR - Argentina
+  - AM - Armenia
+  - AW - Aruba
+  - AU - Australia
+  - AT - Austria
+  - AZ - Azerbaijan
+  - BH - Bahrain
+  - BD - Bangladesh
+  - BB - Barbados
+  - BY - Belarus
+  - BE - Belgium
+  - BZ - Belize
+  - BJ - Benin
+  - BM - Bermuda
+  - BT - Bhutan
+  - BO - Bolivia
+  - BA - Bosnia and Herzegovina
+  - BW - Botswana
+  - BR - Brazil
+  - IO - British Indian Ocean Territory
+  - VG - British Virgin Islands
+  - BN - Brunei
+  - BG - Bulgaria
+  - BF - Burkina Faso
+  - BI - Burundi
+  - KH - Cambodia
+  - CM - Cameroon
+  - CA - Canada
+  - CV - Cape Verde
+  - BQ - Caribbean Netherlands
+  - KY - Cayman Islands
+  - CF - Central African Republic
+  - TD - Chad
+  - CL - Chile
+  - CN - China
+  - CX - Christmas Island
+  - CC - Cocos (Keeling) Islands
+  - CO - Colombia
+  - KM - Comoros
+  - CK - Cook Islands
+  - CR - Costa Rica
+  - HR - Croatia
+  - CU - Cuba
+  - CW - Curaçao
+  - CY - Cyprus
+  - CZ - Czech Republic
+  - CD - Democratic Republic of the Congo
+  - DK - Denmark
+  - DJ - Djibouti
+  - DM - Dominica
+  - DO - Dominican Republic
+  - TL - East Timor
+  - EC - Ecuador
+  - EG - Egypt
+  - SV - El Salvador
+  - GQ - Equatorial Guinea
+  - ER - Eritrea
+  - EE - Estonia
+  - ET - Ethiopia
+  - FK - Falkland Islands
+  - FO - Faroe Islands
+  - FM - Federated States of Micronesia
+  - FJ - Fiji
+  - FI - Finland
+  - FR - France
+  - GF - French Guiana
+  - PF - French Polynesia
+  - TF - French Southern and Antarctic Lands
+  - GA - Gabon
+  - GM - Gambia
+  - GE - Georgia
+  - DE - Germany
+  - GH - Ghana
+  - GI - Gibraltar
+  - GR - Greece
+  - GL - Greenland
+  - GD - Grenada
+  - GP - Guadeloupe
+  - GU - Guam
+  - GT - Guatemala
+  - GG - Guernsey
+  - GN - Guinea
+  - GW - Guinea Bissau
+  - GY - Guyana
+  - HT - Haiti
+  - HM - Heard Island and McDonald Islands
+  - HN - Honduras
+  - HK - Hong Kong S.A.R.
+  - HU - Hungary
+  - IS - Iceland
+  - IN - India
+  - ID - Indonesia
+  - IR - Iran
+  - IQ - Iraq
+  - IE - Ireland
+  - IM - Isle of Man
+  - IL - Israel
+  - IT - Italy
+  - CI - Ivory Coast
+  - JM - Jamaica
+  - JP - Japan
+  - JE - Jersey
+  - JO - Jordan
+  - KZ - Kazakhstan
+  - KE - Kenya
+  - KI - Kiribati
+  - XK - Kosovo
+  - KW - Kuwait
+  - KG - Kyrgyzstan
+  - LA - Laos
+  - LV - Latvia
+  - LB - Lebanon
+  - LS - Lesotho
+  - LR - Liberia
+  - LY - Libya
+  - LI - Liechtenstein
+  - LT - Lithuania
+  - LU - Luxembourg
+  - MO - Macau S.A.R
+  - MK - Macedonia
+  - MG - Madagascar
+  - MW - Malawi
+  - MY - Malaysia
+  - MV - Maldives
+  - ML - Mali
+  - MT - Malta
+  - MH - Marshall Islands
+  - MQ - Martinique
+  - MR - Mauritania
+  - MU - Mauritius
+  - YT - Mayotte
+  - MX - Mexico
+  - MD - Moldova
+  - MC - Monaco
+  - MN - Mongolia
+  - ME - Montenegro
+  - MS - Montserrat
+  - MA - Morocco
+  - MZ - Mozambique
+  - MM - Myanmar
+  - NA - Namibia
+  - NR - Nauru
+  - NP - Nepal
+  - NL - Netherlands
+  - NC - New Caledonia
+  - TK - New Zealand
+  - NZ - New Zealand
+  - NI - Nicaragua
+  - NE - Niger
+  - NG - Nigeria
+  - NU - Niue
+  - NF - Norfolk Island
+  - KP - North Korea
+  - MP - Northern Mariana Islands
+  - NO - Norway
+  - OM - Oman
+  - PK - Pakistan
+  - PW - Palau
+  - PA - Panama
+  - PG - Papua New Guinea
+  - PY - Paraguay
+  - PE - Peru
+  - PH - Philippines
+  - PN - Pitcairn Islands
+  - PL - Poland
+  - PT - Portugal
+  - PR - Puerto Rico
+  - QA - Qatar
+  - RS - Republic of Serbia
+  - CG - Republic of the Congo
+  - RE - Reunion
+  - RO - Romania
+  - RU - Russia
+  - RW - Rwanda
+  - SS - S. Sudan
+  - BL - Saint Barthelemy
+  - SH - Saint Helena
+  - KN - Saint Kitts and Nevis
+  - LC - Saint Lucia
+  - MF - Saint Martin
+  - PM - Saint Pierre and Miquelon
+  - VC - Saint Vincent and the Grenadines
+  - WS - Samoa
+  - SM - San Marino
+  - ST - Sao Tome and Principe
+  - SA - Saudi Arabia
+  - SN - Senegal
+  - SC - Seychelles
+  - SL - Sierra Leone
+  - SG - Singapore
+  - SX - Sint Maarten
+  - SK - Slovakia
+  - SI - Slovenia
+  - SB - Solomon Islands
+  - SO - Somalia
+  - ZA - South Africa
+  - GS - South Georgia and the Islands
+  - KR - South Korea
+  - ES - Spain
+  - LK - Sri Lanka
+  - SD - Sudan
+  - SR - Suriname
+  - SJ - Svalbard and Jan Mayen
+  - SZ - Swaziland
+  - SE - Sweden
+  - CH - Switzerland
+  - SY - Syria
+  - TW - Taiwan
+  - TJ - Tajikistan
+  - TH - Thailand
+  - BS - The Bahamas
+  - TG - Togo
+  - TO - Tonga
+  - TT - Trinidad and Tobago
+  - TN - Tunisia
+  - TR - Turkey
+  - TM - Turkmenistan
+  - TC - Turks and Caicos Islands
+  - TV - Tuvalu
+  - UG - Uganda
+  - UA - Ukraine
+  - AE - United Arab Emirates
+  - GB - United Kingdom
+  - TZ - United Republic of Tanzania
+  - VI - United States Virgin Islands
+  - US - United States of America
+  - UY - Uruguay
+  - UZ - Uzbekistan
+  - VU - Vanuatu
+  - VA - Vatican
+  - VE - Venezuela
+  - VN - Vietnam
+  - WF - Wallis and Futuna
+  - PS - West Bank
+  - EH - Western Sahara
+  - YE - Yemen
+  - ZM - Zambia
+  - ZW - Zimbabwe
 - keyname: latitude
   field_type: number
   name: Latitude

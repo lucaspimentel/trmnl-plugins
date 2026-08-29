@@ -182,6 +182,39 @@ The same two mitigations apply - the rendered place name catches it, a country q
 but this one is worth calling out in the field description rather than leaving for a user to
 discover.
 
+##### Resolved by a Country setting, once the data was bundled
+
+The vendor ranking above is not what the bundled dataset does, and the difference is a regression
+rather than an improvement. The local geocoder ranks colliding codes by the largest population
+sitting on them, which sends `02180` to **Seoul** rather than to Stoneham, Massachusetts. The
+collision is much wider than the vendor's behaviour suggested: `02180` is a real code in six
+countries, `10001` in ten, and **88% of US ZIP codes** are shared with at least one other country.
+
+Three fixes were considered and rejected. Ranking differently only moves which country loses.
+Returning a miss on an ambiguous code preserves today's answers exactly, but sends 36,361 of the
+41,488 US ZIPs to the vendor on every cache miss, which is the cost the bundling exists to avoid.
+Inferring the country from the `units` setting makes the same typed input resolve differently for
+a US user who prefers metric.
+
+So the plugin asks. A **Country** dropdown supplies `country=<alpha-2>` on v2, and it is a
+*preference rather than a filter*, which is the whole of the design:
+
+| Case | Behaviour |
+|---|---|
+| Country unset, `Auto`, or unparseable | Ranked by population, exactly as before. This is what every install predating the setting and every fork sends |
+| Code exists in the declared country | That country wins outright |
+| Code exists nowhere near it - `Tokyo` with `US` declared | Still resolves. A preference must never turn a correct input into a miss |
+| A country typed into Location - `75001, FR` | The typed qualifier wins. What you said this time beats what you set once |
+
+The same preference breaks city ties, so bare `Boston` stays Massachusetts for everyone who has
+not said otherwise and becomes Lincolnshire for someone who declared `GB`.
+
+Two limits worth stating. The preference reaches the **local geocoder only**: on a fall-through the
+vendor still ranks by prominence, so a declared country cannot fix a code the bundled data misses.
+And the dropdown carries `US - United States of America`, split back to the code by Liquid in
+`polling_url`; the API ignores anything that is not two ASCII letters rather than erroring, so a
+mis-edited URL degrades to `Auto` instead of costing someone their forecast.
+
 ### Quota and abuse
 
 `/api/v1/forecast` is anonymous and unthrottled, and v2 will be too. Free-text input changes the
