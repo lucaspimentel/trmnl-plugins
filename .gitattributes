@@ -4,3 +4,7 @@
 # See https://help.github.com/articles/dealing-with-line-endings/
 *.sh text eol=lf
 *.bash text eol=lf
+
+# A verbatim upstream copy. Leaving it alone keeps it byte-identical to
+# https://data.iana.org/time-zones/tzdb/zone.tab, so a refresh is a clean diff.
+api/src/TrmnlApi.Geo/zone.tab -text
