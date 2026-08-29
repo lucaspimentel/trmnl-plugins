@@ -111,6 +111,28 @@ public sealed class GeoFixtureDatabase : IDisposable
         // typing their own ZIP matched nothing and fell through to the biggest city on the code.
         AddPostal(connection, "PL", "00784", 52.2054, 21.0245);
         AddCity(connection, 13, "Warsaw", "PL", "MZ", 52.2298, 21.0118, 1790658);
+
+        // The code this whole layering exists for, with the three real countries that matter and
+        // their real coordinates. Ranked by population alone it is Seoul, which is what a user in
+        // Stoneham actually saw. Note Helsinki outranks Boston too, by about forty thousand: the
+        // home region alone does not rescue this code, only the time zone does.
+        AddPostal(connection, "US", "02180", 42.483, -71.098);
+        AddPostal(connection, "FI", "02180", 60.196, 24.766);
+        AddPostal(connection, "KR", "02180", 37.596, 127.102);
+        // Vilnius is the smallest of the four and can only ever win by being asked for, which is
+        // what makes it the honest test of a time zone rather than of population.
+        AddPostal(connection, "LT", "02180", 54.660, 25.272);
+        AddCity(connection, 15, "Helsinki", "FI", "18", 60.1695, 24.9354, 658864);
+        AddCity(connection, 16, "Seoul", "KR", "11", 37.5665, 126.978, 10349312);
+        AddCity(connection, 19, "Vilnius", "LT", "57", 54.6892, 25.2798, 542366);
+
+        // A code that exists nowhere near the home region. Nothing may stop it resolving.
+        AddPostal(connection, "KR", "06236", 37.5013, 127.0396);
+
+        // The same name in and out of the home region, with the bigger one outside it. This is why
+        // the region preference is postal-only: applied to names it would answer Spain.
+        AddCity(connection, 17, "Santiago", "CL", "RM", -33.4569, -70.6483, 4837295);
+        AddCity(connection, 18, "Santiago", "ES", "GA", 42.8805, -8.5457, 82000);
     }
 
     public GeoDatabase Open() => GeoDatabase.TryOpen(_path)!;

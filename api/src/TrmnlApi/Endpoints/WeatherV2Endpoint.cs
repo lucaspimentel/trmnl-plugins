@@ -97,12 +97,10 @@ public class WeatherV2Endpoint
         // predates the setting, or a fork that never had it, sends nothing and must keep working.
         var preferredCountry = query["country"].FirstOrDefault();
 
-        // Read but not acted on. A bare postal code is ambiguous across dozens of countries and
-        // nothing in the string says which one the caller is in; their time zone would say it
-        // without anyone having to set a thing. Whether TRMNL will interpolate it into
-        // polling_url at all is not documented, and this project has already been caught assuming
-        // Liquid works there, so it is logged first and used only once a real device has proved it
-        // arrives. See docs/place-input.md.
+        // A bare postal code is ambiguous across dozens of countries and nothing in the string
+        // says which one the caller is in; their time zone says it without anyone having to set a
+        // thing. TRMNL does interpolate it into polling_url, which was proved on a real device
+        // rather than assumed - Liquid filters do not work there. See docs/place-input.md.
         var timeZone = query["tz"].FirstOrDefault();
 
         var placeParam = query["place"].FirstOrDefault();
@@ -168,7 +166,12 @@ public class WeatherV2Endpoint
                 // The bundled dataset first, the vendor only when it misses. The vendor forgives
                 // misspellings this does not, so it stays wired up as the safety net: we do not
                 // log place inputs, so there is no corpus to replay a ranking regression against.
-                var localMatch = localGeocoder.Find(typed.Text, preferredCountry);
+                // Deliberately not memoized. The answer now depends on who is asking - their
+                // country and their time zone - so a cache keyed on the text alone would serve one
+                // user's location to another. If this ever gains a memo, the hint must be part of
+                // the key. PlaceResolver below is safe as it stands: it only ever sees the text,
+                // because the vendor cannot take a preference anyway.
+                var localMatch = localGeocoder.Find(typed.Text, preferredCountry, timeZone);
                 if (localMatch is { } hit)
                 {
                     geocoder = GeocoderLocal;
@@ -291,7 +294,7 @@ public class WeatherV2Endpoint
         servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider} "
                 + "geocoder={Geocoder} city={City} subdivision={Subdivision} country={CountryCode} "
-                + "declared={DeclaredCountry} tz={TimeZone}",
+                + "declared={DeclaredCountry} tz={TimeZone} hint={Hint}",
             CoarseCoordinate.ToTag(latitude),
             CoarseCoordinate.ToTag(longitude),
             cacheStatus,
@@ -304,7 +307,11 @@ public class WeatherV2Endpoint
             // What the caller asked us to prefer, parsed. Bounded and not personal, and the one
             // field that would have answered "did the dropdown reach us" without guessing.
             CountryPreference.Parse(preferredCountry) ?? "-",
-            TimeZoneTag(timeZone));
+            TimeZoneTag(timeZone),
+            // Which of the two the ranking actually used, resolved by the same code the geocoder
+            // uses so the two cannot disagree. Without it, "is the time zone doing anything?" is
+            // unanswerable, which is the mistake the field above was added to stop repeating.
+            CountryHint.Resolve(preferredCountry, timeZone).Source);
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }

@@ -38,7 +38,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
         _logger = logger;
     }
 
-    public GeoMatch? Find(string text, string? preferredCountry = null)
+    public GeoMatch? Find(string text, string? preferredCountry = null, string? timeZone = null)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > _options.MaxQueryLength)
         {
@@ -61,17 +61,24 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             using var connection = _database.Connect();
             var resolved = qualifiers.Select(q => ResolveQualifier(connection, q)).ToArray();
 
-            // Anything unreadable - a blank, an "Auto" - means no preference rather than an
-            // error, because a setting nobody can see is a bad reason to refuse a forecast.
-            // CountryPreference also accepts the dropdown's full label, which is what actually
-            // arrived from the plugin.
-            var preference = CountryPreference.Parse(preferredCountry) is { } code
-                ? PostalJurisdictions.Accepting(code)
-                : null;
+            // The dropdown first, then the caller's time zone. See CountryHint for the layering.
+            var (preference, _) = CountryHint.Resolve(preferredCountry, timeZone);
 
             if (GeoText.LooksPostal(subject))
             {
-                var postal = FindPostal(connection, subject, resolved, preference);
+                // A ZIP+4 is the one postal form that names its own country. No other country in
+                // the source data writes NNNNN-NNNN, so the five digits in front are a US ZIP and
+                // nothing else. Worth handling for its own sake as well: the full form used to
+                // normalize to nine digits, match no row, and miss entirely.
+                if (ZipPlusFour(subject) is { } zip)
+                {
+                    subject = zip;
+                    preference ??= PostalJurisdictions.Accepting("US");
+                }
+
+                // With nothing declared and no time zone, prefer where the users are. Postal only:
+                // see HomeRegion for why a city name must not get the same treatment.
+                var postal = FindPostal(connection, subject, resolved, preference ?? HomeRegion.Countries);
                 if (postal is not null)
                 {
                     return postal;
@@ -297,6 +304,33 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
         command.Parameters.AddWithValue("$north", latitude + latPad);
 
         return command.ExecuteScalar() is long population ? population : 0;
+    }
+
+    /// <summary>
+    /// The five-digit ZIP inside a ZIP+4, or null when the input is not one.
+    /// </summary>
+    /// <remarks>
+    /// Checked against every raw postal code in the source data: no country writes
+    /// <c>NNNNN-NNNN</c>, so unlike a bare five-digit code - which fifty countries use, and where
+    /// the United States is only the fourth largest - this shape identifies its country by itself.
+    /// </remarks>
+    private static string? ZipPlusFour(string value)
+    {
+        var text = value.AsSpan().Trim();
+        if (text.Length != 10 || text[5] != '-')
+        {
+            return null;
+        }
+
+        foreach (var c in text)
+        {
+            if (c != '-' && !char.IsAsciiDigit(c))
+            {
+                return null;
+            }
+        }
+
+        return text[..5].ToString();
     }
 
     /// <summary>

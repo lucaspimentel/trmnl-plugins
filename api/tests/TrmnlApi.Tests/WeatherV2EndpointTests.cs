@@ -110,6 +110,20 @@ public class WeatherV2EndpointTests
     }
 
     [Fact]
+    public async Task Handle_ForwardsBothTheCountryAndTheTimeZoneToTheGeocoder()
+    {
+        // Neither is validated into an error and neither changes the response shape, so a wiring
+        // mistake here is invisible: the setting simply stops working, which is exactly how the
+        // Country dropdown shipped broken the first time.
+        var harness = new Harness();
+
+        await harness.Get("?place=02180&country=us_-_united_states_of_america&tz=America/New_York");
+
+        Assert.Equal("us_-_united_states_of_america", harness.LocalGeocoder.LastPreferredCountry);
+        Assert.Equal("America/New_York", harness.LocalGeocoder.LastTimeZone);
+    }
+
+    [Fact]
     public async Task Handle_PostalHit_TakesItsNameFromTheReverseLookup()
     {
         // Postal place names are unusable as labels, so a postal match carries coordinates only.
@@ -495,11 +509,13 @@ public class WeatherV2EndpointTests
         public int Calls { get; private set; }
         public GeoMatch? Result { get; set; }
         public string? LastPreferredCountry { get; private set; }
+        public string? LastTimeZone { get; private set; }
 
-        public GeoMatch? Find(string text, string? preferredCountry = null)
+        public GeoMatch? Find(string text, string? preferredCountry = null, string? timeZone = null)
         {
             Calls++;
             LastPreferredCountry = preferredCountry;
+            LastTimeZone = timeZone;
             return Result;
         }
     }

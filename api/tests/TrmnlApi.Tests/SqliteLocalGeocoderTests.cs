@@ -274,6 +274,129 @@ public class SqliteLocalGeocoderTests : IDisposable
         Assert.Equal(-71.06, match.Value.Longitude);  // -71.05977 likewise
     }
 
+    [Fact]
+    public void Find_ABarePostalCode_TakesTheCountryTheCallersTimeZoneIsIn()
+    {
+        // The bug this shipped for. 02180 is Stoneham, Massachusetts, and also a real code in
+        // Finland, Lithuania, Poland, Peru and Korea. Ranked by population it is Seoul, which is
+        // what a user in Stoneham with nothing set actually saw on their screen.
+        var match = Build().Find("02180", timeZone: "America/New_York");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.48, match.Value.Latitude);
+    }
+
+    [Theory]
+    // A preference, not a rule about the United States. Korea is outside the fallback region and
+    // still wins when asked for; Lithuania is the smallest of the four candidates and loses on
+    // population to every one of them, so it can only be arriving from the time zone.
+    [InlineData("Asia/Seoul", 37.6)]
+    [InlineData("Europe/Vilnius", 54.66)]
+    public void Find_ABarePostalCode_TakesAnyCallersTimeZoneJustTheSame(string zone, double expected)
+    {
+        var match = Build().Find("02180", timeZone: zone);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ADeclaredCountry_OutranksTheTimeZone()
+    {
+        // What you chose beats what your clock implies.
+        var match = Build().Find("02180", preferredCountry: "FI", timeZone: "America/New_York");
+
+        Assert.NotNull(match);
+        Assert.Equal(60.2, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ATypedQualifier_OutranksTheTimeZone()
+    {
+        // And what you typed this time beats both.
+        var match = Build().Find("02180, KR", timeZone: "America/New_York");
+
+        Assert.NotNull(match);
+        Assert.Equal(37.6, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_WithNoHintAtAll_PrefersWhereTheUsersAreOverTheBiggestCity()
+    {
+        // An install predating both settings. Seoul is ten million people and outranks everything
+        // on population; the region preference drops it, and Helsinki wins on population among
+        // what is left. Not the right answer for a user in Stoneham - only a time zone fixes that
+        // - but no longer a different continent from every user we have.
+        var match = Build().Find("02180");
+
+        Assert.NotNull(match);
+        Assert.Equal(60.2, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_APostalCodeFoundOnlyOutsideThatRegion_StillResolves()
+    {
+        // The invariant that governs every preference here: it breaks ties between matches that
+        // were already valid and may never turn a working input into a miss.
+        var match = Build().Find("06236");
+
+        Assert.NotNull(match);
+        Assert.Equal(37.5, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_AnUnknownTimeZone_IsIgnoredRatherThanFatal()
+    {
+        var match = Build().Find("02180", timeZone: "Mars/Olympus");
+
+        Assert.NotNull(match);
+        Assert.Equal(60.2, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ACityName_IsNotTouchedByTheRegionPreference()
+    {
+        // Why the region preference is postal-only. Santiago de Chile is fifty times the size of
+        // Santiago de Compostela, and only Chile is outside the region: preferring the region for
+        // names would answer Spain for everyone, which is plainly worse than population.
+        var match = Build().Find("Santiago");
+
+        Assert.NotNull(match);
+        Assert.Equal(-33.46, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ATerritorysPostalCode_ReachesItFromTheSovereignsTimeZone()
+    {
+        // The time zone expands through PostalJurisdictions exactly as a declared country does, so
+        // 00784 from New York is Guayama and not Warsaw - the same failure, one signal weaker.
+        var match = Build().Find("00784", timeZone: "America/New_York");
+
+        Assert.NotNull(match);
+        Assert.Equal(17.98, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ZipPlusFour_ResolvesAndMeansTheUnitedStates()
+    {
+        // No country in the source data writes NNNNN-NNNN, so this shape names its own country
+        // with no hint of any kind. It also used to miss outright: the full form normalized to
+        // nine digits and matched no row at all.
+        var match = Build().Find("02180-1234");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.48, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ZipPlusFourAgainstADeclaredCountry_KeepsTheDeclaredOne()
+    {
+        var match = Build().Find("02180-1234", preferredCountry: "KR");
+
+        Assert.NotNull(match);
+        Assert.Equal(37.6, match.Value.Latitude);
+    }
+
     private SqliteLocalGeocoder Build() => new(
         _fixture.Open(),
         Options.Create(new GeoOptions()),

@@ -21,11 +21,16 @@ public interface ILocalGeocoder
     /// must not turn a match the caller would otherwise have got into a miss. See
     /// <c>SqliteLocalGeocoder</c>.
     /// </param>
-    GeoMatch? Find(string text, string? preferredCountry = null);
+    /// <param name="timeZone">
+    /// The caller's IANA time zone, used the same way and only when <paramref name="preferredCountry"/>
+    /// says nothing. It settles the ambiguity for a user who has set nothing at all, which is most
+    /// of them. See <see cref="CountryHint"/>.
+    /// </param>
+    GeoMatch? Find(string text, string? preferredCountry = null, string? timeZone = null);
 }
 
 /// <summary>Used when no dataset is configured. Every lookup misses, so the vendor serves.</summary>
 public sealed class NullLocalGeocoder : ILocalGeocoder
 {
-    public GeoMatch? Find(string text, string? preferredCountry = null) => null;
+    public GeoMatch? Find(string text, string? preferredCountry = null, string? timeZone = null) => null;
 }
