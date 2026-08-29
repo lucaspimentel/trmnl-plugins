@@ -282,7 +282,8 @@ public class WeatherV2Endpoint
         // Its own category, not this class's: see TrmnlApi.Observability.ForecastServed.
         servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider} "
-                + "geocoder={Geocoder} city={City} subdivision={Subdivision} country={CountryCode}",
+                + "geocoder={Geocoder} city={City} subdivision={Subdivision} country={CountryCode} "
+                + "declared={DeclaredCountry}",
             CoarseCoordinate.ToTag(latitude),
             CoarseCoordinate.ToTag(longitude),
             cacheStatus,
@@ -291,7 +292,10 @@ public class WeatherV2Endpoint
             geocoder,
             geo.City,
             geo.SubdivisionCode,
-            geo.CountryCode);
+            geo.CountryCode,
+            // What the caller asked us to prefer, parsed. Bounded and not personal, and the one
+            // field that would have answered "did the dropdown reach us" without guessing.
+            CountryPreference.Parse(preferredCountry) ?? "-");
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }

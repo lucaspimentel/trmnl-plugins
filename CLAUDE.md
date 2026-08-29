@@ -9,6 +9,7 @@ For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.tr
 - `settings.yml` must be at `src/settings.yml` — trmnlp ignores one at the plugin root
 - Plugin ID is stored in `src/settings.yml` under the `id:` key (not in `.trmnlp.yml`)
 - `polling_url` interpolation: use `{{ keyname }}` (plain Liquid), not `##{{ keyname }}`
+- **Liquid filters in `polling_url` are not applied.** `{{ country | split: ' - ' | first }}` shipped the whole option value, so the API received `US - United States of America` and ignored it, and a user who had set their country was served as though they had not. Send the raw `{{ keyname }}` and parse it server-side. A filter also puts `: ` in the YAML scalar, so the value has to be quoted or the file will not parse
 - Flex children that should shrink need `min-width: 0` — `plugins.js` measures widths before layout, so without it they expand to full container width
 - Recipe linter counts raw substrings of `font-size`, `padding`, `margin`, etc. across ALL markup (including JS, comments, variable names) — max 6 total. See `.claude/skills/trmnl-dev/references/framework/updates.md` for workarounds.
 

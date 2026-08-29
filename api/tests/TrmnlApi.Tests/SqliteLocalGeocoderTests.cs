@@ -83,17 +83,27 @@ public class SqliteLocalGeocoderTests : IDisposable
 
     [Theory]
     // An install that predates the setting, a fork that never had it, and the dropdown's own
-    // "Auto" reaching the API unsplit. None of them may change the answer or cause an error.
+    // "Auto". None of them may change the answer or cause an error.
     [InlineData(null)]
     [InlineData("")]
     [InlineData("Auto")]
-    [InlineData("US - United States")]
     public void Find_WithoutAUsableCountry_RanksByPopulationAsBefore(string? country)
     {
         var match = Build().Find("75001", preferredCountry: country);
 
         Assert.NotNull(match);
         Assert.Equal(48.86, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_DropdownLabelInsteadOfACode_IsStillHonoured()
+    {
+        // What the plugin actually sent. Rejecting it served a user who had chosen their country
+        // as though they had not.
+        var match = Build().Find("75001", preferredCountry: "US - United States of America");
+
+        Assert.NotNull(match);
+        Assert.Equal(32.96, match.Value.Latitude);
     }
 
     [Fact]

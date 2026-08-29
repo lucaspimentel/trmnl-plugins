@@ -61,11 +61,12 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             using var connection = _database.Connect();
             var resolved = qualifiers.Select(q => ResolveQualifier(connection, q)).ToArray();
 
-            // Only a well-formed alpha-2 is honoured. Anything else - a blank, an "Auto", a
-            // dropdown label that arrived unsplit - means no preference rather than an error,
-            // because a setting nobody can see is a bad reason to refuse a forecast.
-            var preference = preferredCountry is { Length: 2 } code && code.All(char.IsAsciiLetter)
-                ? PostalJurisdictions.Accepting(code.ToUpperInvariant())
+            // Anything unreadable - a blank, an "Auto" - means no preference rather than an
+            // error, because a setting nobody can see is a bad reason to refuse a forecast.
+            // CountryPreference also accepts the dropdown's full label, which is what actually
+            // arrived from the plugin.
+            var preference = CountryPreference.Parse(preferredCountry) is { } code
+                ? PostalJurisdictions.Accepting(code)
                 : null;
 
             if (GeoText.LooksPostal(subject))
