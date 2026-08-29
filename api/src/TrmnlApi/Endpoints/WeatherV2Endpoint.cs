@@ -97,6 +97,14 @@ public class WeatherV2Endpoint
         // predates the setting, or a fork that never had it, sends nothing and must keep working.
         var preferredCountry = query["country"].FirstOrDefault();
 
+        // Read but not acted on. A bare postal code is ambiguous across dozens of countries and
+        // nothing in the string says which one the caller is in; their time zone would say it
+        // without anyone having to set a thing. Whether TRMNL will interpolate it into
+        // polling_url at all is not documented, and this project has already been caught assuming
+        // Liquid works there, so it is logged first and used only once a real device has proved it
+        // arrives. See docs/place-input.md.
+        var timeZone = query["tz"].FirstOrDefault();
+
         var placeParam = query["place"].FirstOrDefault();
 
         // A sentinel in the place field selects a canned result. It rides in a custom field the
@@ -283,7 +291,7 @@ public class WeatherV2Endpoint
         servedLogger.LogInformation(
             "Served forecast for {Latitude},{Longitude} cache={CacheStatus} provider={Provider} requested={RequestedProvider} "
                 + "geocoder={Geocoder} city={City} subdivision={Subdivision} country={CountryCode} "
-                + "declared={DeclaredCountry}",
+                + "declared={DeclaredCountry} tz={TimeZone}",
             CoarseCoordinate.ToTag(latitude),
             CoarseCoordinate.ToTag(longitude),
             cacheStatus,
@@ -295,7 +303,8 @@ public class WeatherV2Endpoint
             geo.CountryCode,
             // What the caller asked us to prefer, parsed. Bounded and not personal, and the one
             // field that would have answered "did the dropdown reach us" without guessing.
-            CountryPreference.Parse(preferredCountry) ?? "-");
+            CountryPreference.Parse(preferredCountry) ?? "-",
+            TimeZoneTag(timeZone));
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
@@ -410,6 +419,30 @@ public class WeatherV2Endpoint
         span?.SetTag(TagErrorCode, "client_cancelled");
         logger.LogInformation("Client cancelled the forecast request.");
         return Results.StatusCode(499);
+    }
+
+    /// <summary>
+    /// A caller-supplied time zone, reduced to the characters an IANA name can contain.
+    /// </summary>
+    /// <remarks>
+    /// This value comes off the query string and goes into a log line, so it is filtered rather
+    /// than trusted: anything else could carry a newline and forge a second log entry. Length is
+    /// capped for the same reason. A time zone is a coarse location hint, far coarser than the
+    /// <c>F1</c> coordinates already on this line.
+    /// </remarks>
+    private static string TimeZoneTag(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        var kept = new string(value
+            .Where(c => char.IsAsciiLetterOrDigit(c) || c is '/' or '_' or '-' or '+')
+            .Take(48)
+            .ToArray());
+
+        return kept.Length == 0 ? "?" : kept;
     }
 
     private static string Quote(string value)

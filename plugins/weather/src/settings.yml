@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language:
-polling_url: "https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}&country={{ country }}"
+polling_url: "https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}&country={{ country }}&tz={{ trmnl.user.time_zone_iana }}"
 polling_headers: ''
 polling_body: ''
 id: 249564
