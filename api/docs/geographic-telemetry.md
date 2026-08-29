@@ -96,43 +96,70 @@ treating the group as missing data.
 Separately, and **deliberately not changed**: four subdivisions have a real ISO code whose prefix
 disagrees with the country column. Three are correct as they stand - `US-PR` with country `PR`, and
 `NL-SX` with country `SX`, are both a territory holding its own alpha-2 - and nulling on that
-signal would have destroyed the Puerto Rico case this project exists to fix. The fourth is an
-editorial one: Natural Earth files `UA-43` and `UA-40`, Crimea and Sevastopol, under country `RU`.
-That is a question about whose data to believe rather than a defect in the pipeline, and it is
-still open.
+signal would have destroyed the Puerto Rico case this project exists to fix. The fourth was the
+editorial one, settled below.
+
+### A disputed territory keeps its outline and loses its labels
+
+Natural Earth files `UA-43` and `UA-40`, Crimea and Sevastopol, under country `RU` while carrying
+Ukraine's own ISO codes. Printing either answer on a weather screen makes a claim this project has
+no business making, and the only alternative on offer is to believe a different map. So neither is
+printed: `ContestedTerritories` in the builder writes those two features with their geometry and
+**no attribution at all** - no subdivision code, no country code, no subdivision name, no country.
+
+**Deleting them would not have been the same as declining to answer.** The lookup falls through to
+the nearest neighbouring polygon whenever nothing contains the point, so a deleted Crimea hands
+Kerch to Krasnodar Krai four kilometres across the strait, and the rest of the peninsula to Kherson
+- the same claim as before, arrived at by accident and wrong about the subdivision as well. The
+regression test for this asserts the drift does not happen, and it fails with country `XA` against
+a fixture where the outline is deleted rather than blanked.
+
+The names being nullable is what makes this storable, so `admin1.admin_name` and
+`admin1.subdiv_name` joined the two code columns in being nullable. `GeoSchema.Version` stays at
+**2**: a reader that tolerates null reads an older artifact correctly, because the columns were
+simply never null there. Only a change that would make a reader *misread* an old artifact bumps it.
+
+Checked against the runtime reader on the rebuilt file. Simferopol, Sevastopol, Kerch and Yalta all
+come back as the city name and nothing else - `empty=False`, because the city is still an honest
+label - while Kherson stays `Kherson, UA-65, Ukraine` and Krasnodar stays `RU-KDA, Russia`.
 
 ### Open, and where to pick up (2026-08-29)
 
-Staging serves the dataset and the smoke tests pass. What is left is the plugin side and
-production. Nothing below is deployed-and-broken; these are unfinished, in rough priority order.
+Staging serves the dataset and the smoke tests pass. What is left is a look at a real screen and
+production. Nothing below is deployed-and-broken; the struck-through items are done, kept here
+because the reasoning is worth more than the checkbox.
 
-1. **`TK - New Zealand` is wrong in the Country dropdown.** `TK` is Tokelau. The option list was
-   generated from the bundled `country` table, whose name column is Natural Earth's `admin`, and
-   that names the *sovereign* for a territory. `TK` is the only code this actually corrupts - every
-   other territory carries its own name - but it puts two `New Zealand` entries in the list, one of
-   which silently means Tokelau. Regenerate the options with a small override rather than trusting
-   `admin`, and re-sort, since the list is ordered by display name. While there: `SS - S. Sudan` is
-   an abbreviation worth spelling out, and `PS - West Bank` is Natural Earth's name for what ISO
-   calls Palestine - changing that one takes a position, so it was left alone deliberately.
+1. ~~**`TK - New Zealand` is wrong in the Country dropdown.**~~ Fixed. `TK` is Tokelau; the option
+   list had been generated from the bundled `country` table, whose name column is Natural Earth's
+   `admin`, and that names the *sovereign* for a territory. A check for names shared by two codes
+   found `TK` was the only one this corrupts, so the two labels were corrected in `settings.yml`
+   by hand and the list re-sorted rather than teaching the generator an override table:
+   `TK - Tokelau`, and `SS - S. Sudan` spelled out as `SS - South Sudan`. `PS - West Bank` is
+   Natural Earth's name for what ISO calls Palestine, and changing that one takes a position, so it
+   is left alone deliberately.
 
-2. **The plugin has not been re-pushed since `settings.yml` changed.** `polling_url` now sends the
-   raw `{{ country }}` instead of a filter that never ran. The staging plugin on TRMNL still has
-   the old URL. Both produce the same request today, so this is tidiness rather than a fix - but it
-   must go out with the `TK` correction anyway: `bash tools/push-plugin.sh plugins/weather`.
+   The `country` table itself still says `TK` is called New Zealand, and that is harmless:
+   `ResolveQualifier` collects every code a typed name matches into a set, so `Sydney, New Zealand`
+   widens to `{NZ, TK}` and still finds the New Zealand city. It never resolves to Tokelau instead.
+
+2. ~~**Re-push the plugin.**~~ Done twice: once for the raw `{{ country }}` in `polling_url`, and
+   again with the two corrected labels.
 
 3. **Confirm on the device.** The API is verified by request, not by screen. With location `00784`
    and the country set, the title bar should read `Guayama, PR` where it read `Mokotów, MZ`. A
-   forced refresh from the plugin settings page is the quickest way to see it.
+   forced refresh from the plugin settings page is the quickest way to see it. Attempted through
+   the browser once and abandoned when the extension disconnected; the live `declared=US` line in
+   the logs is the evidence standing in for it.
 
 4. **Production is untouched** and still has no dataset: `GEO_DATA_URL` and `GEO_DATA_SHA256` are
    unset there. Promoting means setting both on the `production` environment, pushing to `main`,
    confirming the build log the same way as step 5 below, then `push-plugin.sh --env prod`.
 
-5. **Crimea and Sevastopol** still carry `UA-43`/`UA-40` under country `RU`, as Natural Earth files
-   them. A question of whose data to believe rather than a defect, and still undecided.
+5. ~~**Crimea and Sevastopol.**~~ Settled: they keep their outlines and carry no attribution at
+   all. See [the section above](#a-disputed-territory-keeps-its-outline-and-loses-its-labels).
 
-6. **The uncompressed `geo.sqlite` is still on the release** beside the `.gz`. Harmless - pinning it
-   now fails the build at `gunzip` - but it can be deleted to remove the footgun.
+6. ~~**The uncompressed `geo.sqlite` on the release.**~~ Deleted from `geo-data-20260828`, which now
+   carries only the `.gz`. The 2026-08-29 release was published with the `.gz` alone.
 
 7. **Then wait about a week** and read `weather.geocoder`, per step 9. That reading is what licenses
    retiring the vendor geocoder, and it is the whole point of the exercise.
@@ -147,28 +174,31 @@ would have answered the dropdown question above in one look instead of several.
    `allCountries.txt` from GeoNames. Fetched to a scratch directory, not into this repo.
 2. ~~**Run the builder**~~ Done, after the reader fix above.
 3. ~~**Check the artifact size**~~ Done: 111.5 MB, of which 3.0 MB is geometry. See above.
-4. ~~**Publish `geo.sqlite` as a GitHub release asset**~~ Done, 2026-08-28, as release
-   [`geo-data-20260828`](https://github.com/lucaspimentel/trmnl-plugins/releases/tag/geo-data-20260828).
-   The release notes carry the attribution this obliges us to give: Natural Earth is public domain,
-   GeoNames is CC BY 4.0. Verified downloadable anonymously, which is what the image build does.
+4. ~~**Publish `geo.sqlite` as a GitHub release asset**~~ Done. The current one is
+   [`geo-data-20260829`](https://github.com/lucaspimentel/trmnl-plugins/releases/tag/geo-data-20260829),
+   the rebuild that blanks the disputed territories; `geo-data-20260828` is the first build and is
+   kept for the image that shipped from it. The release notes carry the attribution this obliges us
+   to give: Natural Earth is public domain, GeoNames is CC BY 4.0. Verified downloadable
+   anonymously, which is what the image build does.
 
    | | |
    |---|---|
-   | `GEO_DATA_URL` | `https://github.com/lucaspimentel/trmnl-plugins/releases/download/geo-data-20260828/geo.sqlite.gz` |
-   | `GEO_DATA_SHA256` | `af366d1ce21768b5c232b1775c2d94bf87fbcc7f9c7c8d47428428ce143c5c8c` |
+   | `GEO_DATA_URL` | `https://github.com/lucaspimentel/trmnl-plugins/releases/download/geo-data-20260829/geo.sqlite.gz` |
+   | `GEO_DATA_SHA256` | `e078cebe70c1fcab850666a1dd145affcb44bb72c8eebf72b89952223a76a3d5` |
 
    **The asset is gzipped**: 45.7 MB against 111.5 MB, so a build pulls 66 MB less. The image is
    the same size either way, because it is unpacked during the build - this buys build time and
    release bandwidth, not disk.
 
    The image **decompresses before it checks**, so `GEO_DATA_SHA256` is the hash of the SQLite file
-   the service opens, not of the wrapper. That is why the hash above is unchanged from the
-   uncompressed asset, and why changing compression later will not change it. A truncated download
-   then fails the checksum rather than leaving a database that opens and is quietly short.
+   the service opens, not of the wrapper. Changing the compression therefore does not change the
+   hash, which was verified by round-tripping the first asset. A truncated download fails the
+   checksum rather than leaving a database that opens and is quietly short.
 
-   The release still carries the uncompressed `geo.sqlite` beside it. Pinning that one by mistake
-   now fails the build at the `gunzip` step rather than shipping anything wrong, which was checked
-   along with the empty-URL and 404 paths.
+   Only the `.gz` is published now. Both releases carried an uncompressed `geo.sqlite` at one
+   point, and pinning that one by mistake fails the build at the `gunzip` step rather than shipping
+   anything wrong - checked, along with the empty-URL and 404 paths - but it has been deleted
+   anyway so the mistake is not available to make.
 
 5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on the **staging** service
    (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment).
