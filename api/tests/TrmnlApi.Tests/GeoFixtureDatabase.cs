@@ -44,12 +44,20 @@ public sealed class GeoFixtureDatabase : IDisposable
         // Natural Earth ships Kiribati as a single feature whose islands sit either side of the
         // antimeridian, so its bounding box spans most of the planet while its land is specks.
         // Anything that ranks candidates by bounding box hands it every point in the Pacific.
+        // Its ISO 3166-2 is null because Natural Earth's own value for it, 'KI-X01~', is invented
+        // and the builder drops those. The country code is real.
         AddScatteredSubdivision(
-            connection, 7, "KI-X01~", "KI", "Kiribati", "Kiribati",
+            connection, 7, null, "KI", "Kiribati", "Kiribati",
             [
                 (179.5, 179.9, -0.2, 0.2),
                 (-157.6, -157.2, 1.7, 2.1)
             ]);
+
+        // Natural Earth gives Somaliland no ISO code in either column, storing '-99-X11~' and a
+        // country of '-1'. Both are dropped, and only the names are left to label it with.
+        AddScatteredSubdivision(
+            connection, 8, null, null, "Somaliland", "Somaliland",
+            [(43.0, 49.0, 8.0, 11.5)]);
 
         foreach (var (code, name) in new[]
                  {
@@ -123,7 +131,7 @@ public sealed class GeoFixtureDatabase : IDisposable
     /// all of them - the shape that makes bounding-box ranking wrong.
     /// </summary>
     private static void AddScatteredSubdivision(
-        SqliteConnection connection, int id, string iso, string a2, string country, string name,
+        SqliteConnection connection, int id, string? iso, string? a2, string country, string name,
         (double West, double East, double South, double North)[] parts)
     {
         var rings = parts
@@ -138,7 +146,8 @@ public sealed class GeoFixtureDatabase : IDisposable
             INSERT INTO admin1 (id, iso_3166_2, iso_a2, admin_name, subdiv_name, geom)
             VALUES ($id, $iso, $a2, $admin, $name, $geom)
             """,
-            ("$id", id), ("$iso", iso), ("$a2", a2), ("$admin", country), ("$name", name),
+            ("$id", id), ("$iso", (object?)iso ?? DBNull.Value), ("$a2", (object?)a2 ?? DBNull.Value),
+            ("$admin", country), ("$name", name),
             ("$geom", PolygonBlob.Encode(rings)));
 
         Execute(connection,

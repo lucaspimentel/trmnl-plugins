@@ -83,8 +83,32 @@ public class SqlitePlaceLookupTests : IDisposable
         // feature its own land.
         var place = Build().Find(1.9, -157.4);
 
-        Assert.Equal("KI-X01~", place.SubdivisionCode);
         Assert.Equal("KI", place.CountryCode);
+        Assert.Equal("Kiribati", place.SubdivisionName);
+    }
+
+    [Fact]
+    public void Find_TerritoryWithNoIsoSubdivision_ShowsTheNameAndTagsNoCode()
+    {
+        // Natural Earth's invented 'KI-X01~' must not reach a span or a screen. The name does.
+        var place = Build().Find(1.9, -157.4);
+
+        Assert.Null(place.SubdivisionCode);
+        Assert.Equal("Kiribati", place.ShortSubdivision);
+    }
+
+    [Fact]
+    public void Find_TerritoryWithNoIsoCountryEither_IsStillALabelledPlace()
+    {
+        // Somaliland has no code in either column. Dropping both must leave a place that can
+        // still be labelled, not a blank one.
+        var place = Build().Find(9.5, 45.0);
+
+        Assert.Null(place.SubdivisionCode);
+        Assert.Null(place.CountryCode);
+        Assert.Equal("Somaliland", place.Country);
+        Assert.Equal("Somaliland", place.ShortSubdivision);
+        Assert.False(place.IsEmpty);
     }
 
     [Fact]

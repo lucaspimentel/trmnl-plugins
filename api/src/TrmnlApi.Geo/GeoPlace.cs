@@ -23,7 +23,14 @@ public readonly record struct GeoPlace(
     /// <summary>The answer when the dataset has nothing, the lookup failed, or it ran out of time.</summary>
     public static GeoPlace Empty => default;
 
-    public bool IsEmpty => City is null && SubdivisionCode is null && CountryCode is null;
+    /// <summary>Nothing at all is known, not merely that the codes are missing.</summary>
+    /// <remarks>
+    /// A territory Natural Earth has no ISO assignment for keeps its names and carries no codes,
+    /// and that is a place we can label rather than an empty answer. See <c>GeoSchema</c>.
+    /// </remarks>
+    public bool IsEmpty => City is null
+        && SubdivisionCode is null && SubdivisionName is null
+        && CountryCode is null && Country is null;
 
     /// <summary>
     /// The short subdivision label to put on screen. See <see cref="SubdivisionLabel"/> for why

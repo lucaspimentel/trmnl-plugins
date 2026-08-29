@@ -8,7 +8,13 @@ namespace TrmnlApi.Geo;
 public static class GeoSchema
 {
     /// <summary>Bumped whenever a reader would misread an older artifact.</summary>
-    public const int Version = 1;
+    /// <remarks>
+    /// 2: <c>admin1.iso_3166_2</c> and <c>admin1.iso_a2</c> became nullable. Natural Earth carries
+    /// invented codes for territories that have no ISO assignment, and a version 1 artifact stores
+    /// those verbatim, so a reader that now expects null would tag <c>KI-X01~</c> as a real
+    /// subdivision.
+    /// </remarks>
+    public const int Version = 2;
 
     /// <summary>
     /// R-tree tables carry the bounding boxes; the ordinary tables carry the payload. The
@@ -24,10 +30,16 @@ public static class GeoSchema
         -- One row per Natural Earth 10m admin-1 feature. iso_3166_2 is the telemetry form
         -- ('US-MA', 'FR-59'); subdiv_name is what the display rule falls back to when the code
         -- is numeric. See SubdivisionLabel.
+        --
+        -- Both codes are nullable, and null means "this place has no ISO code", not "unknown".
+        -- Natural Earth invents one for anything unassigned - 'KI-X01~' for Kiribati, '-99-X11~'
+        -- and country '-1' for Somaliland - and an invented code is worse than no code at all: it
+        -- is unusable as a group-by and it reads on screen as though it were real. The names are
+        -- kept, so those places still resolve and still label themselves.
         CREATE TABLE admin1 (
             id          INTEGER PRIMARY KEY,
-            iso_3166_2  TEXT NOT NULL,
-            iso_a2      TEXT NOT NULL,
+            iso_3166_2  TEXT,
+            iso_a2      TEXT,
             admin_name  TEXT NOT NULL,
             subdiv_name TEXT NOT NULL,
             geom        BLOB NOT NULL

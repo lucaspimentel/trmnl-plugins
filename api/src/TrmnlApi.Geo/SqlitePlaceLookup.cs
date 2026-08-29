@@ -174,10 +174,12 @@ public sealed class SqlitePlaceLookup : IPlaceLookup
             command.Parameters.AddWithValue("$north", north);
         }
 
+        // Both codes are nullable: a territory Natural Earth has no ISO assignment for keeps its
+        // names and loses its invented codes. See GeoSchema.
         static Subdivision Read(SqliteDataReader reader) => new(
-            Code: reader.GetString(0),
+            Code: reader.IsDBNull(0) ? null : reader.GetString(0),
             Name: reader.GetString(3),
-            CountryCode: reader.GetString(1),
+            CountryCode: reader.IsDBNull(1) ? null : reader.GetString(1),
             Country: reader.GetString(2));
     }
 

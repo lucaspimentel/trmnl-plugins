@@ -34,6 +34,27 @@ public sealed class GeoDatabaseWriter : IDisposable
         Execute("INSERT INTO meta (key, value) VALUES ('built_utc', $v)", ("$v", DateTime.UtcNow.ToString("O")));
     }
 
+    /// <summary>A real ISO 3166-1 alpha-2, rather than one of Natural Earth's placeholders.</summary>
+    private static bool IsCountryCode(string value) =>
+        value.Length == 2 && value.All(char.IsAsciiLetter);
+
+    /// <summary>
+    /// A real ISO 3166-2 code: two letters, a hyphen, then one to three alphanumerics. Rejects
+    /// every placeholder form in the layer, which are recognisable by a trailing '~', a '-99'
+    /// country, or both.
+    /// </summary>
+    private static bool IsSubdivisionCode(string value)
+    {
+        var dash = value.IndexOf('-');
+        if (dash != 2 || !IsCountryCode(value[..dash]))
+        {
+            return false;
+        }
+
+        var suffix = value[(dash + 1)..];
+        return suffix.Length is >= 1 and <= 3 && suffix.All(char.IsAsciiLetterOrDigit);
+    }
+
     public record Admin1Stats(int Features, long Points, int Countries);
 
     public Admin1Stats WriteAdmin1(string shapefile, double tolerance)
@@ -74,9 +95,17 @@ public sealed class GeoDatabaseWriter : IDisposable
             }
 
             var dash = iso.IndexOf('-');
-            var a2 = Attribute(feature, "iso_a2") is { Length: 2 } value && value != "-9"
+            var rawA2 = Attribute(feature, "iso_a2") is { Length: 2 } value && value != "-9"
                 ? value
                 : dash > 0 ? iso[..dash] : iso;
+
+            // Natural Earth invents a code for every territory with no ISO assignment, and those
+            // are stored as null rather than passed on. 'KI-X01~' is not a subdivision anyone can
+            // group by, and '-1' is not a country: carried through, they would land in a facet
+            // list beside real codes looking exactly as authoritative. The display name survives
+            // either way, and SubdivisionLabel already prefers it whenever the code is unusable.
+            var a2 = IsCountryCode(rawA2) ? rawA2.ToUpperInvariant() : null;
+            var subdivisionCode = IsSubdivisionCode(iso) ? iso.ToUpperInvariant() : null;
 
             var rings = ExtractRings(Simplify(feature.Geometry, tolerance));
             if (rings.Count == 0)
@@ -90,9 +119,9 @@ public sealed class GeoDatabaseWriter : IDisposable
             id++;
             Run(insert,
                 ("$id", id),
-                ("$iso", iso),
-                ("$a2", a2.ToUpperInvariant()),
-                ("$admin", admin ?? a2),
+                ("$iso", (object?)subdivisionCode ?? DBNull.Value),
+                ("$a2", (object?)a2 ?? DBNull.Value),
+                ("$admin", admin ?? a2 ?? name ?? iso),
                 ("$subdiv", name ?? iso),
                 ("$geom", PolygonBlob.Encode(rings)));
             Run(insertBox,
@@ -100,9 +129,12 @@ public sealed class GeoDatabaseWriter : IDisposable
                 ("$w", envelope.MinX), ("$e", envelope.MaxX),
                 ("$s", envelope.MinY), ("$n", envelope.MaxY));
 
-            if (admin is not null)
+            // Only real countries reach the country table. It is keyed by code, so admitting the
+            // invented '-1' would collapse a dozen unrelated territories into one row whose name
+            // is whichever of them was written last.
+            if (admin is not null && a2 is not null)
             {
-                countries[a2.ToUpperInvariant()] = admin;
+                countries[a2] = admin;
             }
         }
 

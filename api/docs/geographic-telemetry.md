@@ -60,12 +60,35 @@ queries now split such a box into its two real ranges.
 **Bare postal codes regressed against the vendor**, which is what the Country setting in
 [place-input.md](place-input.md) now answers.
 
-Still open, and deliberately not changed: 188 subdivisions carry Natural Earth placeholder codes
-such as `KI-X01~` and `-99-X11~` (Somaliland), and 16 have an `iso_3166_2` whose prefix disagrees
-with `iso_a2` - including `UA-43` and `UA-40` tagged `RU` for Crimea and Sevastopol. Those reach
-telemetry and can reach a screen. `SubdivisionLabel` already prefers the name over a code that is
-not a clean alpha-2 suffix, so the screen damage is limited, but the telemetry tag is the raw code.
-Decide what to do before the tags are trusted in a dashboard.
+**Natural Earth's invented codes are now dropped rather than carried.** The layer assigns a code to
+every territory with no ISO entry - `KI-X01~` for Kiribati, `-99-X11~` and country `-1` for
+Somaliland - and passing those through would put them in a facet list beside real codes looking
+exactly as authoritative, while being unusable as a group-by. The builder now stores **null** for
+any code that is not a real ISO 3166-1 alpha-2 or ISO 3166-2: 188 subdivision codes and 12 country
+codes, which also removes the `country` table's `-1` row, where a dozen unrelated territories had
+been collapsed into one whose name was whichever was written last.
+
+Null here means "this place has no ISO code", not "unknown". **The names are kept**, so those
+places still resolve and still label themselves: Kiritimati reports no subdivision code and still
+reads `Kiribati`, and Hargeisa reports no code in either column and still reads `Somaliland`. The
+screen is unchanged, because `SubdivisionLabel` already preferred the name whenever the code was
+not a clean alpha-2 suffix. Only the tags changed.
+
+This made `admin1.iso_3166_2` and `admin1.iso_a2` nullable, so `GeoSchema.Version` is **2**. The
+version is checked at boot, and no artifact has been published, so nothing in the wild reads the
+old shape.
+
+A **query grouping by `weather.subdivision` or `weather.country_code` must therefore expect the tag
+to be absent**, and should fall back to `weather.subdivision_name` or `weather.country` rather than
+treating the group as missing data.
+
+Separately, and **deliberately not changed**: four subdivisions have a real ISO code whose prefix
+disagrees with the country column. Three are correct as they stand - `US-PR` with country `PR`, and
+`NL-SX` with country `SX`, are both a territory holding its own alpha-2 - and nulling on that
+signal would have destroyed the Puerto Rico case this project exists to fix. The fourth is an
+editorial one: Natural Earth files `UA-43` and `UA-40`, Crimea and Sevastopol, under country `RU`.
+That is a question about whose data to believe rather than a defect in the pipeline, and it is
+still open.
 
 ### Rollout checklist (pick up here next session)
 
@@ -359,10 +382,10 @@ home.
 
 | Tag | Format | Source |
 |---|---|---|
-| `weather.country_code` | ISO 3166-1 alpha-2, e.g. `US` | NE admin-1 `iso_a2` |
+| `weather.country_code` | ISO 3166-1 alpha-2, e.g. `US`. **Absent** for a territory with no ISO entry | NE admin-1 `iso_a2` |
 | `weather.country` | display name, e.g. `United States of America` | NE admin-1 `admin` |
 | `weather.geocoder` | `local` / `open-meteo` / `none` | which path resolved the input |
-| `weather.subdivision` | ISO-3166-2, e.g. `US-MA` | NE admin-1 `iso_3166_2` |
+| `weather.subdivision` | ISO-3166-2, e.g. `US-MA`. **Absent** where there is no ISO code | NE admin-1 `iso_3166_2` |
 | `weather.subdivision_name` | display name, e.g. `Massachusetts` | NE admin-1 `name` |
 | `weather.city` | display name, e.g. `Boston` | GeoNames nearest populated place |
 
