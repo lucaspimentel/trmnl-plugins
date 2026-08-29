@@ -17,6 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- IANA tzdb 2026c, verbatim from https://data.iana.org/time-zones/tzdb/zone.tab.
+         Public domain. Refreshed by replacing the file; see TimeZoneCountry for why this is the
+         deprecated zone.tab rather than zone1970.tab. -->
+    <EmbeddedResource Include="zone.tab" LogicalName="TrmnlApi.Geo.zone.tab" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="TrmnlApi.Tests" />
   </ItemGroup>
 

@@ -19,3 +19,12 @@ from Natural Earth (ne_10m_admin_1_states_provinces).
 
 Natural Earth is in the public domain. No permission is needed to use it, and
 crediting the authors is requested but not required.
+
+IANA Time Zone Database
+-----------------------
+The mapping from a time zone to the country it lies in comes from the tzdb
+zone.tab file (release 2026c), embedded verbatim in TrmnlApi.Geo.
+
+    https://data.iana.org/time-zones/tzdb/zone.tab
+
+The tz database is in the public domain, as stated in the file's own header.
