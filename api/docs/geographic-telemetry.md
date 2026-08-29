@@ -104,8 +104,21 @@ still open.
 
    | | |
    |---|---|
-   | `GEO_DATA_URL` | `https://github.com/lucaspimentel/trmnl-plugins/releases/download/geo-data-20260828/geo.sqlite` |
+   | `GEO_DATA_URL` | `https://github.com/lucaspimentel/trmnl-plugins/releases/download/geo-data-20260828/geo.sqlite.gz` |
    | `GEO_DATA_SHA256` | `af366d1ce21768b5c232b1775c2d94bf87fbcc7f9c7c8d47428428ce143c5c8c` |
+
+   **The asset is gzipped**: 45.7 MB against 111.5 MB, so a build pulls 66 MB less. The image is
+   the same size either way, because it is unpacked during the build - this buys build time and
+   release bandwidth, not disk.
+
+   The image **decompresses before it checks**, so `GEO_DATA_SHA256` is the hash of the SQLite file
+   the service opens, not of the wrapper. That is why the hash above is unchanged from the
+   uncompressed asset, and why changing compression later will not change it. A truncated download
+   then fails the checksum rather than leaving a database that opens and is quietly short.
+
+   The release still carries the uncompressed `geo.sqlite` beside it. Pinning that one by mistake
+   now fails the build at the `gunzip` step rather than shipping anything wrong, which was checked
+   along with the empty-URL and 404 paths.
 
 5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on the **staging** service
    (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment).

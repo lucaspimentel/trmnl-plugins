@@ -14,11 +14,22 @@ RUN mkdir -p /opt/datadog \
 # empty and the image still runs: local geocoding and the on-screen location switch off, every
 # query goes to the vendor geocoder, and the service logs a warning at boot. See
 # docs/geographic-telemetry.md.
+#
+# The asset is gzipped: 41% of the size over the wire and identical once unpacked. It is
+# decompressed before it is checked, so GEO_DATA_SHA256 is the hash of the SQLite file the
+# service actually opens rather than of whatever it was wrapped in. The hash therefore does not
+# change when the compression does, and a truncated download fails the check rather than leaving
+# a database that opens and is quietly short.
+#
+# The URL must point at a .gz. curl -f so an HTTP error fails here, rather than saving an error
+# page and failing the checksum with a misleading message.
 ARG GEO_DATA_URL=
 ARG GEO_DATA_SHA256=
 RUN mkdir -p /opt/geo \
  && if [ -n "$GEO_DATA_URL" ]; then \
-      curl -sSL "$GEO_DATA_URL" -o /opt/geo/geo.sqlite \
+      curl -fsSL "$GEO_DATA_URL" -o /opt/geo/geo.sqlite.gz \
+   && gunzip -c /opt/geo/geo.sqlite.gz > /opt/geo/geo.sqlite \
+   && rm /opt/geo/geo.sqlite.gz \
    && echo "$GEO_DATA_SHA256  /opt/geo/geo.sqlite" | sha256sum -c -; \
     fi
 
