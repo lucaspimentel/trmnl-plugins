@@ -205,7 +205,6 @@ custom_fields:
   - NP - Nepal
   - NL - Netherlands
   - NC - New Caledonia
-  - TK - New Zealand
   - NZ - New Zealand
   - NI - Nicaragua
   - NE - Niger
@@ -234,7 +233,6 @@ custom_fields:
   - RO - Romania
   - RU - Russia
   - RW - Rwanda
-  - SS - S. Sudan
   - BL - Saint Barthelemy
   - SH - Saint Helena
   - KN - Saint Kitts and Nevis
@@ -258,6 +256,7 @@ custom_fields:
   - ZA - South Africa
   - GS - South Georgia and the Islands
   - KR - South Korea
+  - SS - South Sudan
   - ES - Spain
   - LK - Sri Lanka
   - SD - Sudan
@@ -272,6 +271,7 @@ custom_fields:
   - TH - Thailand
   - BS - The Bahamas
   - TG - Togo
+  - TK - Tokelau
   - TO - Tonga
   - TT - Trinidad and Tobago
   - TN - Tunisia
