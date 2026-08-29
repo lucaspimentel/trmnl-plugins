@@ -101,6 +101,45 @@ editorial one: Natural Earth files `UA-43` and `UA-40`, Crimea and Sevastopol, u
 That is a question about whose data to believe rather than a defect in the pipeline, and it is
 still open.
 
+### Open, and where to pick up (2026-08-29)
+
+Staging serves the dataset and the smoke tests pass. What is left is the plugin side and
+production. Nothing below is deployed-and-broken; these are unfinished, in rough priority order.
+
+1. **`TK - New Zealand` is wrong in the Country dropdown.** `TK` is Tokelau. The option list was
+   generated from the bundled `country` table, whose name column is Natural Earth's `admin`, and
+   that names the *sovereign* for a territory. `TK` is the only code this actually corrupts - every
+   other territory carries its own name - but it puts two `New Zealand` entries in the list, one of
+   which silently means Tokelau. Regenerate the options with a small override rather than trusting
+   `admin`, and re-sort, since the list is ordered by display name. While there: `SS - S. Sudan` is
+   an abbreviation worth spelling out, and `PS - West Bank` is Natural Earth's name for what ISO
+   calls Palestine - changing that one takes a position, so it was left alone deliberately.
+
+2. **The plugin has not been re-pushed since `settings.yml` changed.** `polling_url` now sends the
+   raw `{{ country }}` instead of a filter that never ran. The staging plugin on TRMNL still has
+   the old URL. Both produce the same request today, so this is tidiness rather than a fix - but it
+   must go out with the `TK` correction anyway: `bash tools/push-plugin.sh plugins/weather`.
+
+3. **Confirm on the device.** The API is verified by request, not by screen. With location `00784`
+   and the country set, the title bar should read `Guayama, PR` where it read `Mokotów, MZ`. A
+   forced refresh from the plugin settings page is the quickest way to see it.
+
+4. **Production is untouched** and still has no dataset: `GEO_DATA_URL` and `GEO_DATA_SHA256` are
+   unset there. Promoting means setting both on the `production` environment, pushing to `main`,
+   confirming the build log the same way as step 5 below, then `push-plugin.sh --env prod`.
+
+5. **Crimea and Sevastopol** still carry `UA-43`/`UA-40` under country `RU`, as Natural Earth files
+   them. A question of whose data to believe rather than a defect, and still undecided.
+
+6. **The uncompressed `geo.sqlite` is still on the release** beside the `.gz`. Harmless - pinning it
+   now fails the build at `gunzip` - but it can be deleted to remove the footgun.
+
+7. **Then wait about a week** and read `weather.geocoder`, per step 9. That reading is what licenses
+   retiring the vendor geocoder, and it is the whole point of the exercise.
+
+The `ForecastServed` log now carries `declared=`, the parsed country preference, which is what
+would have answered the dropdown question above in one look instead of several.
+
 ### Rollout checklist (pick up here next session)
 
 1. ~~**Get the four upstream files**~~ Done. `ne_10m_admin_1_states_provinces.shp` (+ `.dbf`/`.shx`)

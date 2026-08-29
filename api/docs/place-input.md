@@ -223,9 +223,22 @@ sovereignty in any wider sense.
 
 Two limits worth stating. The preference reaches the **local geocoder only**: on a fall-through the
 vendor still ranks by prominence, so a declared country cannot fix a code the bundled data misses.
-And the dropdown carries `US - United States of America`, split back to the code by Liquid in
-`polling_url`; the API ignores anything that is not two ASCII letters rather than erroring, so a
-mis-edited URL degrades to `Auto` instead of costing someone their forecast.
+And the dropdown does not send what it displays. TRMNL **slugifies a `select` option value**, so
+the option shown as `US - United States of America` is submitted as `us_-_united_states_of_america`,
+and the Liquid filter that was supposed to trim it back to a code **never runs** - filters in
+`polling_url` are not applied. The first attempt shipped with a strict two-letter rule and that
+combination silently disabled the whole feature: `00784` with the United States selected still
+showed Warsaw, on a real device, with the setting visibly saved.
+
+`CountryPreference.Parse` therefore reads the **leading two letters whenever the next character is
+not a letter**, which accepts `US`, `us_-_united_states_of_america` and `US - United States of
+America` alike, while still rejecting `Auto` and `United States` - words, not a code with something
+after it. Anything unreadable means no preference rather than an error, so a fork or an install
+predating the setting keeps working. `polling_url` now sends the raw `{{ country }}`, since
+filtering it was never doing anything.
+
+This is also why the option text puts the code first: it is the only part that survives
+slugification in a recoverable position.
 
 ### Quota and abuse
 
