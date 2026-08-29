@@ -1,16 +1,27 @@
 # Bundled geographic data
 
-**Status: dataset built and verified locally, not yet published.** `api/src/TrmnlApi.Geo` serves
-both directions - a typed place to coordinates, and coordinates to a label - from one bundled
-SQLite file, built by `api/tools/GeoDataBuilder` and fetched into the image by pinned URL and
-sha256 (`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the
-`F1` coordinate tags listed in [observability.md](observability.md).
+**Status: live on staging, verified. Production untouched.** `api/src/TrmnlApi.Geo` serves both
+directions - a typed place to coordinates, and coordinates to a label - from one bundled SQLite
+file, built by `api/tools/GeoDataBuilder` and fetched into the image by pinned URL and sha256
+(`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the `F1`
+coordinate tags listed in [observability.md](observability.md).
 
-**What's actually running on staging right now:** unchanged. The code path is deployed, but
-`GEO_DATA_URL` / `GEO_DATA_SHA256` are still unset, so the image has no dataset and both services
-fall back to their null implementations. That degrade path was verified against
-`https://trmnl-plugins-staging.up.railway.app/api/v2/forecast` on 2026-08-28: `?place=42.36,-71.06`
-returns `place: null`, and `?place=Boston` resolves via the vendor with `admin1: "Massachusetts"`.
+**What's actually running on staging right now:** the dataset. The build log shows the real
+`.gz` URL inside the fetch step and `/opt/geo/geo.sqlite: OK` from the checksum, which is the only
+proof that matters - see the note under step 5 for why a green deployment is not.
+
+Verified against `https://trmnl-plugins-staging.up.railway.app/api/v2/forecast` on 2026-08-29:
+
+| Request | `place` |
+|---|---|
+| `?place=42.36,-71.06` | `Boston, MA, US` - was `null` before the dataset, the reason coordinate users saw no location at all |
+| `?place=Boston` | `admin1: "MA"`, the ISO code the vendor never returns. It answered `"Massachusetts"` the day before |
+| `?place=02180&country=US` | `Stoneham, MA` |
+| `?place=02180` | `Guri-si, Seoul, KR` - unchanged for anyone who has not set a country, which is the point of the setting being a preference |
+| `?place=1.87,-157.4` | `Banana, Kiribati, KI` with **no** subdivision code, rather than the invented `KI-X01~` |
+
+**Nothing has been touched on `production`**: its `GEO_DATA_URL` and `GEO_DATA_SHA256` are still
+unset, so it is still serving the vendor-geocoder degrade path.
 
 ### The first build (2026-08-28)
 
@@ -135,9 +146,8 @@ still open.
    exactly what happened on the first attempt. Confirm a build actually fetched by looking for the
    real URL inside that `RUN` line in the build log, not by the deployment going green. The URL is
    substituted into the command, so changing it invalidates the layer cache on its own.
-6. **Re-run the smoke test** above against staging: `?place=42.36,-71.06` should now return a
-   populated `place` block, and `?place=Boston` should return `admin1: "MA"` rather than
-   `"Massachusetts"`. Add `?place=02180&country=US`, which must give Stoneham rather than Seoul.
+6. ~~**Re-run the smoke test** against staging~~ Done, 2026-08-29. Results in the table at the top
+   of this document.
 7. **Check the new Country dropdown on a real device** alongside the title bar: it is 247 options
    and has only been linted, never seen in the TRMNL settings UI. Then **check on a real device** (push the plugin to staging with `bash tools/push-plugin.sh
    plugins/weather --dry-run` first to review, then without `--dry-run`), confirm the title bar
