@@ -123,6 +123,12 @@ still open.
 5. ~~**Set `GEO_DATA_URL` and `GEO_DATA_SHA256`**~~ Set on the **staging** service
    (`trmnl-plugins-api` project, `trmnl-plugins` service, `staging` environment).
 
+   Setting a variable does not rebuild anything on its own, and **a Markdown-only commit does not
+   either**: the service's watch patterns are `/api/**` and `!**/*.md`, so a docs push is reported
+   `SKIPPED` and the old image keeps serving. Picking up a changed variable needs a code change
+   under `/api` or a manual redeploy. Two docs pushes were skipped this way before that was
+   understood.
+
    **A build started before those variables existed will not pick them up, and looks like a
    success.** The Dockerfile's fetch step is a no-op when the URL is empty, so the build log reads
    `RUN mkdir -p /opt/geo && if [ -n "" ]; then ...` and the image ships with no dataset. That is
