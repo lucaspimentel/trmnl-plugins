@@ -1,32 +1,79 @@
 # Bundled geographic data
 
-**Status: code shipped, no artifact yet.** `api/src/TrmnlApi.Geo` serves both directions - a typed
-place to coordinates, and coordinates to a label - from one bundled SQLite file, built by
-`api/tools/GeoDataBuilder` and fetched into the image by pinned URL and sha256
-(`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the `F1`
-coordinate tags listed in [observability.md](observability.md).
+**Status: dataset built and verified locally, not yet published.** `api/src/TrmnlApi.Geo` serves
+both directions - a typed place to coordinates, and coordinates to a label - from one bundled
+SQLite file, built by `api/tools/GeoDataBuilder` and fetched into the image by pinned URL and
+sha256 (`api/Dockerfile`). The tags under [What to emit](#what-to-emit) are live, alongside the
+`F1` coordinate tags listed in [observability.md](observability.md).
 
-**What's actually running on staging right now:** the code path is deployed
-(commit `e1261d7`), but `GEO_DATA_URL` / `GEO_DATA_SHA256` are unset, so the image has no dataset.
-`GeoDatabaseHolder` logs one warning at boot and both services fall back to their null
-implementations - every place lookup goes to Open-Meteo, and coordinate input still shows no
-`place` block. This is the documented degrade path working as designed, not a bug. Verified against
+**What's actually running on staging right now:** unchanged. The code path is deployed, but
+`GEO_DATA_URL` / `GEO_DATA_SHA256` are still unset, so the image has no dataset and both services
+fall back to their null implementations. That degrade path was verified against
 `https://trmnl-plugins-staging.up.railway.app/api/v2/forecast` on 2026-08-28: `?place=42.36,-71.06`
-returns `place: null`; `?place=Boston` resolves via the vendor with `admin1: "Massachusetts"` (full
-name, not the short code), confirming the local geocoder missed and fell through cleanly.
+returns `place: null`, and `?place=Boston` resolves via the vendor with `admin1: "Massachusetts"`.
+
+### The first build (2026-08-28)
+
+The four upstream files were fetched and the builder run for the first time. It produced
+`geo.sqlite` at **111.5 MB**: 4,595 admin-1 features (381,377 points), 3,865 subdivision names,
+170,856 cities with 723,911 aliases, and 1,080,715 postal rows, in 12 seconds.
+
+Three things the first real run settled:
+
+**The builder could never have worked as written.** `Shapefile.ReadAllFeatures` defaults to a
+strict polygon builder, and Natural Earth 10m admin-1 contains rings it rejects outright - it threw
+on the first one. It now reads with `GeometryBuilderMode.QuickFixInvalidShapes`, which repairs ring
+orientation and hole nesting. The alternatives are both worse: `SkipInvalidShapes` silently drops
+the offending subdivision, which is the exact defect class this document says bundling exists to
+prevent, and `IgnoreInvalidShapes` skips validation so a hole can be built as a shell, quietly
+corrupting every point-in-polygon answer inside it.
+
+**The ~10-25 MB size estimate was about the wrong thing.** The polygons are **3.0 MB** - the
+simplify and trim pass works better than estimated. The 111.5 MB is tabular: postal 23 MB, city
+aliases 13 MB, cities 8 MB, and roughly 64 MB of indexes and two R-trees. `VACUUM` recovers
+nothing. Step 4 below already anticipated "~100 MB", so the two figures were always describing
+different things; the estimate under [Keeping the polygons out of
+RAM](#keeping-the-polygons-out-of-ram) only ever covered geometry.
+
+**Both defects that justified this project are fixed by the bundle**, confirmed through the runtime
+reader rather than raw SQL: `42.36,-71.06` gives `US-MA` - the ISO code the vendor never returns -
+and Puerto Rico keeps its subdivision as `US-PR`, the input the vendor drops entirely.
+
+### Three defects the first artifact exposed
+
+Real data broke assumptions that a fixture could not.
+
+**A bounding box is worthless for a scattered feature.** Natural Earth ships Kiribati as a single
+admin-1 feature whose islands straddle the antimeridian, so its box spans **349 degrees of
+longitude**. The nearest-subdivision pass ranked candidates by box distance, which is zero anywhere
+inside that box, so `0,-140` - open Pacific, about 1,100 km from the nearest Kiribati land -
+returned country `KI`. It now ranks by distance to the polygon itself
+(`PolygonBlob.DistanceKm`). Mid-ocean returns blank again, real Kiribati land still resolves, and
+coastal near-misses still keep their state.
+
+**The R-tree query did not wrap either**, which the fix above exposed rather than caused. Every
+stored box has a longitude in [-180, 180], so a padded search box reaching past either end matched
+nothing on the far side: a point at 179.9W found no country at all. Blank, not wrong, for everyone
+in Fiji, Kiribati and the eastern edge of New Zealand. Both the subdivision and nearest-city
+queries now split such a box into its two real ranges.
+
+**Bare postal codes regressed against the vendor**, which is what the Country setting in
+[place-input.md](place-input.md) now answers.
+
+Still open, and deliberately not changed: 188 subdivisions carry Natural Earth placeholder codes
+such as `KI-X01~` and `-99-X11~` (Somaliland), and 16 have an `iso_3166_2` whose prefix disagrees
+with `iso_a2` - including `UA-43` and `UA-40` tagged `RU` for Crimea and Sevastopol. Those reach
+telemetry and can reach a screen. `SubdivisionLabel` already prefers the name over a code that is
+not a clean alpha-2 suffix, so the screen damage is limited, but the telemetry tag is the raw code.
+Decide what to do before the tags are trusted in a dashboard.
 
 ### Rollout checklist (pick up here next session)
 
-1. **Get the four upstream files** into one input directory: `ne_10m_admin_1_states_provinces.shp`
-   (+ `.dbf`/`.shx`) from Natural Earth, and `cities1000.txt`, `admin1CodesASCII.txt`, and the
-   *postal* `allCountries.txt` (not the GeoNames dump of the same name) from GeoNames. Links are in
-   the plan this feature was built from; none have been fetched yet in this repo.
-2. **Run the builder**: `dotnet run --project api/tools/GeoDataBuilder -- --input <dir> --output geo.sqlite`.
-   Never run. First run will shake out any shapefile attribute-name or parsing assumptions
-   `GeoDatabaseWriter` made without real input.
-3. **Check the artifact size** against the ~10-25 MB estimate in
-   [Keeping the polygons out of RAM](#keeping-the-polygons-out-of-ram). Wildly over means the
-   simplify/trim pass isn't working as intended.
+1. ~~**Get the four upstream files**~~ Done. `ne_10m_admin_1_states_provinces.shp` (+ `.dbf`/`.shx`)
+   from Natural Earth, and `cities1000.txt`, `admin1CodesASCII.txt` and the *postal*
+   `allCountries.txt` from GeoNames. Fetched to a scratch directory, not into this repo.
+2. ~~**Run the builder**~~ Done, after the reader fix above.
+3. ~~**Check the artifact size**~~ Done: 111.5 MB, of which 3.0 MB is geometry. See above.
 4. **Publish `geo.sqlite` as a GitHub release asset** on this repo, and compute its sha256.
    This is a deliberate public publish of ~100 MB of derived Natural Earth / GeoNames data, not a
    side effect - call it out before doing it.
@@ -35,8 +82,9 @@ name, not the short code), confirming the local geocoder missed and fell through
    redeploy.
 6. **Re-run the smoke test** above against staging: `?place=42.36,-71.06` should now return a
    populated `place` block, and `?place=Boston` should return `admin1: "MA"` rather than
-   `"Massachusetts"`.
-7. **Check on a real device** (push the plugin to staging with `bash tools/push-plugin.sh
+   `"Massachusetts"`. Add `?place=02180&country=US`, which must give Stoneham rather than Seoul.
+7. **Check the new Country dropdown on a real device** alongside the title bar: it is 247 options
+   and has only been linted, never seen in the TRMNL settings UI. Then **check on a real device** (push the plugin to staging with `bash tools/push-plugin.sh
    plugins/weather --dry-run` first to review, then without `--dry-run`), confirm the title bar
    renders correctly for both a coordinate-based and a place-based install.
 8. **Promote to production**: same two build args, on the `production` environment, then push the
