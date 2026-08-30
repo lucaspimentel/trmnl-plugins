@@ -43,6 +43,9 @@ public class WeatherV2Endpoint
     private const string TagSubdivisionName = "weather.subdivision_name";
     private const string TagCountryCode = "weather.country_code";
     private const string TagCountry = "weather.country";
+    private const string TagCountryHint = "weather.country_hint";
+    private const string TagDeclaredCountry = "weather.declared_country";
+    private const string TagTimeZone = "weather.time_zone";
 
     /// <summary>Which geocoder answered. The measurement that licenses retiring the vendor one.</summary>
     private const string GeocoderLocal = "local";
@@ -102,6 +105,11 @@ public class WeatherV2Endpoint
         // thing. TRMNL does interpolate it into polling_url, which was proved on a real device
         // rather than assumed - Liquid filters do not work there. See docs/place-input.md.
         var timeZone = query["tz"].FirstOrDefault();
+
+        // Tagged here rather than beside the served-forecast log line so that a request ending in
+        // a miss carries them too. "Which signal was in play?" is most worth asking about the
+        // answers that went wrong, and those never reach the bottom of this method.
+        TagPreference(span, preferredCountry, timeZone);
 
         var placeParam = query["place"].FirstOrDefault();
 
@@ -348,6 +356,42 @@ public class WeatherV2Endpoint
             CountryCode: geo.CountryCode ?? vendorPlace?.CountryCode,
             Latitude: latitude,
             Longitude: longitude);
+    }
+
+    /// <summary>
+    /// What the caller told us about where they are, for trace search.
+    /// </summary>
+    /// <remarks>
+    /// These three rode on the <c>ForecastServed</c> log and not on the span for a while, which
+    /// put "did the dropdown reach us, and is the time zone doing anything" back to full-text
+    /// searching log messages - the exact question the log fields were added to make answerable.
+    /// <para>
+    /// <c>weather.time_zone</c> is a coarse location signal, so it lives under the same rule as
+    /// the coordinates: a span tag and a log attribute, never a metric dimension. See
+    /// docs/geographic-telemetry.md.
+    /// </para>
+    /// </remarks>
+    private static void TagPreference(ISpan? span, string? preferredCountry, string? timeZone)
+    {
+        if (span is null)
+        {
+            return;
+        }
+
+        // Always set. "none" is a real answer rather than a missing one - it is the case the
+        // region floor runs under - so leaving the tag off would hide it instead of reporting it.
+        span.SetTag(TagCountryHint, CountryHint.Resolve(preferredCountry, timeZone).Source);
+
+        // The other two follow TagPlace's rule and are set only when the caller supplied them.
+        if (CountryPreference.Parse(preferredCountry) is { } declared)
+        {
+            span.SetTag(TagDeclaredCountry, declared);
+        }
+
+        if (!string.IsNullOrWhiteSpace(timeZone))
+        {
+            span.SetTag(TagTimeZone, TimeZoneTag(timeZone));
+        }
     }
 
     private static void TagPlace(ISpan? span, GeoPlace geo, string geocoder)

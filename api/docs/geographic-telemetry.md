@@ -552,6 +552,9 @@ home.
 | `weather.subdivision` | ISO-3166-2, e.g. `US-MA`. **Absent** where there is no ISO code | NE admin-1 `iso_3166_2` |
 | `weather.subdivision_name` | display name, e.g. `Massachusetts` | NE admin-1 `name` |
 | `weather.city` | display name, e.g. `Boston` | GeoNames nearest populated place |
+| `weather.country_hint` | `declared` / `tz` / `none`. **Always set** | which signal ranked the match |
+| `weather.declared_country` | ISO 3166-1 alpha-2, parsed. **Absent** when the dropdown said Auto | the `country` query param |
+| `weather.time_zone` | IANA zone, e.g. `America/New_York`. **Absent** when none was sent | the `tz` query param |
 
 Emit **codes as well as names** for country and subdivision. `"Massachusetts"` is unusable as a
 geomap or metric group-by; `US-MA` is unreadable in a top-list. They are cheap, so carry both.
@@ -574,6 +577,18 @@ the allowlist.
 
 No span-based metric is planned yet. If one is added later, the constraint below applies.
 
+The bottom three arrived on the log first and on the span only afterwards, on 2026-08-30. That gap
+was not a decision: the table above predated the country-preference work and simply never grew rows
+for it. The cost was concrete - `declared=` exists because "did the dropdown reach us?" had been
+unanswerable, and for as long as the field was log-only the same question in APM meant full-text
+searching log messages instead of faceting.
+
+`weather.country_hint` is set on every request, including the ones that end in a miss, because the
+signal that was in play is most worth knowing about the answers that went wrong. The other two
+follow the omit-when-empty rule the place tags use. Note that `region` is **not** one of the hint
+values: the US+EU floor applies underneath `none`, so a floor answer reads as `none`, which is what
+production shows.
+
 ### Cardinality budget
 
 Span-based metrics bill as custom metrics, so a group-by choice would matter. Measured against ~223
@@ -586,7 +601,11 @@ distinct F1 cells in production:
 | `city` | ~300 | ~2,400 | ~48,000 |
 
 **Any future metric groups on `country_code`.** `city` and `subdivision` stay span tags and log
-attributes only, never a metric dimension alongside the other facets.
+attributes only, never a metric dimension alongside the other facets. So does `weather.time_zone`,
+for a second reason on top of its ~400 values: a zone is a coarse location signal, and it belongs
+under the same rule as the coordinates that get rounded to F1 before they are tagged.
+`weather.country_hint` is three values and safe as a dimension; `weather.declared_country` is the
+same cardinality class as `country_code`.
 
 ## How to resolve a coordinate
 
