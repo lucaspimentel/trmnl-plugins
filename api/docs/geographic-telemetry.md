@@ -170,11 +170,40 @@ more than the checkbox.
 6. ~~**The uncompressed `geo.sqlite` on the release.**~~ Deleted from `geo-data-20260828`, which now
    carries only the `.gz`. The 2026-08-29 release was published with the `.gz` alone.
 
-7. **Then wait about a week** - production has been serving the dataset since 2026-08-29 - and
-   read `weather.geocoder`, per step 9. A quiet `open-meteo` count is what licenses retiring the
-   vendor geocoder, and it is the whole point of the exercise. Read `hint=` in the same pass: a
-   large `hint=none` share among requests that *do* carry a `tz=` would mean the zone arrived and
-   `TimeZoneCountry` did not recognise it, which is otherwise invisible.
+7. **Read `hint=` - done early, on 2026-08-30, hours after the prod plugin push.** The reading was
+   taken sooner than the week planned because the question it answers is binary and the answer was
+   already unambiguous:
+
+   | | rate in production |
+   |---|---|
+   | `hint=tz` | 50 entries in 5m25s, about **9 a minute** |
+   | `hint=none` | 50 entries in 6h11m, about **8 an hour** |
+
+   So the new `polling_url` is live on the overwhelming majority of installs, and the `hint=none`
+   remainder is a handful of repeating ones - Malden MA, Ramonville-Saint-Agne FR, Vancouver,
+   Stockholm, Ulsan. That was the opposite of the working assumption: the guess had been that
+   un-updatable forks would dominate for a long time and the US+EU region floor would be carrying
+   most of the traffic. It is not; the floor is a genuine last resort.
+
+   The share is spread properly rather than concentrated on one continent: `Europe/Vienna`,
+   `Asia/Taipei`, `Australia/Brisbane`, `Europe/Tallinn`, `America/Los_Angeles` all appear inside a
+   five-minute window. **No case was found of a `tz=` arriving and going unrecognised**, which was
+   the specific failure this reading was meant to catch.
+
+   Two things the live traffic showed that the tests had not:
+
+   - **`Etc/*` zones are real input.** `Etc/UTC` from devices in Vancouver and Ireland, `Etc/GMT12`
+     from one in Ulsan. They log `hint=none` and that is correct, not a gap: upstream keeps the
+     `Etc/*` family out of `zone.tab` because an offset names no place. Mapping `Etc/UTC` to `GB`
+     would put the Vancouver caller in the wrong hemisphere. Written into `TimeZoneCountry.Parse`
+     and pinned by rows in `TimeZoneCountryTests` so nobody later "fixes" it.
+   - **A device's zone can disagree with its own coordinates** - one at `39.9,-105.8` (Fraser,
+     Colorado) polls with `tz=America/New_York`. This is the risk the design named, and it stays
+     harmless only because the zone is a tie-break among already-valid matches and never a filter.
+
+   Still outstanding from this item: **`weather.geocoder`**, per step 9. A quiet `open-meteo` count
+   is what licenses retiring the vendor geocoder, and it is the whole point of the exercise. That
+   one does want the full week, since it is a rate question rather than a yes-or-no.
 
 8. **Refresh `api/src/TrmnlApi.Geo/zone.tab`** when a new IANA release lands. Nothing will tell
    you it has gone stale, and the only thing that would notice a bad copy is

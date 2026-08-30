@@ -41,9 +41,14 @@ public class TimeZoneCountryTests
     [InlineData("")]
     [InlineData("   ")]
     // What a user who never set a time zone reports. It names no country, and falling through to
-    // no preference is the wanted answer rather than a gap to be filled.
+    // no preference is the wanted answer rather than a gap to be filled. Production carries all
+    // three: Etc/UTC from Vancouver and Ireland, Etc/GMT12 from Ulsan. Upstream keeps the whole
+    // Etc/* family out of the table because an offset is not a place, and so do we.
     [InlineData("UTC")]
     [InlineData("Etc/UTC")]
+    [InlineData("Etc/GMT12")]
+    [InlineData("Etc/GMT+12")]
+    [InlineData("Etc/GMT-5")]
     [InlineData("Not/AZone")]
     // The value comes off the query string, so the unusable cases are not all well-meaning.
     [InlineData("America/New_York\nSomething else entirely")]

@@ -62,8 +62,14 @@ public static class TimeZoneCountry
     /// The ISO 3166-1 alpha-2 the zone lies in, or null when the zone is missing or unrecognised.
     /// </summary>
     /// <remarks>
-    /// <c>UTC</c> and <c>Etc/UTC</c> deliberately return null. They are what a user who has never
-    /// set a time zone reports, they name no country, and no preference is the honest answer.
+    /// The whole <c>Etc/*</c> family deliberately returns null, along with a bare <c>UTC</c>.
+    /// Upstream leaves those zones out of the table on purpose: they name a fixed offset, not a
+    /// place, so there is no country to return. Production carries real ones - <c>Etc/UTC</c> from
+    /// devices in Vancouver and Ireland, <c>Etc/GMT12</c> from one in Ulsan - which is what a user
+    /// who never set a time zone, or whose client reports an offset instead of a zone, sends. They
+    /// log <c>hint=none</c> and fall through to no preference. That is the honest answer and not a
+    /// gap to be filled: mapping <c>Etc/UTC</c> to <c>GB</c> would put a caller in British
+    /// Columbia in the wrong hemisphere.
     /// </remarks>
     public static string? Parse(string? ianaZone)
     {
