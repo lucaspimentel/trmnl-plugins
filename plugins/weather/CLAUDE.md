@@ -11,6 +11,34 @@ See `README.md` for contributor setup and external dependency details.
 
 - **Prod**: 249564 (checked in at `src/settings.yml`)
 - **Staging**: 316595
+- **v1 fork replica**: 462457 - **frozen, never push to this id again**
+
+### The v1 fork replica (462457)
+
+A copy of the plugin as it was **before** the backend moved off the original host, pushed once on
+2026-08-31 from commit **`935da2c`** - the parent of `092ba04` ("Switch Weather plugin backend from
+Azure to Railway prod"), which is the last state that still polled `/api/v1/forecast` on the old
+host.
+
+It exists to reproduce what users who forked the plugin back then are still running, since they poll
+v1 on the old host and cannot be updated by us. Without it, the only way to test their experience
+was to guess at it.
+
+Only two fields differ from `935da2c`: `id`, and `name` (`LP Weather (v1 fork replica)`) so it is
+not a third indistinguishable "LP Weather" in the UI. Everything else is as it was -
+`framework_version: 2.3.7`, `refresh_interval: 30`, the old query string with `provider` and none of
+`place`/`country`/`tz`, and the original templates.
+
+**Do not push to it.** Its value is being a fixed point; a push would make it a copy of today's
+plugin and quietly delete the only reference for what forks actually run. `tools/push-plugin.sh`
+cannot reach it - it only knows the prod and staging ids - so the risk is a hand-run `trmnlp push`
+from a directory whose `settings.yml` carries this id. Note `trmnlp lint` reports two issues against
+it (an opacity rule, and an `<img>` URL that no longer resolves); those are today's rules judging
+old markup and are **not** to be fixed here.
+
+To rebuild it if it is ever lost, extract the plugin at `935da2c`, set `id: 462457` and the name,
+and push from a scratch directory - never from the working tree, since `trmnlp push` writes the
+server's copy back over the local `settings.yml`.
 
 ### Pushing to staging
 
