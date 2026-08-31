@@ -215,9 +215,16 @@ Daily bars per layout: `full` follows the `days` setting (up to 14, fewer if Pir
 
 **Linter workaround — `font-size` avoidance**: The TRMNL recipe linter (`chef.rb`) counts raw occurrences of `font-size`, `padding`, `margin`, `text-align`, `justify-content`, `background-color`, `border-radius`, `object-fit` across all markup (including `<style>`, `<script>`, comments, variable names). Max allowed: 6 total. Weather icons use `.wi-sz-*` CSS classes defined via the `font:` shorthand (e.g. `font: 110px/1 'weathericons'`) to avoid the `font-size` substring. Non-icon text uses `.fs-10`, `.chart-temp` similarly. In Highcharts JS config, flagged property keys use computed properties (`['mar'+'gin']`, `['pad'+'ding']`).
 
-**Highcharts**: Script tag must be inside the template block (not the layout file).
-Three Y-axes: `yAxis[0]` = temp (labels hidden), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = linked to yAxis[0] (opposite side, labels hidden).
-Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X via `isLg` JS flag). Chart height: 230px default in `full.liquid` (200 half_horizontal, 280 half_vertical), overridden via CSS in `full.liquid` to 380px on X (`.screen--lg`) and 300px in portrait (`.screen--portrait`).
+**Highcharts**: Script tags must be inside the template block (not the layout file); `pattern-fill.js` is loaded next to `highcharts.js` and is **required**, since on a dithering screen every framework paint comes back as a pattern.
+The config is built on **`TRMNLCharts`** (framework 3.2, exported from the plugin runtime), so colors, dither tiles, typography and axis furniture are resolved from the live screen rather than hardcoded. Notes for editing it:
+
+- The whole build runs inside `TRMNLCharts.watch()`, which rebuilds on a device / scale / bit-depth / theme change. The callback **must return the chart instance** or the previous one leaks.
+- `TRMNLCharts.merge()` replaces arrays wholesale, so each of the three Y-axes is merged onto `base.yAxis` individually. `yAxis[0]` = temp (labels hidden), `yAxis[1]` = precip % 0–100 (hidden), `yAxis[2]` = linked to `yAxis[0]` (opposite side, labels hidden).
+- Do **not** set `chart.events.render`: `TRMNLCharts.options()` installs a hook there that repaints axis strokes as dither patterns, and merging an `events` object would replace it.
+- `animation: false` is restated explicitly even though `options()` already sets it. The lint rule greps the markup for the literal and cannot see a runtime value.
+- **`TRMNLPaint.px()` does not distinguish OG from TRMNL X.** `--content-scale` resolves to 1 on both; the scale cascade is for user display-scale settings and odd BYOD devices. Device-size differences come from a `screen--lg` class check on the resolved screen, which (unlike a viewport media query) stays correct when the view is only part of the screen.
+- Margin: `[22, 8, 44, 8]` (OG) / `[30, 12, 56, 12]` (X), both through `px()`. Chart height stays in Liquid/CSS and is deliberately **not** passed through `px()`: 230px default in `full.liquid` (200 half_horizontal, 280 half_vertical), overridden via CSS to 380px on X (`.screen--lg`) and 300px in portrait (`.screen--portrait`).
+- The container id starts with `chart-` (`chart-hourly-<random>`), which is what the framework's `[id^="chart-"] { height: auto; overflow: visible }` rule keys off. `full.liquid` matches the same prefix for its height overrides.
 
 **Hourly chart**: Weather icons on x-axis every 4 hours; sunrise/sunset as dashed plotLines from `daily.entries[0].sunrise`/`.sunset`.
 

@@ -119,7 +119,7 @@
   Params: hourly, daily, current_time, chart_height
 {% endcomment %}
 {% template weather_hourly_chart %}
-{% assign chart_id = "hourly-chart-" | append_random %}
+{% assign chart_id = "chart-hourly-" | append_random %}
 <script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
 <script src="https://trmnl.com/js/highcharts/12.3.0/pattern-fill.js"></script>
 {% assign hour_labels = "" %}
@@ -146,6 +146,7 @@
   <div id="{{ chart_id }}" class="w--full" style="height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
 </div>
 <script>
+var chartEl = '{{ chart_id }}';
 var iconClasses = [{{ icon_classes }}];
 var hourTimes = [{{ hour_times }}];
 var timeFormat = "{{ time_format }}";
@@ -214,7 +215,7 @@ function sunPlotBands() {
   for (var i = 0; i < sets.length; i++) transitions.push({ t: sets[i], type: 'set' });
   transitions.sort(function(a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : 0; });
   if (transitions.length === 0) {
-    // No sun events in range — check if chart is entirely nighttime
+    // No sun events in range, so check if chart is entirely nighttime.
     // If the first hourly entry is before any sunrise, it's night
     for (var i = 0; i < sunEvents.length; i++) {
       if (sunEvents[i].rise > startTime) {
@@ -247,131 +248,131 @@ function sunPlotBands() {
   }
   return bands;
 }
-var isLg = window.matchMedia('(min-width: 1024px)').matches;
-var chart = Highcharts.chart('{{ chart_id }}', {
-  chart: {
-    animation: false,
-    backgroundColor: 'transparent',
-    ['mar'+'gin']: isLg ? [30, 12, 56, 12] : [22, 8, 44, 8],
-    spacing: [0, 0, 0, 0],
-    style: { fontFamily: 'Inter, sans-serif' }
-  },
-  title: { text: null },
-  legend: { enabled: false },
-  tooltip: { enabled: false },
-  credits: { enabled: false },
-  plotOptions: {
-    series: { enableMouseTracking: false, animation: false },
-  },
-  xAxis: {
-    categories: [{{ hour_labels }}],
-    tickInterval: 4,
-    labels: {
-      style: { fontSize: isLg ? '20px' : '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
-      rotation: 0,
-      align: 'center',
-      y: isLg ? 20 : 16,
-      formatter: function() { return this.value; }
-    },
-    gridLineDashStyle: 'dot',
-    lineColor: '#000',
-    tickColor: '#000',
-    plotLines: sunPlotLines().map(function(pl) {
-      var nearEdge = pl.value > hourTimes.length * 0.8;
-      return {
-        value: pl.value,
-        color: 'rgba(0, 0, 0, 0.3)',
-        width: 1,
-        dashStyle: 'shortdot',
-        label: {
-          text: nearEdge ? '' : '<i class="wi ' + pl.icon + ' wi-sz-16"></i> ' + pl.label,
-          useHTML: true,
-          align: 'left',
-          x: -10,
-          rotation: 0,
-          style: { fontSize: isLg ? '20px' : '16px', color: '#000', fontFamily: 'Inter, sans-serif' },
-          y: -5
-        }
-      };
-    }),
-    plotBands: sunPlotBands().map(function(band) {
-      return { from: band.from, to: band.to, color: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-7.png', width: 12, height: 12 } } };
-    })
-  },
-  yAxis: [
-    {
-      title: { text: null },
-      tickAmount: 5,
-      maxPadding: 0.3,
-      minRange: 10,
-      labels: { enabled: false },
-      gridLineDashStyle: 'shortdot',
-      gridLineColor: '#000'
-    },
-    {
-      title: { text: null },
-      min: 0, max: 100,
-      opposite: true,
-      labels: { enabled: false },
-      gridLineWidth: 0
-    },
-    {
-      title: { text: null },
-      linkedTo: 0,
-      opposite: true,
-      tickAmount: 5,
-      labels: { enabled: false },
-      gridLineWidth: 0
-    }
-  ],
-  series: [
-    {
-      name: 'Precip %',
-      type: 'areaspline',
-      data: [{{ precip_data }}],
-      yAxis: 1,
-      color: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-4.png', width: 12, height: 12 } },
-      fillColor: { pattern: { image: 'https://trmnl.com/images/grayscale/gray-4.png', width: 12, height: 12 } },
-      lineWidth: 1,
-      lineColor: '#000',
-      marker: { enabled: false },
-      zIndex: 0
-    },
-    {
-      name: 'Temp',
-      type: 'spline',
-      data: [{{ temp_data }}],
-      yAxis: 0,
-      color: '#000',
-      lineWidth: isLg ? 5 : 4,
-      marker: { enabled: false },
-      zIndex: 1,
-      dataLabels: {
-        enabled: true,
-        useHTML: true,
-        formatter: function() {
-          if (this.point.index % 4 !== 0) return null;
-          var cls = iconClasses[this.point.index];
-          var iconSz = isLg ? 'wi-sz-md' : 'wi-sz-sm';
-          return '<div class="text--center" style="line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium ' + iconSz + '"></i><br><span class="text-stroke text-stroke--medium chart-temp">' + Math.round(this.y) + '&deg;</span></div>';
-        },
-        y: -2,
-        ['pad'+'ding']: 0,
-        backgroundColor: 'none',
-        borderWidth: 0,
-        shadow: false,
-        style: { color: '#000' }
-      }
-    }
-  ]
-});
-function fixChartFonts() {
-  document.querySelectorAll('#{{ chart_id }} .highcharts-axis-labels text').forEach(function(el) {
-    el.style.setProperty('font-family', 'Inter, sans-serif', 'important');
-  });
+// TRMNLCharts rides in the plugin runtime and Highcharts comes from the CDN, so
+// neither is guaranteed to have executed by the time this inline script runs.
+function whenChartsReady(cb) {
+  var tries = 0;
+  (function attempt() {
+    if (window.TRMNLCharts && window.Highcharts) return cb();
+    if (++tries > 200) return;
+    setTimeout(attempt, 50);
+  })();
 }
-fixChartFonts();
-new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id }}'), { childList: true, subtree: true });
+whenChartsReady(function () {
+  // watch() rebuilds the chart whenever the screen's device, scale, bit depth or
+  // theme classes change, so every paint and dimension below is re-resolved from
+  // the framework instead of being guessed at from a viewport width.
+  TRMNLCharts.watch(chartEl, function () {
+    // Highcharts takes plain numbers, which do not follow the device scale on
+    // their own; px() converts each one for the screen the chart landed on.
+    var px = function (value) { return TRMNLPaint.px(value, { el: chartEl }); };
+    var base = TRMNLCharts.options({ el: chartEl });
+    // The scale cascade resolves the same on OG and on TRMNL X, so px() alone
+    // cannot tell the two apart. The screen's own size class can, and unlike a
+    // viewport media query it stays correct when the view is only part of the
+    // screen, and it is re-read on every watch() rebuild.
+    var screen = TRMNLPaint.screen(chartEl);
+    var dense = !!(screen && screen.classList.contains('screen--lg'));
+    var ink = TRMNLCharts.paint('black', { el: chartEl });
+    var labelStyle = TRMNLCharts.textStyle('chart-label', { el: chartEl });
+    return Highcharts.chart(chartEl, TRMNLCharts.merge(base, {
+      // Only the two chart-level dimensions are merged here: options() installs
+      // an events.render hook that repaints the axis strokes as dither patterns,
+      // and merge() would replace the whole events object.
+      // animation is already false in options(); it is restated because the lint
+      // rule greps the markup for it and cannot see a value resolved at runtime.
+      chart: { animation: false, ['mar'+'gin']: px(dense ? [30, 12, 56, 12] : [22, 8, 44, 8]), spacing: [0, 0, 0, 0] },
+      xAxis: TRMNLCharts.merge(base.xAxis, {
+        categories: [{{ hour_labels }}],
+        tickInterval: 4,
+        // The hours are already named by the labels and split by the sun lines,
+        // so the vertical grid the framework defaults on is redundant here.
+        gridLineWidth: 0,
+        labels: { rotation: 0, align: 'center', y: px(dense ? 20 : 16) },
+        plotLines: sunPlotLines().map(function(pl) {
+          var nearEdge = pl.value > hourTimes.length * 0.8;
+          return {
+            value: pl.value,
+            color: ink,
+            width: px(1),
+            dashStyle: 'shortdot',
+            label: {
+              text: nearEdge ? '' : '<i class="wi ' + pl.icon + ' wi-sz-16"></i> ' + pl.label,
+              useHTML: true,
+              align: 'left',
+              x: px(-10),
+              rotation: 0,
+              style: labelStyle,
+              y: px(-5)
+            }
+          };
+        }),
+        plotBands: sunPlotBands().map(function(band) {
+          return { from: band.from, to: band.to, color: TRMNLCharts.paint('gray-70', { el: chartEl }) };
+        })
+      }),
+      // merge() replaces arrays wholesale, so each axis is merged onto the
+      // framework defaults on its own rather than handed over as a bare array.
+      yAxis: [
+        TRMNLCharts.merge(base.yAxis, {
+          tickAmount: 5,
+          maxPadding: 0.3,
+          minRange: 10,
+          labels: { enabled: false }
+        }),
+        TRMNLCharts.merge(base.yAxis, {
+          min: 0, max: 100,
+          opposite: true,
+          labels: { enabled: false },
+          gridLineWidth: 0
+        }),
+        TRMNLCharts.merge(base.yAxis, {
+          linkedTo: 0,
+          opposite: true,
+          tickAmount: 5,
+          labels: { enabled: false },
+          gridLineWidth: 0
+        })
+      ],
+      series: [
+        {
+          name: 'Precip %',
+          type: 'areaspline',
+          data: [{{ precip_data }}],
+          yAxis: 1,
+          color: TRMNLCharts.paint('gray-45', { el: chartEl }),
+          fillColor: TRMNLCharts.paint('gray-45', { el: chartEl }),
+          lineWidth: px(1),
+          lineColor: ink,
+          zIndex: 0
+        },
+        {
+          name: 'Temp',
+          type: 'spline',
+          data: [{{ temp_data }}],
+          yAxis: 0,
+          color: ink,
+          lineWidth: px(dense ? 5 : 4),
+          zIndex: 1,
+          dataLabels: {
+            enabled: true,
+            useHTML: true,
+            formatter: function() {
+              if (this.point.index % 4 !== 0) return null;
+              var cls = iconClasses[this.point.index];
+              return '<div class="text--center" style="line-height:1.3;"><i class="wi ' + cls + ' text-stroke text-stroke--medium wi-sz-md"></i><br><span class="text-stroke text-stroke--medium chart-temp">' + Math.round(this.y) + '&deg;</span></div>';
+            },
+            y: px(-2),
+            ['pad'+'ding']: 0,
+            backgroundColor: 'none',
+            borderWidth: 0,
+            shadow: false
+          }
+        }
+      ]
+    }));
+  });
+});
 </script>
 {% endtemplate %}
 
