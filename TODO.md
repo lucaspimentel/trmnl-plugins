@@ -115,8 +115,10 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
     durations and short cache TTLs could never span two requests, and dropped both the circuit
     breaker and negative caching on that basis. Recheck `/metrics` rather than assuming either way.
 
-- [ ] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net**
-  - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
+- [x] **P2 — Alert on upstream 429 rates for api.open-meteo.com and api.pirateweather.net (done 2026-08-31)**
+  - A Datadog monitor now watches upstream rate-limiting for both providers, so quota exhaustion or
+    an upstream outage is caught before devices see it rather than found reactively.
+  - No alerting before this. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
   - **Unblocked as of 2026-08-24:** APM is live in both environments, so the upstream provider calls now arrive as `http.request` spans carrying `http.status_code` and `out.host`, which is what a monitor would key on. Alert on those rather than on `GET /metrics`, whose counters reset every restart.
   - **Do not key any of this on the API's own status code.** v2 answers every device-visible failure with HTTP 200 and a renderable body, so a 5xx from v2 now means the API itself broke, not that the weather did. Error rate and error tracking read the span's error tags, which are set independently of the status. Any alerting carried over from v1 status codes has to be rewritten against those tags.
@@ -212,13 +214,13 @@ data fix, and an ongoing maintenance chore.
 
 ## Observability
 
-- [ ] **P0 — Rotate the Pirate Weather API key (the leak that exposed it is now fixed)**
+- [x] **P0 — Rotate the Pirate Weather API key (done 2026-08-31)**
+  - Rotated after the header-auth fix was live in both environments, so the new key never lands in a
+    span resource name. The old key is still disclosed to anyone with Datadog read access until the
+    spans carrying it age out of retention; nothing further can be done about that.
   - The leak is closed as of 2026-08-31: `PirateWeatherClient` now sends the key in the `apikey`
     header with a constant `header-auth` placeholder in the path, so the span resource name reads
     `GET api.pirateweather.net/forecast/header-auth/{lat},{lon}` and carries no secret.
-  - **Rotation is still required and is the remaining work.** The old key sits in existing spans
-    until they age out of Datadog retention, so it has to be treated as disclosed. Rotate only
-    *after* the fix above is deployed to both environments, or the new key lands in the same place.
   - Header auth is documented in prose only, is contradicted by an earlier line in the same file,
     and is absent from their OpenAPI spec. `PirateWeatherClientTests` pins it; a 401 in production
     is the signal it went away. Details in the code comment on `ApiKeyHeaderName`.
