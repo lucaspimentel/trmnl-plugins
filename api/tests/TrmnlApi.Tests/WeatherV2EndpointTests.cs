@@ -312,6 +312,24 @@ public class WeatherV2EndpointTests
     }
 
     [Theory]
+    [InlineData("&abbreviate_days=yes", true)]
+    [InlineData("&abbreviate_days=no", false)]
+    [InlineData("&abbreviate_days=", false)]
+    [InlineData("", false)]
+    public async Task Handle_AbbreviateDays_EchoesTheSettingForTheTemplate(string setting, bool expected)
+    {
+        // The template cannot read the custom field, so the response is the only way the choice
+        // reaches it. Anything but an explicit yes keeps the full weekday names, which is what an
+        // install predating the setting sends.
+        var harness = new Harness();
+
+        var (status, body) = await harness.Get($"?place=Boston{setting}");
+
+        Assert.Equal(200, status);
+        Assert.Equal(expected, Json(body).GetProperty("meta").GetProperty("abbreviate_days").GetBoolean());
+    }
+
+    [Theory]
     [InlineData("test:place_missing", ErrorCodes.PlaceMissing)]
     [InlineData("test:place_invalid", ErrorCodes.PlaceInvalid)]
     [InlineData("test:place_not_found", ErrorCodes.PlaceNotFound)]

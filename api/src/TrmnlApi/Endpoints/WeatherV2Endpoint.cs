@@ -93,6 +93,10 @@ public class WeatherV2Endpoint
         // A display preference rather than a data one, but custom field values are unreadable
         // from Liquid, so the response body is the only way one can reach the template.
         var showPlace = query["show_place"].FirstOrDefault() is not "no";
+
+        // Same reason, and opt-in: an install that predates the setting sends nothing and keeps
+        // the full weekday names it has always shown.
+        var abbreviateDays = query["abbreviate_days"].FirstOrDefault() is "yes";
         var requestedProvider = query["provider"].FirstOrDefault();
 
         // The country the user picked in the plugin's dropdown, used only to break ties between
@@ -294,7 +298,8 @@ public class WeatherV2Endpoint
                 ServedAt: servedAt,
                 AgeSeconds: (long)(servedAt - fetchedAt).TotalSeconds,
                 TimeFormat: use24Hour ? "24h" : "12h",
-                Upstream: outcome.Upstream)
+                Upstream: outcome.Upstream,
+                AbbreviateDays: abbreviateDays)
         };
 
         metrics.RecordServed(cacheStatus, outcome.WinningProvider);

@@ -82,6 +82,21 @@ public class WeatherEndpointTests
         Assert.DoesNotContain("\"place\"", body, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("&abbreviate_days=yes")]
+    public async Task Handle_Success_EmitsNoAbbreviateDaysKey(string setting)
+    {
+        // Same rule as the place block above: abbreviate_days is a v2 display setting, and v1 must
+        // not grow a meta key even when a caller passes the parameter.
+        var (execute, _, _, _) = Build(new StubProvider(Primary) { Response = MakeResponse("live") });
+
+        var (status, body) = await execute(setting);
+
+        Assert.Equal(200, status);
+        Assert.DoesNotContain("abbreviate_days", body, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Handle_FakeParameter_StillFlattensTheLastTwoDailyHighs()
     {

@@ -32,7 +32,7 @@ The staging id lives in `STAGING_IDS` in `tools/push-plugin.sh` as well as here;
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={place}` (the plugin also sends `latitude`/`longitude` as the fallback for a blank `place`). `/api/v1/forecast` is frozen for forked copies of the plugin; never change what a v1 caller can observe
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
-- **Query params**: `place` (v2, city / postal code / `latitude, longitude` pair), `latitude`, `longitude` (required on v1; on v2 the fallback when `place` is blank), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`), `show_place` (`yes` default; `no` omits the `place` block, v2 only); `fake=true` injects random precipitation for testing (**v1 only** - on v2 use `place=test:precipitation`)
+- **Query params**: `place` (v2, city / postal code / `latitude, longitude` pair), `latitude`, `longitude` (required on v1; on v2 the fallback when `place` is blank), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`), `show_place` (`yes` default; `no` omits the `place` block, v2 only), `abbreviate_days` (`no` default; `yes` echoes `meta.abbreviate_days: true` so the daily forecast shows `Wed` instead of `Wednesday`, v2 only); `fake=true` injects random precipitation for testing (**v1 only** - on v2 use `place=test:precipitation`)
 - **Test scenarios (v2)**: `place=test:<name>` returns a canned result, so each error the templates can render can be put on screen by typing into the plugin's Place setting - no `settings.yml` edit or push. Names: the five `error.code` values, plus `stale`, `precipitation`, `499`, `500`, `502`. Full table in `api/docs/place-input.md`
 - **Provider default**: when `provider` is omitted the API uses the first entry of its `WeatherProviders` app setting. The plugin never sends `provider` (there is no user-facing provider setting), so the server default always applies
 - **Fallback**: if the requested provider fails, the API tries the remaining configured providers; `meta.provider` reports who actually served, `meta.requested_provider` who was asked
@@ -132,6 +132,7 @@ forecast, which is what the layouts branch on (`{{ error.message }}` / `{{ error
     "served_at": "2026-02-25T14:00:01+00:00",
     "age_seconds": 1,
     "time_format": "12h",            // 12h | 24h
+    "abbreviate_days": false,        // v2 only; absent from v1, whose bytes are frozen
     "upstream": null                  // populated with { status, error } when stale_served or fallback used
   }
 }
@@ -146,7 +147,7 @@ TrmnlApi returns a JSON **object** — trmnlp injects top-level keys as top-leve
 ```liquid
 {% render "weather_current", current: current %}
 {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230, time_format: meta.time_format %}
-{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature %}
+{% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature, abbreviate_days: meta.abbreviate_days %}
 ```
 
 Key access patterns:

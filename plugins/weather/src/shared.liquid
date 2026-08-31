@@ -411,7 +411,7 @@ new MutationObserver(fixChartFonts).observe(document.getElementById('{{ chart_id
       {% endif %}
       <div class="flex flex--row gap--[2px] lg:gap--xsmall">
         <div class="day-label shrink-0">
-          <div class="description lg:description--large" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
+          <div class="description lg:description--large" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% elsif abbreviate_days %}{{ entry.date | date: "%a" }}{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
           {% if entry.precipitation_probability >= 10 %}
           <div class="flex flex--row flex--left gap--[6px]">
             <i class="wi wi-umbrella wi-sz-xs"></i>

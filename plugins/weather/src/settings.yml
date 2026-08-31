@@ -6,7 +6,7 @@ static_data: ''
 polling_verb: get
 framework_version: 2.3.7
 serverless_language:
-polling_url: "https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}&country={{ country }}&tz={{ trmnl.user.time_zone_iana }}"
+polling_url: "https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={{ place | url_encode }}&latitude={{ latitude }}&longitude={{ longitude }}&units={{ units }}&hours={{ hours }}&days={{ days }}&time_format={{ time_format }}&show_place={{ show_place }}&country={{ country }}&abbreviate_days={{ abbreviate_days }}&tz={{ trmnl.user.time_zone_iana }}"
 polling_headers: ''
 polling_body: ''
 id: 249564
@@ -356,6 +356,14 @@ custom_fields:
   options:
   - 'yes'
   - 'no'
+- keyname: abbreviate_days
+  field_type: select
+  name: Abbreviate Day Names
+  description: "Shorten the weekday labels in the daily forecast from Wednesday to Wed. Worth turning on for a narrow screen, where a long name can run into the weather icon."
+  default: 'no'
+  options:
+  - 'no'
+  - 'yes'
 name: LP Weather
 description: 'Weather: current, hourly, daily'
 refresh_interval: 60

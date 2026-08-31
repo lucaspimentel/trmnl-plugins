@@ -9,7 +9,7 @@
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 280, time_format: meta.time_format %}
     </div>
     <div class="pb--2 pl--2 pr--1.5" style="flex:1; min-height:0;">
-      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 5, current_temp: current.temperature %}
+      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: 5, current_temp: current.temperature, abbreviate_days: meta.abbreviate_days %}
     </div>
   </div>
   {% elsif error %}
