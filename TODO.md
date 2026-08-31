@@ -104,6 +104,39 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
   - **Unblocked as of 2026-08-24:** APM is live in both environments, so the upstream provider calls now arrive as `http.request` spans carrying `http.status_code` and `out.host`, which is what a monitor would key on. Alert on those rather than on `GET /metrics`, whose counters reset every restart.
 
+- [ ] **Turn the old Azure app into a reverse proxy in front of the current host**
+  - **Why this and not deletion.** Measured 2026-08-30 in App Insights (`trmnl-plugins-api`, appId
+    `5fe1c4c9-ec05-4247-b4ed-a677706c844c`): 5,893 requests in 24h, and the successful ones carry
+    Sentry baggage with `sentry-environment=production`, one `sentry-public_key` and 4 distinct
+    `sentry-release` SHAs. TRMNL fetches `polling_url` server-side, so that is its production backend
+    polling on behalf of forked installs. Deleting the app breaks real users who cannot update their
+    plugin. This item therefore **blocks** "Decommission the leftover Azure resources" above.
+  - **A proxy, not a redirect.** `trmnl-plugins-api.azurewebsites.net` is a Microsoft-owned hostname
+    and cannot be pointed elsewhere by DNS, so something in Azure has to keep answering either way. A
+    3xx would bet every forked install on the TRMNL poller following redirects, which is unverified.
+    Forward server-side and return 200 instead, so no client behaviour is assumed.
+  - **The responses already agree.** Compared live 2026-08-30 with identical parameters: same
+    top-level keys, same hourly and daily entry counts. The only difference is that the current host
+    adds `meta.time_format`, which Azure lacks. Additive, so a v1 caller reading specific keys will
+    not notice. See the frozen-v1 rule in `CLAUDE.md`.
+  - **What it buys:** one implementation of frozen v1 instead of two that can drift; the Azure app
+    stops making its own upstream provider calls, which is roughly a doubling of quota consumption
+    currently paid for twice (see the Pirate Weather item below); and that traffic becomes visible in
+    Datadog instead of only App Insights.
+  - **What it costs:** reintroducing an Azure deployment path this repo deliberately deleted in
+    `c9a4dc8` - no Azure or Functions files remain. `azure-functions-core-tools` (`func`) is the tool
+    for that redeploy. Also roughly +60% request load onto the single Railway replica, which the `F2`
+    grid cache should absorb since it is the same coordinates.
+  - **Do this cheap thing first:** 1,439 of those 24h requests are 400s arriving at **exactly 60 per
+    hour**, one per minute, with no Sentry headers. Ruled out: there are no App Insights availability
+    tests, and the Function App has no `healthCheckPath` (`alwaysOn: false`, Dynamic SKU). So it is an
+    external once-a-minute caller sending invalid parameters - most likely a forgotten uptime monitor.
+    That is 25% of the load on a host being retired; find and stop it before building anything.
+  - **Known gap:** the number of distinct installs is unmeasurable from App Insights, because query
+    strings are not logged (`EnableQueryStringTracing: false`) and `client_IP` is `0.0.0.0`. Early
+    readings of `distinct_ips: 1` and `distinct_queries: 1` were artifacts of that stripping, not
+    findings. Routing through the proxy closes this gap by putting the traffic into Datadog.
+
 ## Weather display & accuracy
 
 - [ ] **Allow enabling/disabling the different subviews (current status, hourly forecast, daily forecast) and adjust layout accordingly**
