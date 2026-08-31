@@ -142,24 +142,41 @@ be meaningful:
   test. This is the case worth having: the round-tripped body is *equal as a parsed object* and
   different as bytes, so a test comparing parsed JSON would have passed it.
 
-## Local runs do not work with the current tooling
+## Local runs do not work, cause unknown
 
 `func start` reports that it cannot correctly load extensions for an isolated project and says to
 use `dotnet run`. Both then fail the same way: the worker process exits and the host reports an
-`Unavailable` gRPC error, `"the server did not complete the HTTP/2 handshake"`. Configuration is not
-the cause - the worker gets past reading `FORECAST_ORIGIN` before it dies - so this reads as a
-Core Tools 4.14.0 against .NET 10 worker problem rather than anything in this code.
+`Unavailable` gRPC error, `"the server did not complete the HTTP/2 handshake"`.
 
-**The proxy has therefore never been run end to end on a developer machine.** That is why the
-rollout below starts on the copy with no users, and why the tests cover the fidelity rules directly
-rather than relying on an integration run that cannot currently be performed.
+What is established is narrow. Configuration is not the cause: the worker gets past reading
+`FORECAST_ORIGIN` before it dies. **The cause beyond that is not known.** An earlier version of this
+note blamed Core Tools 4.14.0 against a .NET 10 worker, which was a guess written with more
+confidence than it had earned, and then a second guess replaced it - that a TLS inspecting proxy was
+responsible, since one demonstrably blocked deployment from one shell on the same machine. That
+second guess is also unproven, and is now doubtful: the same `func azure functionapp publish`
+succeeded from a different shell on the same machine minutes later, so whatever the interception
+applies to is narrower than the machine, and localhost gRPC is not obviously in its path.
+
+Leave it unexplained rather than picking a third story. **The proxy has never been run end to end on
+a developer machine** - it went from unit tests straight to the deployed staging copy. That is why
+the rollout below starts where there are no users, and why the tests cover the fidelity rules
+directly rather than leaning on an integration run nobody can currently perform.
 
 ## Rollout
 
-1. **Deploy to the staging copy first.** It has zero traffic, which makes it a canary that costs
-   nothing to get wrong. Point it at the staging origin.
-2. **Diff the responses.** Same query strings against old and new: valid input, missing parameters,
-   `fake=true`, out-of-range values. Compare status codes and body bytes, not parsed objects.
+1. ~~**Deploy to the staging copy first.**~~ Done 2026-08-31. `FORECAST_ORIGIN` set to the staging
+   origin, then `func azure functionapp publish` from `legacy-proxy/src/TrmnlLegacyProxy`. The app
+   now exposes one function, `forecast`; `screen` is gone, as intended.
+2. ~~**Diff the responses.**~~ Done, as far as it can be. Proxy and origin agree on status for a
+   valid request (200), a missing parameter (400), an empty query (400) and `fake=true` (200), and
+   agree on content type, key set, hourly and daily entry counts, and temperature. The added hop is
+   inside the noise: ~150-173ms through the proxy against ~135-215ms direct.
+   <br>**A byte-for-byte diff of live responses is not possible** - `meta.fetched_at`, `served_at`
+   and `age_seconds` differ per request by design. Byte fidelity is covered by the unit test
+   instead, which is the stronger check anyway because it can hold the input constant.
+   <br>`fake=true` turned out to be useless as a live probe: the origin returns the same body with
+   and without it, so it distinguishes nothing. The test that catches a rebuilt query string is the
+   real guard.
 3. **Deploy to production, then watch the result-code mix.** It should stay 200/400/499 in the same
    proportions. A shift means the proxy is failing something the old implementation handled.
 4. **Then, and only then**, the decommission item in `TODO.md` becomes reachable: what remains is a
