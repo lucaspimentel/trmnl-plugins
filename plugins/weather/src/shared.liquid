@@ -68,6 +68,13 @@
 .wi-sz-xs { font: 10px/1 'weathericons'; }
 .fs-10 { font: 10px/1 inherit; }
 .chart-temp { font: 700 16px/1 inherit; }
+{%- comment -%}
+  A safety net, not part of the fit: if the script that hides the rows that do
+  not fit never runs, the rows are clipped at the column instead of spilling
+  across the title bar. It does not affect the measurement, which reads each
+  row's laid-out position rather than what is painted.
+{%- endcomment -%}
+.daily-list { overflow: hidden; }
 .day-label { width: 68px; }
 .temp-label { width: 34px; }
 .screen--lg .day-label { width: 90px; }
