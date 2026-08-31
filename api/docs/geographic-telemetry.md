@@ -155,11 +155,10 @@ more than the checkbox.
 2. ~~**Re-push the plugin.**~~ Done twice: once for the raw `{{ country }}` in `polling_url`, and
    again with the two corrected labels.
 
-3. **Confirm on the device.** The API is verified by request, not by screen. With location `00784`
-   and the country set, the title bar should read `Guayama, PR` where it read `Mokotów, MZ`. A
-   forced refresh from the plugin settings page is the quickest way to see it. Attempted through
-   the browser once and abandoned when the extension disconnected; the live `declared=US` line in
-   the logs is the evidence standing in for it.
+3. ~~**Confirm on the device.**~~ Done, 2026-08-30. With location `00784` and the country set, the
+   title bar reads `Guayama, PR` where it read `Mokotów, MZ`. Confirmed by eye on a real screen,
+   which is what this item was for: the API had been verified by request all along, and the live
+   `declared=US` log line was only ever standing in for the thing a screen can show.
 
 4. ~~**Promote to production.**~~ Done, in that order: variables first, then `main`, then the
    build log, then `push-plugin.sh --env prod`. Both environments now pin the same artifact.
@@ -270,15 +269,17 @@ would have answered the dropdown question above in one look instead of several.
    substituted into the command, so changing it invalidates the layer cache on its own.
 6. ~~**Re-run the smoke test** against staging~~ Done, 2026-08-29. Results in the table at the top
    of this document.
-7. **Check the new Country dropdown on a real device** alongside the title bar: it is 247 options
-   and has only been linted, never seen in the TRMNL settings UI. Then **check on a real device** (push the plugin to staging with `bash tools/push-plugin.sh
-   plugins/weather --dry-run` first to review, then without `--dry-run`), confirm the title bar
-   renders correctly for both a coordinate-based and a place-based install.
+7. ~~**Check the new Country dropdown, and the title bar on a real device.**~~ Both done,
+   2026-08-30. The dropdown's 247 options read fine. Note the item was miswritten: the dropdown is
+   **not on the device at all**. Plugin configuration happens in the TRMNL web UI, and only the
+   rendered title bar reaches the screen, so these are two separate checks on two surfaces rather
+   than one glance at a device.
 8. **Promote to production**: same two build args, on the `production` environment, then push the
    prod plugin.
 9. **After about a week**, read `weather.geocoder` in the `ForecastServed` logs. A quiet
-   `open-meteo` count is what licenses deleting `OpenMeteoGeocodingClient` and the paid Open-Meteo
-   geocoding subscription - not before.
+   `open-meteo` count is what licenses deleting `OpenMeteoGeocodingClient` - not before. Deleting it
+   saves code and a failure mode, not money: geocoding is included in the Open-Meteo weather
+   subscription the service already pays for, so it is not a separate line item to cancel.
 
 Several decisions in the original design note were **wrong**, and were corrected during
 implementation by measuring against the live APIs and the actual datasets. Where this document now
@@ -356,9 +357,9 @@ plugin moved, during which every install still sent coordinates from the old tem
 ## Why our own data rather than the geocoder
 
 The obvious cheaper design is to ask a hosted service to turn coordinates back into a place, rather
-than bundling polygons and a city list. The service already holds a paid Open-Meteo geocoding
-subscription and already has the memo and negative-caching machinery built for the forward direction,
-so a reverse endpoint would be a small addition.
+than bundling polygons and a city list. Open-Meteo geocoding is already included in the weather
+subscription the service pays for, at no extra cost, and the memo and negative-caching machinery is
+already built for the forward direction, so a reverse endpoint would be a small addition.
 
 It is rejected on **data quality**, not on cost or latency, and specifically on the quality of what
 this vendor returns:
