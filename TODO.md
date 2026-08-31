@@ -212,6 +212,26 @@ data fix, and an ongoing maintenance chore.
 
 ## Observability
 
+- [ ] **P0 — The Pirate Weather API key is being written into Datadog span resource names**
+  - Found 2026-08-31 while proving the fallback trace coverage above. `PirateWeatherClient` puts the
+    key in the **URL path**, not a header or query string
+    (`api/src/TrmnlApi/Services/PirateWeatherClient.cs:30`), and the tracer names the client span
+    after the path. So every pirate-weather call produces a span whose resource is
+    `GET api.pirateweather.net/forecast/<the key>/<lat>,<lon>`.
+  - **Confirmed in both environments**, not just staging: a `resource_name:*pirateweather*` search
+    over 7 days returned 50 production spans and 4 staging spans, every one carrying the 32-character
+    key. It has been landing in Datadog since APM was enabled on 2026-08-24.
+  - **`DD_HTTP_CLIENT_TAG_QUERY_STRING=false` does not help and never did.** It strips query strings;
+    this key is a path segment. The setting being present is probably why nobody looked.
+  - Two things to do, in order: **rotate the Pirate Weather key** (it should be treated as disclosed
+    to anyone with read access to the Datadog org), then stop the new one leaking. Options for the
+    second: a client-side span-name/resource override, tracer URL obfuscation for that host, or
+    moving auth off the path if Pirate Weather accepts a header. Check the vendor's auth options
+    before assuming the path is required.
+  - Note the irony worth remembering: the key is a *sealed* Railway variable, deliberately
+    unreadable in the dashboard and CLI, and it was being published in plaintext to APM the whole
+    time. Sealing the variable bought nothing on its own.
+
 - [x] **Instrument the API with Datadog APM (deferred Phase 3 fast-follow)**
   - Done 2026-08-24, both environments. `api/Dockerfile` installs a pinned `datadog-dotnet-apm` tarball into `/opt/datadog` and sets the `CORECLR_*` profiler vars; `Datadog.Trace` tracks the same version. A Datadog Agent runs as its own service per environment, reached at `datadog-agent.railway.internal`. Full setup in `api/docs/observability.md`. No application code changed.
   - Verified: `aspnet_core.request` -> `weather.forecast` -> `http.request` in one trace, with the cache-status and provider tags on the middle span, and `GET /health` filtered out at the agent.
