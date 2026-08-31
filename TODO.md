@@ -212,7 +212,36 @@ data fix, and an ongoing maintenance chore.
 
 ## Observability
 
-- [ ] **P0 — The Pirate Weather API key is being written into Datadog span resource names**
+- [ ] **P0 — Rotate the Pirate Weather API key (the leak that exposed it is now fixed)**
+  - The leak is closed as of 2026-08-31: `PirateWeatherClient` now sends the key in the `apikey`
+    header with a constant `header-auth` placeholder in the path, so the span resource name reads
+    `GET api.pirateweather.net/forecast/header-auth/{lat},{lon}` and carries no secret.
+  - **Rotation is still required and is the remaining work.** The old key sits in existing spans
+    until they age out of Datadog retention, so it has to be treated as disclosed. Rotate only
+    *after* the fix above is deployed to both environments, or the new key lands in the same place.
+  - Header auth is documented in prose only, is contradicted by an earlier line in the same file,
+    and is absent from their OpenAPI spec. `PirateWeatherClientTests` pins it; a 401 in production
+    is the signal it went away. Details in the code comment on `ApiKeyHeaderName`.
+  - **Verifying this taught a lesson worth keeping: `api.pirateweather.net` flaps.** Inside one
+    ten-minute window the same key returned 200, then 401, then 404, then 200 again, on *both* auth
+    methods. A single curl proves nothing about this API. What separated "my change broke it" from
+    "upstream is unwell" was that path auth was failing too, and then 12/12 at 200 for both methods
+    once it settled. Measure a rate, never a single call.
+
+- [ ] **P2 — Pirate Weather spans carry exact coordinates in the resource name**
+  - Fallout found while fixing the key leak, and not addressed by that fix. The resource name is
+    `GET api.pirateweather.net/forecast/header-auth/44.17,-72.53`: the coordinates are a path
+    segment, so they are still there.
+  - Two problems, neither fatal. It contradicts the repo's own rule that coordinates are PII and get
+    rounded to `F1` before reaching a span. And every distinct coordinate is a distinct APM
+    resource, which is a cardinality problem in its own right.
+  - Open-Meteo is unaffected: its coordinates ride in the query string, which
+    `DD_HTTP_CLIENT_TAG_QUERY_STRING=false` already strips. Pirate Weather is the only one putting
+    them in the path, and the API requires it there.
+  - No clean lever found yet. Worth checking whether the tracer can be told to rewrite or drop the
+    resource name for that one host before reaching for anything more invasive.
+
+- [x] **~~P0 — The Pirate Weather API key is being written into Datadog span resource names~~ (fixed 2026-08-31)**
   - Found 2026-08-31 while proving the fallback trace coverage above. `PirateWeatherClient` puts the
     key in the **URL path**, not a header or query string
     (`api/src/TrmnlApi/Services/PirateWeatherClient.cs:30`), and the tracer names the client span

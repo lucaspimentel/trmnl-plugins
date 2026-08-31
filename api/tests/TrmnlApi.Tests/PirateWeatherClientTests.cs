@@ -53,7 +53,7 @@ public class PirateWeatherClientTests
     }
 
     [Fact]
-    public async Task GetForecastAsync_BuildsUrlWithApiKeyAndUnits()
+    public async Task GetForecastAsync_BuildsUrlWithPlaceholderAndUnits()
     {
         var handler = new StubHandler(HttpStatusCode.OK, "{}");
         var client = new PirateWeatherClient(new HttpClient(handler), BuildConfig("secret-key"));
@@ -62,8 +62,41 @@ public class PirateWeatherClientTests
         catch (JsonException) { /* expected: empty object can't bind to PirateWeatherResponse */ }
 
         Assert.NotNull(handler.LastUrl);
-        Assert.Contains("/forecast/secret-key/42.36,-71.06?units=us", handler.LastUrl);
+        Assert.Contains("/forecast/header-auth/42.36,-71.06?units=us", handler.LastUrl);
         Assert.Contains("exclude=minutely,alerts,flags", handler.LastUrl);
+    }
+
+    /// <summary>
+    /// The key must never reach the URL. The tracer names client spans after the request path, so a
+    /// key in the path is a key published to APM: that is exactly what this replaced.
+    /// </summary>
+    [Fact]
+    public async Task GetForecastAsync_SendsApiKeyInHeaderAndNeverInUrl()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "{}");
+        var client = new PirateWeatherClient(new HttpClient(handler), BuildConfig("secret-key"));
+
+        try { await client.GetForecastAsync(42.36, -71.06); } catch (JsonException) { }
+
+        Assert.Equal("secret-key", Assert.Single(handler.LastApiKeyHeader!));
+        Assert.DoesNotContain("secret-key", handler.LastUrl!);
+    }
+
+    /// <summary>
+    /// A retry re-sends the same <see cref="HttpRequestMessage"/> through the pipeline, so the
+    /// header has to survive it. Losing it would turn a transient failure into a 401.
+    /// </summary>
+    [Fact]
+    public async Task GetForecastAsync_EveryAttemptCarriesTheHeader()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, "{}");
+        var client = new PirateWeatherClient(new HttpClient(handler), BuildConfig("secret-key"));
+
+        for (var i = 0; i < 3; i++)
+        {
+            try { await client.GetForecastAsync(1, 2); } catch (JsonException) { }
+            Assert.Equal("secret-key", Assert.Single(handler.LastApiKeyHeader!));
+        }
     }
 
     [Fact]
@@ -88,9 +121,14 @@ public class PirateWeatherClientTests
     {
         public string? LastUrl { get; private set; }
 
+        public IEnumerable<string>? LastApiKeyHeader { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastUrl = request.RequestUri?.ToString();
+            LastApiKeyHeader = request.Headers.TryGetValues(PirateWeatherClient.ApiKeyHeaderName, out var values)
+                ? values
+                : null;
             return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
         }
     }
