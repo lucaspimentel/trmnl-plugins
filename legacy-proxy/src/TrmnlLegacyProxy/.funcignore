@@ -1,0 +1,4 @@
+.gitignore
+local.settings.json
+local.settings.json.example
+README.md

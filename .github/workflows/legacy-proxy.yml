@@ -1,0 +1,37 @@
+name: legacy-proxy
+
+# The proxy stands in front of a frozen contract that forked plugins depend on and that we cannot
+# ask anyone to update, so its tests are the only thing standing between a refactor and a silent
+# break for those users. Its own workflow, because it is not part of the API solution and the
+# api/** paths below would never match it.
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'legacy-proxy/**'
+      - '.github/workflows/legacy-proxy.yml'
+  pull_request:
+    paths:
+      - 'legacy-proxy/**'
+      - '.github/workflows/legacy-proxy.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-proxy
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build src/TrmnlLegacyProxy/TrmnlLegacyProxy.csproj --configuration Release
+
+      - name: Test
+        run: dotnet test tests/TrmnlLegacyProxy.Tests/TrmnlLegacyProxy.Tests.csproj --configuration Release --verbosity normal
