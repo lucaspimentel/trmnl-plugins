@@ -143,5 +143,27 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - **Correction to an earlier claim in this item:** the `Datadog.Trace` package does *not* set `CORECLR_PROFILER` for you. It is the manual instrumentation API only, so without a separate install there would be one span per trace and no HTTP spans either side. The `Datadog.Trace.Bundle` package would also work but was rejected: its nupkg is ~176MB and copies every runtime identifier into the publish output.
   - Three things cost real time and are worth remembering. The agent does not listen on the injected `PORT`, so its deploy hangs and, with `restartPolicyType: NEVER`, the previous container keeps serving, making a config change look like it had no effect. A sealed variable cannot be copied between environments, since the value is unreadable by design, so syncing one produces a variable that is present by name but empty. And the tracer reports `runtime_metrics_enabled: true` by default, contrary to the documented default.
 
-- [ ] **Pirate Weather needs its own API key (blocking the fallback-path test and any fallback trace coverage)**
-  - Currently the Pirate Weather key is shared across the old Azure prod/staging apps and the current host, and is returning 429, so `pirate-weather` requests silently fall back to open-meteo and the fallback path (and its trace coverage) is untestable.
+- [ ] **Exercise the fallback path while Pirate Weather has quota (trace coverage is still unproven)**
+  - **Corrects the earlier wording of this item, which was wrong on its premise.** It said the
+    Pirate Weather key was shared with the old Azure prod/staging apps. It never was: Pirate Weather
+    has always had its own key. The 429s were the plan's **monthly request cap** being reached, which
+    makes this a capacity question rather than a key-provisioning one. The distinction matters
+    because the wrong version made the fix sound like a one-time five-minute chore.
+  - **Not currently rate limited.** A production request with `provider=pirate-weather` on 2026-08-30
+    returned `provider=pirate-weather`, `cache=fresh_fetch`, `upstream=null` - a clean upstream call,
+    not a fallback. So the path is testable right now, and that window closes again whenever the cap
+    is next hit.
+  - What is still open is the original goal: the provider-fallback path has never been exercised
+    end to end against a real upstream failure, so its **trace coverage is unproven**. Force a
+    failure of the first provider and confirm the fallback shows up correctly in APM. Note
+    `weather.fallback` was removed on 2026-08-30, so the check is that
+    `weather.requested_provider` and `weather.winning_provider` disagree on the span, plus
+    `meta.upstream` on the response.
+  - **The open question this raises.** If a monthly cap is reachable at all, `pirate-weather` is
+    absent as a fallback for whatever part of the month follows it - exactly when an open-meteo
+    outage would need it. Worth deciding deliberately: raise the tier, or accept that the fallback
+    is best-effort and say so. Recheck whether the cap is actually being hit each month before
+    paying for anything.
+  - Related: the fixed `BreakDuration` on the circuit breaker cannot express "come back next month",
+    which is the `Retry-After` case deliberately left in the pocket above. A monthly quota 429 is the
+    scenario that would justify taking it out.
