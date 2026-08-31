@@ -218,26 +218,46 @@ data fix, and an ongoing maintenance chore.
     unifies on. Only `shrink-0` (8 uses) is unsettled upstream - `no-shrink` vs `shrink-0`, one of
     the two goes - and there is nothing to do until they decide.
 
-- [ ] **Adopt `TRMNLCharts` for the hourly chart (the biggest single win from 3.2)**
-  - `TRMNLCharts` ships *inside* the framework runtime and wraps Highcharts over `TRMNLPaint`, so a
-    chart resolves its own colors, patterns, typography and pixel sizes from whatever the screen is
-    now. `weather_hourly_chart` hardcodes all of that by hand: `#000` axis and line colors, an
-    `isLg` JS flag switching margins and font sizes, and two absolute pattern-image URLs
-    (`https://trmnl.com/images/grayscale/gray-{4,7}.png`, `shared.liquid:298,333-334`) that are
-    frozen raster assets outside the framework's version pin entirely.
-  - The API to build against: `TRMNLCharts.options({el})` / `.merge()` for adaptive Highcharts
-    defaults, `.paint(token, {el})` for a framework color as a flat fill or a dither pattern,
-    `.grid()` / `.axisLine()` for axis furniture, `.textStyle(role, {el})` for SVG text, and
-    `.watch(el, buildFn)` to rebuild when device, scale, dark mode or theme changes. Highcharts
-    still takes plain numbers that do not follow device scale, so run heights, margins, line widths
-    and label offsets through `TRMNLPaint.px()` *inside* the `watch` callback.
-  - **Also retires linter workarounds, which is why it is worth more than it looks.** The computed
-    property keys (`['mar'+'gin']`, `['pad'+'ding']`) exist only to dodge the recipe linter's raw
-    substring count; if the adaptive defaults supply the margins, the hand-written keys go with them.
-  - Two cautions: disable chart animation or the screenshot service can capture a half-drawn chart,
-    and the docs' own convention is that the container id starts with `chart-`, while this plugin
-    generates `hourly-chart-<random>`. `_chart.scss` matches `[id^="chart-"]`, so the current id
-    misses those rules - worth renaming while in here.
+- [x] **Adopt `TRMNLCharts` for the hourly chart** (done 2026-08-31, `c99e642`)
+  - `weather_hourly_chart` now builds on `TRMNLCharts.options()` / `.merge()` inside
+    `TRMNLCharts.watch()`. Every `#000` became `.paint('black')`, both frozen pattern-image URLs
+    (`images/grayscale/gray-{4,7}.png`) became `.paint('gray-45')` / `.paint('gray-70')` resolved
+    from the pinned framework CSS, axis typography comes from `.textStyle('chart-label')`, and the
+    `fixChartFonts()` MutationObserver is gone.
+  - **The observer was the real bug.** It forced `font-family: Inter !important` onto every axis
+    label, which since 3.1 fights the framework: an OG screen renders in TRMNL12 and 3.2's
+    `_chart.scss` styles `.highcharts-axis-labels text` from `--font-small-*`. The chart was the
+    one part of the screen still in Inter.
+  - **Unplanned win on TRMNL X**: `paint()` returns flat 4-bit grays there instead of the 1-bit
+    dither tiles the old hardcoded URLs forced onto a 16-shade screen.
+  - `TRMNLCharts` turned out to be **in 3.2.0**, verified against the shipped
+    `https://trmnl.com/js/3.2.0/plugins.js`; 3.3.0 added maps only. The blocked 3.3.0 bump was not
+    a prerequisite, and `trmnlp` loads the same pinned runtime, so preview matched the device.
+  - **Three things this item claimed that did not hold up:**
+    1. *It does not retire the linter workarounds.* The plugin sits at 4 of 6 and always did, all
+       four `padding` from the `.marker-pad` shim (`shared.liquid:75,406`). The chart contributes
+       zero: `['mar'+'gin']` / `['pad'+'ding']` are split strings and `fontSize` is camelCase.
+       `options()` supplies no `chart.margin`, so the computed keys stay. Freeing budget is still
+       the `.marker-pad` item below, and nothing else.
+    2. *`TRMNLPaint.px()` cannot replace the `isLg` flag.* `--content-scale` resolves to 1 on both
+       OG and TRMNL X; `--device-ui-scale: 0.8` only applies to Kindle 2024 and Palma. The scale
+       cascade is for user display-scale settings and BYOD oddities, not for device size. Dropping
+       `isLg` for `px()` alone silently gave the X chart OG-sized margins. The device split is now
+       a `screen--lg` class check on the resolved screen, which still beats `matchMedia`: it reads
+       the screen rather than the browser viewport, so it stays right in a partial-width view, and
+       `watch()` re-reads it. `px()` still wraps every number, which is the genuinely new
+       capability the old code had none of.
+    3. *The `chart-` id prefix buys almost nothing.* `_chart.scss` is only
+       `[id^="chart-"] { height: auto; overflow: visible }`, and the height half is overridden by
+       the inline style and by `full.liquid`'s `!important` anyway. Renamed to `chart-hourly-*`
+       regardless, for the `overflow: visible`.
+  - Two more things worth knowing before touching this chart again: the lint rule greps the markup
+    for a literal `animation: false` and cannot see the value `options()` sets at runtime, so it is
+    restated explicitly; and the framework defaults a **vertical** x-grid on, which is redundant
+    here and is turned off.
+  - **Still unverified on hardware**: the axis labels are now TRMNL12 at 12px where they were 16px
+    Inter. Preview says legible; a real OG screen has the last word, and the same look settles the
+    3.1 font-flip question left open by the 3.2 bump. Pushed to the staging plugin (316595).
 
 - [ ] **Replace the hand-rolled row limits with the Content Limiter engine**
   - Three layouts hide daily rows with a hardcoded CSS rule - `quadrant.liquid:2`
