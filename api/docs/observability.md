@@ -184,6 +184,7 @@ numeric-looking ones, so they stay facets rather than measures.
 | `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
 | `weather.input_kind` | v2 only: `coordinates`, `place`, `missing`, or `invalid` |
 | `weather.error_code` | v2 only: which failure, or `client_cancelled` |
+| `weather.via_legacy_host` | `1` when the request arrived through the original host's proxy. Set by the tracer from `DD_TRACE_HEADER_TAGS`, not by this code. See [legacy-host-proxy.md](legacy-host-proxy.md) |
 
 v2 also tags where the request resolved to - `weather.geocoder`, `weather.country_code`,
 `weather.country`, `weather.subdivision`, `weather.subdivision_name` and `weather.city`, set by

@@ -59,6 +59,7 @@ faithfully forward every one of those requests.
 of "1 distinct IP" and "1 distinct query string" were artifacts of that stripping rather than
 findings, and would have supported exactly the wrong conclusion. Routing through the proxy is what
 closes this gap, because the request then reaches a service whose telemetry does record it.
+**Now closed**, by the `weather.via_legacy_host` tag described under [Headers](#headers).
 
 ### What is not in scope
 
@@ -103,8 +104,38 @@ was, so it is worth not destroying.
 
 Dropped: `Host`, and the hop-by-hop headers.
 
-Added: `X-Legacy-Proxy: 1`, so the receiving service can tag proxied traffic and finally count what
-is arriving through the old hostname.
+Added: `X-Legacy-Proxy: 1`, which is how proxied traffic is counted.
+
+### Counting it: `weather.via_legacy_host`
+
+The receiving service does not read the header in code. The tracer maps it, set on that service as
+a deploy-time variable:
+
+```
+DD_TRACE_HEADER_TAGS=x-legacy-proxy:weather.via_legacy_host
+```
+
+Config rather than code was chosen on purpose: `/api/v1/forecast` is the frozen path, and this adds
+the tag without touching it.
+
+**Search on the tag name, not the header name.** A mapped header tag lands under the name on the
+right of the colon, so the value appears as `weather.via_legacy_host`, and looking for
+`x-legacy-proxy` under `http.request.headers` finds nothing. Verified live on 2026-08-31.
+
+| Query | Traffic |
+|---|---|
+| `weather.via_legacy_host:1` | arrived through the old host |
+| `-weather.via_legacy_host:*` | reached the current host directly |
+
+This is what closes the counting gap described above: the numbers cannot be taken where the old
+host's telemetry lands, because query strings and client addresses are stripped there, but they can
+be taken here. **It is also the decommission exit condition** - when `weather.via_legacy_host:1`
+goes quiet, the forks have stopped polling and the old host can go.
+
+Two notes for whoever next changes that variable. It takes effect only when the process is replaced,
+and since a variable change produces no new commit, the `version` tag does not move - **watch
+`runtime-id` instead**, which is per process. And `http.request.headers` already collected `host`
+and `user-agent` beforehand, so check those survived if anything depended on them.
 
 ## Resilience
 
