@@ -76,7 +76,7 @@ listings entirely, so a name missing from `list-variables` does not mean it is u
 | Variable | Value |
 |---|---|
 | `DD_AGENT_HOST` | the agent service's internal hostname, `<service name>.railway.internal` (the service is currently named `datadog-agent-rust`) |
-| `DD_SERVICE` | `trmnl-api` |
+| `DD_SERVICE` | `trmnl-plugins`, matching the Railway service name. This table said `trmnl-api` until 2026-08-30 and nothing was ever deployed under that name; the wrong value cost a round of empty `pup` queries before anyone thought to doubt the doc. Railway redacts variable values in listings, so this is confirmed from the APM service list rather than from the dashboard |
 | `DD_ENV` | `staging` or `production` |
 | `DD_VERSION` | not a variable; set by the start command, see below |
 | `DD_HTTP_SERVER_TAG_QUERY_STRING` | `false` |
@@ -137,7 +137,7 @@ whole time; that is expected and does not affect responses.
 ```bash
 docker build -f api/Dockerfile -t trmnl-api:ddapm api/
 docker run -d --name trmnl-apm-test -p 18080:8080 \
-  -e WeatherProviders=open-meteo -e DD_SERVICE=trmnl-api -e DD_ENV=local -e DD_TRACE_DEBUG=true \
+  -e WeatherProviders=open-meteo -e DD_SERVICE=trmnl-plugins -e DD_ENV=local -e DD_TRACE_DEBUG=true \
   trmnl-api:ddapm
 curl "http://localhost:18080/api/v1/forecast?latitude=42.36&longitude=-71.06&hours=6&days=3"
 docker exec trmnl-apm-test sh -c \
@@ -204,7 +204,7 @@ not the service failing.
 
 ## Verifying in Datadog
 
-After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trmnl-api`:
+After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trmnl-plugins`:
 
 - the same two-span tree as above
 - `aspnet_core.request` carrying the tags listed above, in particular `weather.cache_status`,
@@ -285,7 +285,7 @@ is a constraint to respect when adding events rather than a current problem.
 ### Verifying log shipping
 
 After deploying, hit `/api/v1/forecast` a few times and confirm in the Logs Explorer for
-`service:trmnl-api`:
+`service:trmnl-plugins`:
 
 - one `Served forecast for ...` line per request, tagged with the right `env` and `version`
 - no `Microsoft.*`, `System.*`, or `Polly` lines at all

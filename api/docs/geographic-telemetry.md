@@ -579,9 +579,21 @@ No span-based metric is planned yet. If one is added later, the constraint below
 
 The bottom three arrived on the log first and on the span only afterwards, on 2026-08-30. That gap
 was not a decision: the table above predated the country-preference work and simply never grew rows
-for it. The cost was concrete - `declared=` exists because "did the dropdown reach us?" had been
-unanswerable, and for as long as the field was log-only the same question in APM meant full-text
-searching log messages instead of faceting.
+for it.
+
+The first write-up of that change claimed the fields had been "readable only by full-text searching
+log messages". That was wrong and is corrected here rather than quietly dropped, because it
+overstates what the span tags bought. Direct submission sends the message parameters as structured
+attributes, so `Hint`, `TimeZone` and `DeclaredCountry` were already facetable in Logs. The two real
+gaps were narrower:
+
+- They were absent from the span, so nothing in APM could facet or correlate on them.
+- **The log line only fires on a served forecast.** A request that ends in a miss writes no
+  `ForecastServed` line at all, so on the log side the failures were not merely hard to query -
+  they were absent. Verified on staging 2026-08-30: `place=zzqqxnotaplace&tz=Europe/Berlin`
+  produced no log line and a span carrying `weather.country_hint=tz` and
+  `weather.time_zone=Europe/Berlin`. That is the case worth having, and it is why the tags are set
+  where the query string is parsed rather than beside the log call.
 
 `weather.country_hint` is set on every request, including the ones that end in a miss, because the
 signal that was in play is most worth knowing about the answers that went wrong. The other two
