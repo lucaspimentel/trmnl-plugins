@@ -200,3 +200,32 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Related: the fixed `BreakDuration` on the circuit breaker cannot express "come back next month",
     which is the `Retry-After` case deliberately left in the pocket above. A monthly quota 429 is the
     scenario that would justify taking it out.
+
+## GitHub Issues (lucaspimentel/trmnl-plugins)
+
+- [ ] **Weather: abbreviated day option** ([#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1))
+  - User request: add an option to toggle day labels to abbreviated form for narrower screens.
+    On a BYOD Kindle PW 7th Gen (1448x1072), the full day label collides with the weather icon.
+  - Day labels are rendered in the daily forecast subview (`weather_daily_bars_vertical` in
+    `plugins/weather/src/shared.liquid`). Likely a new boolean custom field in
+    `plugins/weather/src/settings.yml` (e.g. `abbreviate_days`) plus a Liquid date-format change
+    (`%a` vs `%A`) in the template.
+
+- [ ] **Support additional weather data sources alongside Open-Meteo** ([#2](https://github.com/lucaspimentel/trmnl-plugins/issues/2))
+  - User reports Open-Meteo's `precipitation_probability` over-reports rain vs. MET Norway and
+    wttr.in for their location (Amsterdam, 2026-05-02: Open-Meteo flagged 53-55% overnight rain,
+    others near zero, and Open-Meteo's own mm field agreed with the others). Requests a
+    user-selectable alternate provider; suggests MET Norway (free, no API key).
+  - The API already supports multiple providers via the `WeatherProviders` env var and a fallback
+    chain (see `api/src/TrmnlApi`), but that's operator-side fallback ordering, not a per-user
+    provider choice. Would need a user-facing provider selector (custom field) plumbed through
+    `polling_url`, plus a new provider implementation for MET Norway.
+
+- [ ] **Support for Fluid Mashup layouts** ([#7](https://github.com/lucaspimentel/trmnl-plugins/issues/7))
+  - TRMNL's new Fluid Mashup feature allows many more grid sizes (3x3 fluid grid) than the plugin's
+    current fixed layouts (`full`, `half_horizontal`, `half_vertical`, `quadrant` in
+    `plugins/weather/src/`). User provided screenshots showing cropping/overlap issues at 3x1, 1x1,
+    and 1x3 sizes on TRMNL X.
+  - Needs investigation into what Fluid Mashup requires (likely new/more responsive layout variants,
+    possibly using framework responsive utilities) — see also the existing TODO item above about
+    investigating new TRMNL framework features, which may be relevant here.
