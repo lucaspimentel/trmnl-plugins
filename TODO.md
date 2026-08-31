@@ -203,13 +203,23 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
 
 ## GitHub Issues (lucaspimentel/trmnl-plugins)
 
-- [ ] **Weather: abbreviated day option** ([#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1))
-  - User request: add an option to toggle day labels to abbreviated form for narrower screens.
-    On a BYOD Kindle PW 7th Gen (1448x1072), the full day label collides with the weather icon.
-  - Day labels are rendered in the daily forecast subview (`weather_daily_bars_vertical` in
-    `plugins/weather/src/shared.liquid`). Likely a new boolean custom field in
-    `plugins/weather/src/settings.yml` (e.g. `abbreviate_days`) plus a Liquid date-format change
-    (`%a` vs `%A`) in the template.
+- [x] **Weather: abbreviated day option (done 2026-08-31, shipped to prod)** ([#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1))
+  - An `Abbreviate Day Names` select in `plugins/weather/src/settings.yml` shortens `Wednesday` to
+    `Wed` in the daily forecast. Defaults to `no`, so an existing install sees no change. Reported
+    against a BYOD Kindle PW 7th Gen (1448x1072), where the full name ran into the weather icon.
+  - **It could not be done in the plugin alone**, which is the part worth remembering. A template
+    cannot read its own custom field, so a display-only setting still needs an API round trip: v2
+    parses `abbreviate_days` and echoes `meta.abbreviate_days`, exactly as `time_format` and
+    `show_place` already do, and the four layouts pass it into `weather_daily_bars_vertical`.
+  - v1 does not grow the key even when a caller passes the parameter. `Meta.AbbreviateDays` is
+    `bool?`, left null by v1 and dropped by `WhenWritingNull`; verified against both deployed
+    environments, not just in tests. `WeatherEndpointTests` pins it the way the `place` block is
+    pinned.
+  - Only literal `yes` enables it, so an install predating the setting (sending an empty value)
+    keeps full names rather than silently switching.
+  - **Still fixed-width.** `.day-label` remains 68px / 90px (`shared.liquid:71,73`), so this is an
+    escape hatch rather than a label that adapts to its screen. A BYOD size that fits neither width
+    is still a manual setting away from looking right; revisit if more reports arrive.
 
 - [ ] **Support additional weather data sources alongside Open-Meteo** ([#2](https://github.com/lucaspimentel/trmnl-plugins/issues/2))
   - User reports Open-Meteo's `precipitation_probability` over-reports rain vs. MET Norway and
