@@ -203,7 +203,11 @@ not the service failing.
 
 ## Verifying in Datadog
 
-After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trmnl-plugins`:
+After deploying, hit `/api/v2/forecast` a few times and confirm for `service:trmnl-plugins`.
+It has to be v2: half the tags listed above - `weather.input_kind`, `weather.error_code` and
+the whole resolved-place block - are v2 only, so exercising v1 produces a span that is missing
+most of what this list asks you to look for, which reads as broken instrumentation rather than
+as the wrong endpoint.
 
 - the same two-span tree as above
 - `aspnet_core.request` carrying the tags listed above, in particular `weather.cache_status`,
@@ -219,6 +223,22 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
   them.
 
 The cache-status distribution should agree with the counters `GET /metrics` already exposes.
+
+### The Synthetics check
+
+A Synthetics API test, `/api/v2/forecast` (`igj-j6r-px4`, monitor `281999601`), runs against
+production every 30 minutes from `aws:us-east-2` and `azure:eastus`. It asserts HTTP 200, a
+response time under 2s, and that the body contains `"fetched_at"`.
+
+Two things about it are easy to break from this repo without touching Datadog:
+
+- **The body assertion is a contract.** `"fetched_at"` lives in the v2 `meta` block. Renaming or
+  moving it fails the check.
+- **Every run is a deliberate cache miss.** `WeatherCacheOptions.FreshTtl` is 10 minutes and the
+  test ticks every 30, so the check never hits a warm entry and always pays a full upstream fetch.
+  That is what makes it a useful test of the provider path rather than of the cache, but it means
+  the 2s assertion is measuring upstream latency. If it starts flapping on response time, raise the
+  threshold or shorten the tick below `FreshTtl` - it is not by itself a regression.
 
 ## Logs
 
