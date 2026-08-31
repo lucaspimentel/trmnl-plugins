@@ -23,10 +23,13 @@ public record OpenMeteoCurrent(
     [property: JsonPropertyName("is_day")] int IsDay
 );
 
+// Upstream pads every series out to the requested range, so the tail entries are null
+// whenever its model horizon stops short of it. Nullable element types keep the whole
+// response from failing to deserialize; WeatherTransformer drops those entries.
 public record OpenMeteoHourly(
     [property: JsonPropertyName("time")] List<string> Time,
-    [property: JsonPropertyName("temperature_2m")] List<double> Temperature2m,
-    [property: JsonPropertyName("weather_code")] List<int> WeatherCode,
+    [property: JsonPropertyName("temperature_2m")] List<double?> Temperature2m,
+    [property: JsonPropertyName("weather_code")] List<int?> WeatherCode,
     [property: JsonPropertyName("precipitation_probability")] List<int?> PrecipitationProbability
 );
 

@@ -42,14 +42,21 @@ public class WeatherTransformer : IWeatherTransformer
         var entries = new List<HourlyEntry>();
         for (int i = startIndex; i < hourly.Time.Count; i++)
         {
+            // Same as daily: an hour past the model horizon arrives with nulls in place of
+            // numbers. Skip it rather than inventing a temperature or condition for it.
+            if (hourly.Temperature2m[i] is not double temperature ||
+                hourly.WeatherCode[i] is not int wc)
+            {
+                continue;
+            }
+
             var time = hourly.Time[i];
             var isDay = IsNightHour(time, daily) == false;
-            var wc = hourly.WeatherCode[i];
 
             entries.Add(new HourlyEntry(
                 Time: time,
                 Label: HourLabel.Format(time),
-                Temperature: (int)Math.Round(hourly.Temperature2m[i]),
+                Temperature: (int)Math.Round(temperature),
                 PrecipitationProbability: hourly.PrecipitationProbability[i] ?? 0,
                 IconClass: WmoCodeMap.GetIconClass(wc, isDay),
                 IsDay: isDay

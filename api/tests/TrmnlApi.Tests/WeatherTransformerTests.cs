@@ -180,4 +180,49 @@ public class WeatherTransformerTests
         Assert.Equal(46, result.Entries[1].High);
         Assert.Equal(0, result.Entries[1].PrecipitationProbability); // null probability defaults to 0
     }
+
+    // The hourly series is padded the same way as daily, so an hour past the model horizon
+    // arrives with nulls. It is dropped rather than failing the whole forecast.
+    [Theory]
+    [InlineData("temperature_2m")]
+    [InlineData("weather_code")]
+    public void Transform_Hourly_SkipsHoursWithNullValues(string missingField)
+    {
+        var hourly = new OpenMeteoHourly(
+            Time: ["2026-02-25T14:00", "2026-02-25T15:00"],
+            Temperature2m: [45.2, missingField == "temperature_2m" ? null : 44.0],
+            WeatherCode: [2, missingField == "weather_code" ? null : 0],
+            PrecipitationProbability: [20, 10]);
+
+        var result = WeatherTransformer.TransformHourly(hourly, "2026-02-25T14:00", EmptyDaily);
+
+        Assert.Single(result.Entries);
+        Assert.Equal("2026-02-25T14:00", result.Entries[0].Time);
+    }
+
+    // A fully-populated hour is unaffected by the null guard.
+    [Fact]
+    public void Transform_Hourly_KeepsHoursWithAllValuesPresent()
+    {
+        var hourly = new OpenMeteoHourly(
+            Time: ["2026-02-25T14:00", "2026-02-25T15:00"],
+            Temperature2m: [45.2, 44.0],
+            WeatherCode: [2, 0],
+            PrecipitationProbability: [20, null]);
+
+        var result = WeatherTransformer.TransformHourly(hourly, "2026-02-25T14:00", EmptyDaily);
+
+        Assert.Equal(2, result.Entries.Count);
+        Assert.Equal(44, result.Entries[1].Temperature);
+        Assert.Equal(0, result.Entries[1].PrecipitationProbability); // null probability defaults to 0
+    }
+
+    private static OpenMeteoDaily EmptyDaily => new(
+        Time: [],
+        Temperature2mMax: [],
+        Temperature2mMin: [],
+        WeatherCode: [],
+        PrecipitationProbabilityMax: [],
+        Sunrise: [],
+        Sunset: []);
 }
