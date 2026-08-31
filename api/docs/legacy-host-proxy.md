@@ -177,10 +177,22 @@ directly rather than leaning on an integration run nobody can currently perform.
    <br>`fake=true` turned out to be useless as a live probe: the origin returns the same body with
    and without it, so it distinguishes nothing. The test that catches a rebuilt query string is the
    real guard.
-3. **Deploy to production, then watch the result-code mix.** It should stay 200/400/499 in the same
-   proportions. A shift means the proxy is failing something the old implementation handled.
-4. **Then, and only then**, the decommission item in `TODO.md` becomes reachable: what remains is a
-   thin forwarder rather than a second implementation of a frozen contract.
+3. ~~**Deploy to production, then watch the result-code mix.**~~ Done 2026-08-31. The mix did not
+   move across the cutover - 200s held at 19-34 per ten minutes, 400s at the familiar ~10, a
+   handful of 499s, and no error class appeared that was not there before. No gap and no spike, so
+   the forked installs kept getting answers straight through the swap. Parity against the origin
+   held too: 200/400/400/200 across a valid request, a missing parameter, an empty query and an
+   explicit `provider=pirate-weather`, with 25 hourly and 6 daily entries and ~135-161ms latency.
+   <br>**The test that settled whether the proxy was live is `meta.time_format`**, which the current
+   host's v1 adds and the old implementation never had. Reach for that rather than the deployment
+   status, which was unreadable at the time. `/api/v1/screen` returning 404 was tried as a signal
+   first and is worthless: it had no traffic to begin with, so there was no baseline to compare to.
+4. **Now reachable:** the decommission item in `TODO.md`. What remains on the old host is a thin
+   forwarder rather than a second implementation of a frozen contract.
+   <br>Two things to clear while here. The **staging copy** of the old host can be deleted outright -
+   it has no traffic and now runs a proxy nobody calls. And the **once-a-minute caller** is still
+   sending invalid parameters, unchanged through the cutover at ten per ten minutes; it is a quarter
+   of the load on a host being retired, and it is now the largest single thing left to remove.
 
 ## Configuration
 
