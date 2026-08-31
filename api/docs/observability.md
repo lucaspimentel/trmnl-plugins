@@ -180,7 +180,6 @@ numeric-looking ones, so they stay facets rather than measures.
 | `weather.requested_provider` | provider asked for (or the configured default) |
 | `weather.winning_provider` | provider that actually served |
 | `weather.cache_status` | `fresh_fetch`, `fresh_hit`, `stale_served`, or `all_failed` |
-| `weather.fallback` | `true` when the winning provider is not the requested one |
 | `weather.age_seconds` | age of the served data |
 | `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
 | `weather.input_kind` | v2 only: `coordinates`, `place`, `missing`, or `invalid` |
@@ -208,7 +207,7 @@ After deploying, hit `/api/v1/forecast` a few times and confirm for `service:trm
 
 - the same two-span tree as above
 - `aspnet_core.request` carrying the tags listed above, in particular `weather.cache_status`,
-  `weather.winning_provider`, `weather.fallback`, and `weather.coord`
+  `weather.winning_provider`, and `weather.coord`
 - `weather.coord` agreeing with `weather.latitude` and `weather.longitude` on the same span, since
   a disagreement would make distinct-location counts wrong rather than merely noisy
 - no `weather.*` coordinate finer than one decimal place, and no `http.url_details.queryString.*`

@@ -46,7 +46,6 @@ public class WeatherForecastOrchestrator(
     private const string TagRequestedProvider = "weather.requested_provider";
     private const string TagWinningProvider = "weather.winning_provider";
     private const string TagCacheStatus = "weather.cache_status";
-    private const string TagFallback = "weather.fallback";
     private const string TagAgeSeconds = "weather.age_seconds";
     private const string TagFirstFailureStatus = "weather.first_failure.status";
     private const string TagFirstFailureError = "weather.first_failure.error";
@@ -175,7 +174,6 @@ public class WeatherForecastOrchestrator(
     {
         span?.SetTag(TagWinningProvider, outcome.WinningProvider);
         span?.SetTag(TagCacheStatus, outcome.CacheStatus);
-        span?.SetTag(TagFallback, outcome.WinningProvider != outcome.RequestedProvider ? "true" : "false");
         span?.SetTag(TagAgeSeconds, (timeProvider.GetUtcNow() - outcome.FetchedAt).TotalSeconds.ToString("F0", CultureInfo.InvariantCulture));
         if (outcome.Upstream is { } u)
         {
