@@ -102,3 +102,9 @@ dotnet run --project api/src/TrmnlApi             # local run (http://localhost:
 ```bash
 op item get trmnl --fields label=TRMNL_DEVICE_ID,label=TRMNL_DEVICE_API_KEY --reveal
 ```
+
+## Local Environment Notes
+
+- **Keep code host-agnostic.** Don't name the deployment host (Railway, Azure, etc.) in source code, comments, or CI config — describe what the code/step does, not where it runs. The API has already moved hosts once, so host names in code go stale. Host-specific detail belongs in `api/docs/` and CLAUDE.md. Exception: a genuine host-specific mechanism the code must implement (e.g. reading an injected `PORT` env var) can name the host.
+- **Container runtime is Podman, not Docker Desktop.** `docker.exe` is a winget shim talking to `npipe:////./pipe/docker_engine`, served by Podman. If a `docker` command fails with "failed to connect to the docker API at npipe:////./pipe/docker_engine", run `podman machine start` (machine name `podman-machine-default`); `DOCKER_HOST` doesn't need to be set. `podman machine stop` shuts it down.
+- **Railway secrets are sealed and write-only.** Sealed variables (e.g. `DD_API_KEY`) are absent from `railway variables --json`, the MCP `list-variables` output, and the dashboard — that's the point, not a bug. Never conclude a variable is unset just because a listing omits it; verify by behavior instead (deployment logs showing auth success/failure). When setting a sealed value, pipe it straight from `op item get ... --reveal` into `railway variables --set` so it never appears in the transcript.
