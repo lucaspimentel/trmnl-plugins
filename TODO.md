@@ -7,14 +7,30 @@ Ordered by impact-to-effort ratio (highest first). **Note:** most of these were 
 API still ran on Azure Functions (Consumption plan). It now runs as a single always-on container,
 so items whose premise was instance fragmentation or Functions-specific hosting are annotated below.
 
-- [ ] **Decommission the leftover Azure resources**
-  - The hosting migration is complete and all device traffic is served by the container host, but the
-    old Azure resources were deliberately kept as the rollback target and are still running: the
-    `trmnl-plugins-api` and `trmnl-plugins-api-staging` Function Apps, their Application Insights
-    resources, and their storage accounts. Delete them once the current setup has proven stable.
+- [ ] **Decommission the leftover Azure resources** (unblocked 2026-08-31)
+  - The hosting migration is complete and all device traffic is served by the container host. What
+    still runs on Azure is the `trmnl-plugins-api` Function App, now a **thin forwarder** rather
+    than a second implementation of frozen v1 - see `api/docs/legacy-host-proxy.md`. Also still
+    standing: `trmnl-plugins-api-staging`, both Application Insights resources, and both storage
+    accounts.
+  - **Exit condition, stated exactly:** delete the prod app when `weather.via_legacy_host:1` goes
+    quiet in Datadog. That tag is set by `DD_TRACE_HEADER_TAGS=x-legacy-proxy:weather.via_legacy_host`
+    on the receiving service and is the only place fork traffic can be counted, since the old host
+    strips query strings and client IPs. Search the tag name, not the header name.
+  - **Deletable now, no waiting:** `trmnl-plugins-api-staging`. It has no traffic and runs a proxy
+    nobody calls.
+  - **Still open and now the largest single thing left:** the once-a-minute caller sending invalid
+    parameters, unchanged through the cutover at ~10 per ten minutes, roughly a quarter of the load
+    on a host being retired. Ruled out already: App Insights availability tests and a Function App
+    healthcheck. Find it and stop it.
+  - Low priority, but unresolved: **the proxy has never run end to end on a developer machine.**
+    `func start` and `dotnet run` both die with an `Unavailable` gRPC handshake error; the cause is
+    genuinely unknown and two earlier explanations were guesses that did not hold. Only worth time
+    if the proxy ever needs a change.
   - The repo side is already clean: the Azure-App-Service Datadog configs
     (`dd-appsettings.{production,staging}.json`), the Azure Functions VS Code extension
-    recommendation, and the leftover `TrmnlApi.Functions` namespace have all been removed.
+    recommendation, and the leftover `TrmnlApi.Functions` namespace have all been removed. The
+    forwarder lives in `legacy-proxy/`.
 
 - [ ] **P1 — Shared L2 cache** (largely superseded; now a contingency)
   - Original premise: `WeatherCache` uses `IMemoryCache` (per-process), and on a multi-instance Consumption plan the cache was cold most of the time, neutralizing the 3h `StaleTtl` defense. Migrating to a single always-on container fixed the fragmentation directly, so the L2 cache is no longer the main lever.
@@ -103,39 +119,65 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - No alerting today on dependency rate-limiting. The 2026-08-19 double-429 was found reactively via `meta.upstream` on `stale_served` responses, not by an alert.
   - Add a monitor/alert on 429 response rates (and upstream failure rates generally) for both providers so quota exhaustion or upstream outages are caught before users see 502s.
   - **Unblocked as of 2026-08-24:** APM is live in both environments, so the upstream provider calls now arrive as `http.request` spans carrying `http.status_code` and `out.host`, which is what a monitor would key on. Alert on those rather than on `GET /metrics`, whose counters reset every restart.
+  - **Do not key any of this on the API's own status code.** v2 answers every device-visible failure with HTTP 200 and a renderable body, so a 5xx from v2 now means the API itself broke, not that the weather did. Error rate and error tracking read the span's error tags, which are set independently of the status. Any alerting carried over from v1 status codes has to be rewritten against those tags.
 
-- [ ] **Turn the old Azure app into a reverse proxy in front of the current host**
-  - **Why this and not deletion.** Measured 2026-08-30 in App Insights (`trmnl-plugins-api`, appId
-    `5fe1c4c9-ec05-4247-b4ed-a677706c844c`): 5,893 requests in 24h, and the successful ones carry
-    Sentry baggage with `sentry-environment=production`, one `sentry-public_key` and 4 distinct
-    `sentry-release` SHAs. TRMNL fetches `polling_url` server-side, so that is its production backend
-    polling on behalf of forked installs. Deleting the app breaks real users who cannot update their
-    plugin. This item therefore **blocks** "Decommission the leftover Azure resources" above.
-  - **A proxy, not a redirect.** `trmnl-plugins-api.azurewebsites.net` is a Microsoft-owned hostname
-    and cannot be pointed elsewhere by DNS, so something in Azure has to keep answering either way. A
-    3xx would bet every forked install on the TRMNL poller following redirects, which is unverified.
-    Forward server-side and return 200 instead, so no client behaviour is assumed.
-  - **The responses already agree.** Compared live 2026-08-30 with identical parameters: same
-    top-level keys, same hourly and daily entry counts. The only difference is that the current host
-    adds `meta.time_format`, which Azure lacks. Additive, so a v1 caller reading specific keys will
-    not notice. See the frozen-v1 rule in `CLAUDE.md`.
-  - **What it buys:** one implementation of frozen v1 instead of two that can drift; the Azure app
-    stops making its own upstream provider calls, which is roughly a doubling of quota consumption
-    currently paid for twice (see the Pirate Weather item below); and that traffic becomes visible in
-    Datadog instead of only App Insights.
-  - **What it costs:** reintroducing an Azure deployment path this repo deliberately deleted in
-    `c9a4dc8` - no Azure or Functions files remain. `azure-functions-core-tools` (`func`) is the tool
-    for that redeploy. Also roughly +60% request load onto the single Railway replica, which the `F2`
-    grid cache should absorb since it is the same coordinates.
-  - **Do this cheap thing first:** 1,439 of those 24h requests are 400s arriving at **exactly 60 per
-    hour**, one per minute, with no Sentry headers. Ruled out: there are no App Insights availability
-    tests, and the Function App has no `healthCheckPath` (`alwaysOn: false`, Dynamic SKU). So it is an
-    external once-a-minute caller sending invalid parameters - most likely a forgotten uptime monitor.
-    That is 25% of the load on a host being retired; find and stop it before building anything.
-  - **Known gap:** the number of distinct installs is unmeasurable from App Insights, because query
-    strings are not logged (`EnableQueryStringTracing: false`) and `client_IP` is `0.0.0.0`. Early
-    readings of `distinct_ips: 1` and `distinct_queries: 1` were artifacts of that stripping, not
-    findings. Routing through the proxy closes this gap by putting the traffic into Datadog.
+- [x] **Turn the old Azure app into a reverse proxy in front of the current host (done 2026-08-31)**
+  - Shipped: `legacy-proxy/` forwards `/api/v1/forecast` from `trmnl-plugins-api.azurewebsites.net`
+    to the current host and returns 200, rather than redirecting - a 3xx would have bet every forked
+    install on the TRMNL poller following redirects, which is unverified. `/api/v1/screen` is gone.
+    Full write-up in `api/docs/legacy-host-proxy.md`.
+  - Staging first, then production. The result-code mix did not move across the cutover, so the
+    forked installs kept getting answers straight through the swap. **`meta.time_format` is the test
+    for whether the proxy is live**, not the deployment status.
+  - What it bought: one implementation of frozen v1 instead of two that can drift, the old host no
+    longer making its own upstream provider calls, and that traffic finally visible in Datadog
+    through `weather.via_legacy_host`.
+  - What it cost, deliberately accepted: the old host was an accidental hot standby with its own
+    cache and credentials, and is not one any more. Also, a proxied request costs *more* per request
+    than serving from the old host's own cache, not less.
+  - The once-a-minute invalid-parameter caller was **not** found and is carried forward on the
+    decommission item above.
+
+## Geographic data & place input
+
+Open items from `api/docs/geographic-telemetry.md` and `api/docs/place-input.md`. The datasets ship
+and both environments are pinned to `geo-data-20260829`; what is left is a measurement, a deferred
+data fix, and an ongoing maintenance chore.
+
+- [ ] **Read `weather.geocoder` on a full week of traffic, then delete `OpenMeteoGeocodingClient`**
+  - This is the last step of the geo rollout and the whole point of the exercise: a quiet
+    `open-meteo` count in the `ForecastServed` logs is what licenses removing the vendor geocoder
+    (`api/src/TrmnlApi/Services/OpenMeteoGeocodingClient.cs`), which is still wired in as the
+    fallback for a local miss. Do not delete it before the reading.
+  - Unlike the `hint=` reading, which was binary and was taken early, this one is a *rate* question
+    and wants the full week.
+  - Deleting it saves code and a failure mode, **not money**: geocoding is included in the
+    Open-Meteo weather subscription already being paid for.
+
+- [ ] **Fix the stripped-punctuation postal collisions (deferred, needs a full dataset cycle)**
+  - `GeoText.NormalizePostal` removes spaces and hyphens, so Poland's `02-180` and a US `02180`
+    collapse to one key. Poland, Japan, Portugal, Brazil, Czechia, Slovakia and Sweden punctuate
+    **100%** of their codes, so every one of them collides with a bare code nobody would confuse it
+    with. It is 5.3% of US ZIP collisions; the other 82% are genuine and unavoidable.
+  - The fix is a raw-code column on `postal`, a `GeoSchema.Version` bump to 3, a dataset rebuild, a
+    new GitHub release, and a re-pin of `GEO_DATA_URL`/`GEO_DATA_SHA256` on both environments - a
+    full cycle for a twentieth of the problem, which is why the country-hint work went first.
+  - The time-zone hint makes it **more** visible, not less: a Polish user typing `02-180` with no
+    time zone now loses to the US+EU home region where they used to win on Warsaw's population.
+
+- [ ] **Refresh `api/src/TrmnlApi.Geo/zone.tab` when a new IANA tzdb release lands** (currently
+  **2026c**)
+  - Nothing will tell you it has gone stale. The only thing that would notice a bad copy is
+    `TimeZoneCountryTests.TheEmbeddedTableLoads`.
+  - Recurring chore rather than a project; check it whenever the geo dataset is rebuilt anyway.
+
+- [ ] **Retire `/api/v1/forecast` when fork traffic stops**
+  - v1 is frozen, not dead code, and retires when its traffic stops rather than on a schedule (see
+    `CLAUDE.md`). Every non-forked install has moved to v2, so whatever still reaches v1 is fork
+    traffic by definition.
+  - Now measurable for the first time: fork traffic arriving through the old host carries
+    `weather.via_legacy_host:1`. Same signal as the decommission item above, and the two retire
+    together.
 
 ## Weather display & accuracy
 
@@ -200,6 +242,24 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
   - Related: the fixed `BreakDuration` on the circuit breaker cannot express "come back next month",
     which is the `Retry-After` case deliberately left in the pocket above. A monthly quota 429 is the
     scenario that would justify taking it out.
+
+- [ ] **`GET /health` traces are no longer filtered out**
+  - `DD_APM_IGNORE_RESOURCES` dropped them on the full agent; the compat agent now in use has no
+    equivalent, so the healthcheck's own spans arrive with `status: ok` and no `weather.*` tags.
+  - The only lever left is a tracer-side sampling rule on the resource, which loses them entirely
+    rather than merely un-indexing them. Noise and ingest cost, not a correctness problem - decide
+    whether it is worth the tradeoff.
+
+- [ ] **Possible carve-out: return a non-2xx for `weather_unavailable` only**
+  - v2 answers every device-visible failure with HTTP 200 and a renderable body, deliberately:
+    `place_missing`, `place_invalid` and `place_not_found` are persistent by construction, so a
+    status code would walk the plugin into TRMNL's degraded state and demand a manual reset.
+  - `weather_unavailable` is the one exception - genuinely transient and rare - so a status code
+    there would let TRMNL keep the last good forecast instead of replacing it with a message. Left
+    out of the original design because it buys one code and costs a second render path.
+  - **Whether TRMNL parses the body of a non-2xx at all is undocumented and unverified.** If this is
+    ever revisited, test it on a scratch plugin and on real hardware; `trmnlp serve` has already
+    proven to differ from a device on custom field resolution.
 
 ## GitHub Issues (lucaspimentel/trmnl-plugins)
 
