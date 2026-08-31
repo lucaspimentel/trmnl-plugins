@@ -189,11 +189,90 @@ data fix, and an ongoing maintenance chore.
   - "Adjust layout accordingly" is the meatier part: when one or two subviews are disabled, the remaining view(s) should expand to fill the freed space rather than leave a gap — e.g. with only current+hourly enabled, the hourly chart should widen to full width; with only daily enabled, the daily bars should span the whole screen. Likely needs per-combination layout branches (or a flex container that reflows) and may require touching the Highcharts `chart_height`/width and the daily bars' vertical-vs-horizontal orientation.
   - Consider which layouts make sense for each combination (full vs half vs quadrant) and whether to gate some combinations as invalid.
 
-- [ ] **Investigate new TRMNL framework features and assess what could improve the weather plugin**
-  - The TRMNL UI framework is now open-source at https://github.com/usetrmnl/trmnl-framework ("TRMNL ePaper design system", a Rails engine), with updated docs at https://trmnl.com/framework. The plugin currently pins `framework_version: 2.3.7` in `plugins/weather/src/settings.yml`.
-  - Research scope: review recent framework releases/commits (the repo went open-source ~2026-08, latest commits reference a 3.x line and a 3.2.0 re-cut) and the updated docs (Guides, Arrangement, Responsive utilities, Styling, Typography, Runtime, Paint, Sass, Themes, Variables, Foundation, Elements, Components) for new components/utilities that the weather plugin could adopt.
-  - Candidate areas to evaluate: anything that simplifies the current hand-rolled layout work in `plugins/weather/src/{full,half_horizontal,half_vertical,quadrant}.liquid` and `shared.liquid` (e.g. better responsive utilities, arrangement primitives, or chart/data-viz helpers), new runtime features relevant to the Highcharts hourly chart, and whether bumping `framework_version` is safe/worthwhile. Cross-reference against the existing subview-toggle task (current/hourly/daily enable/disable + layout adjustment) since new layout primitives could make that work easier.
-  - Output: a short findings note (here or in a follow-up set of TODO items) of concrete, actionable improvements.
+- [x] **Investigate new TRMNL framework features and assess what could improve the weather plugin (done 2026-08-31)**
+  - Surveyed release notes 3.0.0 through 3.3.0 and `docs/V4_BREAKING.md` in the now-open-source
+    framework (cloned at `D:\source\usetrmnl\trmnl-framework`; the notes live in
+    `public/framework/releases/`, which is the only complete changelog - there is no `CHANGELOG.md`
+    and GitHub carries a release entry for 3.3.0 only).
+  - **The plugin is now on `framework_version: 3.2.0`, not 2.3.7.** 3.3.0 is the true latest but is
+    **unusable**: the `trmnl_preview` gem allowlists framework versions in
+    `db/data/framework_versions.yml` and stops at 3.2.0 even at its newest published release
+    (0.11.0, which CI pins), so `serve`/`build` die with `unknown framework version: 3.3.0`.
+    `trmnlp lint` does *not* check this, so lint passing proves nothing here. Re-try 3.3.0 when the
+    gem ships a version whose list includes it.
+  - **What actually moved on screen, measured by rendering the same data at 2.3.7 and at 3.2.0**
+    (`trmnlp build --png`, OG 1-bit): the title bar's background dither got lighter and finer, its
+    border went from crisp to nearly invisible, and text renders a shade lighter. All three trace to
+    3.2.0 rebuilding borders/outlines and color patterns from image tiles to generated vector art,
+    on top of the known 14-step dither rescale. Nothing broke; `bg--gray-30` on the daily bars is
+    the one deliberate shade shift (25% -> 31.25% lightness; `bg--gray-25` restores the old look).
+  - **The one thing the preview cannot answer, and the reason to look at a real OG device:**
+    3.1.0 flipped the implicit low-density font bundle from Classic to the TRMNL pixel fonts
+    (TRMNL12/16/21), so an OG screen changes typeface on this bump. `trmnlp` renders the same face
+    at both versions, so preview is blind to it. **A plugin cannot opt out**: the escape hatch is
+    `screen--fonts-classic` on the *screen root*, which TRMNL emits and a plugin's Liquid renders
+    inside of. High-density (TRMNL X) is unaffected and stays on Inter Variable.
+  - Deprecation sweep against the templates came back nearly clean: no `font--*`, no numbered
+    `border--h-{1..7}`, no `divider--on-*`, no `gap--space-between`, no `dark:`. All three
+    `text-stroke--*` uses already pair with the base `text-stroke` class, which is the contract V4
+    unifies on. Only `shrink-0` (8 uses) is unsettled upstream - `no-shrink` vs `shrink-0`, one of
+    the two goes - and there is nothing to do until they decide.
+
+- [ ] **Adopt `TRMNLCharts` for the hourly chart (the biggest single win from 3.2)**
+  - `TRMNLCharts` ships *inside* the framework runtime and wraps Highcharts over `TRMNLPaint`, so a
+    chart resolves its own colors, patterns, typography and pixel sizes from whatever the screen is
+    now. `weather_hourly_chart` hardcodes all of that by hand: `#000` axis and line colors, an
+    `isLg` JS flag switching margins and font sizes, and two absolute pattern-image URLs
+    (`https://trmnl.com/images/grayscale/gray-{4,7}.png`, `shared.liquid:298,333-334`) that are
+    frozen raster assets outside the framework's version pin entirely.
+  - The API to build against: `TRMNLCharts.options({el})` / `.merge()` for adaptive Highcharts
+    defaults, `.paint(token, {el})` for a framework color as a flat fill or a dither pattern,
+    `.grid()` / `.axisLine()` for axis furniture, `.textStyle(role, {el})` for SVG text, and
+    `.watch(el, buildFn)` to rebuild when device, scale, dark mode or theme changes. Highcharts
+    still takes plain numbers that do not follow device scale, so run heights, margins, line widths
+    and label offsets through `TRMNLPaint.px()` *inside* the `watch` callback.
+  - **Also retires linter workarounds, which is why it is worth more than it looks.** The computed
+    property keys (`['mar'+'gin']`, `['pad'+'ding']`) exist only to dodge the recipe linter's raw
+    substring count; if the adaptive defaults supply the margins, the hand-written keys go with them.
+  - Two cautions: disable chart animation or the screenshot service can capture a half-drawn chart,
+    and the docs' own convention is that the container id starts with `chart-`, while this plugin
+    generates `hourly-chart-<random>`. `_chart.scss` matches `[id^="chart-"]`, so the current id
+    misses those rules - worth renaming while in here.
+
+- [ ] **Replace the hand-rolled row limits with the Content Limiter engine**
+  - Three layouts hide daily rows with a hardcoded CSS rule - `quadrant.liquid:2`
+    (`.screen--md .daily-row:nth-child(n+2)`), `half_vertical.liquid:2` (`n+5`) and
+    `half_horizontal.liquid:4` (`n+4`) - on top of a hardcoded `num_days` passed into
+    `weather_daily_bars_vertical`. That is three copies of a per-screen-size guess at how many rows
+    fit, and it is guessing rather than measuring.
+  - `data-list-limit="true"` with `data-list-max-height` measures the real available space and fits
+    what fits. One rule replaces three, the counts stop being per-layout constants, and it adapts to
+    screen sizes nobody enumerated - which is exactly the BYOD and fluid-mashup case below.
+
+- [ ] **Make the daily-forecast column widths proportional instead of fixed pixels**
+  - `.day-label` is 68px / 90px and `.temp-label` 34px / 44px (`shared.liquid:71-74`), fixed per
+    screen size. This is the root of GitHub [#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1):
+    the abbreviated-day setting shipped as an *escape hatch* for a BYOD Kindle where the full name
+    ran into the icon, rather than a label that adapts.
+  - Container query units are the fix and the plugin already uses them - `full.liquid:8,12` carries
+    `w--[64cqw]` / `portrait:w--[75cqw]`. The full set is `w--[Ncqw]`, `h--[Ncqh]` plus
+    `w--min-`/`w--max-`/`h--min-`/`h--max-` forms, they take responsive prefixes, and the context is
+    established by `.layout` itself (`container-type: size`), so they resolve correctly inside a
+    mashup cell where the slot size is not knowable in advance.
+
+- [ ] **Free the linter budget by moving the marker off its padding shim (needs 3.3)**
+  - The ▼ current-temperature marker is aligned over the first day's bar with a padding shim -
+    `.marker-pad` at `shared.liquid:75` plus an inline `padding-left:148px; padding-right:40px` at
+    `shared.liquid:406`. Measured: those four `padding` substrings are **4 of the recipe linter's
+    budget of 6**, and they are the only four the plugin spends. Every future style has to fit in the
+    remaining two.
+  - 3.3's Position utilities (`relative`, `absolute`, `inset--{size}`, `top/right/bottom/left--{size}`,
+    `z--0`..`z--3`) are the intended replacement. **Only a partial win, so do not oversell it**: the
+    offsets ride the spacing scale and explicitly do not accept `[Npx]` or a percentage, and the
+    marker's position is a computed percentage, so an inline `left:{{ pct }}%` stays. What goes is the
+    padding shim. Note also that positioned elements are skipped by the terminalize measuring passes
+    (clamp, fit-value, content-limiter), so anything moved out of flow has to carry its own sizing.
+  - Blocked on the same gem-allowlist problem as the 3.3 bump above.
 
 - [x] **Improve cross-user cache dedup for nearby coordinates (closed — already implemented at the only workable granularity)**
   - **This already works.** `WeatherCache.CacheKey` (`api/src/TrmnlApi/Services/WeatherCache.cs:30-31`) formats the coordinates with `:F2`, which *rounds* rather than truncates, so the cache is keyed on a 0.01 deg grid: roughly 1.1 km north-south, and about 0.8 km east-west at 42 deg N. Two requests anywhere inside the same cell (e.g. `42.3649` and `42.3601`) already collapse to one entry and one upstream call. The item was originally written as if no dedup existed; it does.
@@ -368,6 +447,20 @@ data fix, and an ongoing maintenance chore.
     current fixed layouts (`full`, `half_horizontal`, `half_vertical`, `quadrant` in
     `plugins/weather/src/`). User provided screenshots showing cropping/overlap issues at 3x1, 1x1,
     and 1x3 sizes on TRMNL X.
-  - Needs investigation into what Fluid Mashup requires (likely new/more responsive layout variants,
-    possibly using framework responsive utilities) — see also the existing TODO item above about
-    investigating new TRMNL framework features, which may be relevant here.
+  - **Investigated 2026-08-31, and the answer is better than feared: there are no new layout files
+    to write.** Fluid Mashup is `mashup--3x3`, a 3x3 CSS grid whose cells are placed with
+    `mashup-cell--col-{1..3}` / `--col-span-{1..3}` / `--row-{1..3}` / `--row-span-{1..3}`
+    (`app/assets/stylesheets/framework/base/_mashup.scss:156-216` in the framework clone). A plugin
+    still supplies the same four views; core wraps the chosen one in a `.mashup-cell`.
+  - **The cause of the reported cropping is now nameable.** A view inside a cell always fills the
+    cell, and `w--*` / `h--*` utilities on it are **ignored** - the cell, not the view, owns the
+    size. So every fixed pixel width and every `nth-child` row cutoff in this plugin is a guess made
+    against a size that no longer holds, and at 3x1 or 1x3 the guess is simply wrong.
+  - Which means this issue is mostly the same two fixes as the items above: proportional widths via
+    container query units, and the Content Limiter measuring rows instead of a hardcoded count.
+    `.layout` sets `container-type: size` inside a mashup cell exactly as it does in a full view, so
+    `cqw`/`cqh` units resolve against the real slot. Do those two first, then re-test the reported
+    3x1 / 1x1 / 1x3 sizes before designing anything mashup-specific.
+  - One detail to know when testing: a cell always gets the compact title bar
+    (`_title_bar.scss:131-144` matches `.mashup-cell .title_bar`), regardless of which view class
+    the plugin supplied.
