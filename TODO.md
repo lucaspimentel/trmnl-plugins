@@ -218,23 +218,44 @@ data fix, and an ongoing maintenance chore.
   - **Correction to an earlier claim in this item:** the `Datadog.Trace` package does *not* set `CORECLR_PROFILER` for you. It is the manual instrumentation API only, so without a separate install there would be one span per trace and no HTTP spans either side. The `Datadog.Trace.Bundle` package would also work but was rejected: its nupkg is ~176MB and copies every runtime identifier into the publish output.
   - Three things cost real time and are worth remembering. The agent does not listen on the injected `PORT`, so its deploy hangs and, with `restartPolicyType: NEVER`, the previous container keeps serving, making a config change look like it had no effect. A sealed variable cannot be copied between environments, since the value is unreadable by design, so syncing one produces a variable that is present by name but empty. And the tracer reports `runtime_metrics_enabled: true` by default, contrary to the documented default.
 
-- [ ] **Exercise the fallback path while Pirate Weather has quota (trace coverage is still unproven)**
-  - **Corrects the earlier wording of this item, which was wrong on its premise.** It said the
+- [x] **Exercise the fallback path while Pirate Weather has quota (done 2026-08-31 — trace coverage confirmed)**
+  - **Result: the fallback is fully legible in APM.** Forced by setting `OPEN_METEO_API_KEY` to a
+    junk value on staging, which sends `OpenMeteoClient` to `customer-api.open-meteo.com` and earns
+    a 400 `"The supplied API key is invalid."` One trace (`6a95a7c2000000006ab8f4ae280da5af`)
+    contained all five spans: the entry `GET /api/v2/forecast` at `status: ok` / 200, the **failed**
+    `GET customer-api.open-meteo.com/v1/forecast` at `status: error` / 400, the successful
+    `GET api.pirateweather.net/...` at 200, and the two geo SQLite lookups.
+  - The tag pair reads exactly as the item asked: `weather.requested_provider: open-meteo` vs
+    `weather.winning_provider: pirate-weather`, with `weather.first_failure.status: 400` and
+    `first_failure.error` carrying the upstream message. `meta.upstream` matched on the response.
+    A control request with `provider=pirate-weather` showed the tags *agreeing* and no
+    `first_failure`, so the disagreement is a real signal and not an artifact.
+  - **The 400 produced exactly one open-meteo span, not three.** `ShouldRetry` only retries 408/5xx,
+    so an invalid key fails on the first attempt. Worth knowing: a fault injected this way does
+    **not** exercise the retry path, and it does not trip the breaker either (its default predicate
+    ignores 400), so the circuit was left closed and no cleanup was needed.
+  - Cost: two staging redeploys. `OPEN_METEO_API_KEY` was restored from the 1Password item
+    `open-meteo api key` and verified against the customer API *before* it was overwritten.
+    **The seal survived the round trip and there was nothing to restore by hand.** Sealed means
+    write-only, not write-once: a CLI/API write updates the value and the variable stays sealed,
+    confirmed afterwards by its continued absence from the value listing.
+  - Finding this needed one thing nobody had written down: **sealed variables are missing from
+    `railway variables` and from the MCP `list-variables` output entirely, but their names *do*
+    appear in `get-service-config`'s `variableNames`.** That is the way to prove a sealed variable
+    exists rather than guessing from behavior.
+  - Not done, and still open below: the monthly-cap question this item also raised.
+
+- [ ] **Decide whether the Pirate Weather monthly cap makes the fallback best-effort**
+  - **Corrects an earlier wording of this item, which was wrong on its premise.** It said the
     Pirate Weather key was shared with the old Azure prod/staging apps. It never was: Pirate Weather
     has always had its own key. The 429s were the plan's **monthly request cap** being reached, which
     makes this a capacity question rather than a key-provisioning one. The distinction matters
     because the wrong version made the fix sound like a one-time five-minute chore.
   - **Not currently rate limited.** A production request with `provider=pirate-weather` on 2026-08-30
     returned `provider=pirate-weather`, `cache=fresh_fetch`, `upstream=null` - a clean upstream call,
-    not a fallback. So the path is testable right now, and that window closes again whenever the cap
-    is next hit.
-  - What is still open is the original goal: the provider-fallback path has never been exercised
-    end to end against a real upstream failure, so its **trace coverage is unproven**. Force a
-    failure of the first provider and confirm the fallback shows up correctly in APM. Note
-    `weather.fallback` was removed on 2026-08-30, so the check is that
-    `weather.requested_provider` and `weather.winning_provider` disagree on the span, plus
-    `meta.upstream` on the response.
-  - **The open question this raises.** If a monthly cap is reachable at all, `pirate-weather` is
+    not a fallback. Still true on 2026-08-31, when the fallback test above drove several real
+    pirate-weather calls without hitting a cap.
+  - **The open question.** If a monthly cap is reachable at all, `pirate-weather` is
     absent as a fallback for whatever part of the month follows it - exactly when an open-meteo
     outage would need it. Worth deciding deliberately: raise the tier, or accept that the fallback
     is best-effort and say so. Recheck whether the cap is actually being hit each month before
