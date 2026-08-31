@@ -4,13 +4,13 @@
 </style>
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
-  <div class="flex portrait:flex--col gap--[16px] lg:gap--large" style="flex:1;">
+  <div class="flex portrait:flex--col gap--[16px] lg:gap--large" style="flex:1; min-height:0;">
     <div class="flex flex--col flex--stretch-x flex--between gap--none pt--8 lg:pt--12 w--[64cqw] portrait:w--full">
       {% render "weather_current", current: current %}
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 230, time_format: meta.time_format %}
     </div>
-    <div class="flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none w--[36cqw] portrait:w--[75cqw] portrait:flex-auto">
-      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, num_days: daily.entries.size, current_temp: current.temperature, abbreviate_days: meta.abbreviate_days %}
+    <div class="flex flex--col flex--stretch-x pt--4 lg:pt--6 pr--1.5 pb--4 lg:pb--8 gap--none w--[36cqw] portrait:w--[75cqw] portrait:flex-auto" style="min-height:0;">
+      {% render "weather_daily_bars_vertical", daily_entries: daily.entries, current_temp: current.temperature, abbreviate_days: meta.abbreviate_days %}
     </div>
   </div>
   {% elsif error %}

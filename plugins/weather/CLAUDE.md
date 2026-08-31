@@ -200,7 +200,14 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 
 Every layout passes `time_format: meta.time_format` to `weather_hourly_chart` and `title_bar` so rendered times follow the `time_format` setting.
 
-Daily bars per layout: `full` follows the `days` setting (up to 14, fewer if Pirate Weather serves the response), `half_horizontal` 4, `half_vertical` 5, `quadrant` 3 (no hourly chart) — the latter three are hardcoded to fit their smaller layout space and don't scale with `days`.
+Daily bars per layout: every layout renders all `days` entries (up to 14, fewer if Pirate Weather serves the response) and a script at the end of `weather_daily_bars_vertical` hides the rows that do not fit. Nothing is hardcoded per layout any more: it measures the column, then hides one row at a time from the bottom and measures again until the last visible row is inside. Today's row always stays, since it carries the current-temperature marker.
+
+Two things that keep the measurement honest, and that will silently break it if removed:
+
+- `.daily-row` carries `shrink-0`. A flex column shrinks its children by default, so without it the rows squash to fit instead of overflowing and there is nothing to measure.
+- The fit runs with `justify-content: flex-start` applied inline, then clears it so the column's `flex--evenly` spread returns. Measuring under `space-evenly` would count the distributed gaps against the budget and drop a row that fits.
+
+It waits for `window.TRMNL_PLUGINS_READY` before measuring, because the framework's own layout pass moves row heights, and re-runs through `TRMNLPaint.watch` when the screen's classes change. The column also needs `min-height:0` on its flex ancestors (`full.liquid`), or the column grows to fit its content instead of staying in its share, and the budget it reports is its own overflow.
 
 `full.liquid` layout structure:
 

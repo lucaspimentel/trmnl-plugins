@@ -378,7 +378,8 @@ whenChartsReady(function () {
 
 {% comment %}
   weather_daily_bars_vertical: Vertical forecast bars for right column
-  Params: daily_entries, num_days, inset_top (default 20)
+  Params: daily_entries, inset_top (default 20). Rows that do not fit the
+  column are hidden after layout by the script at the end of this block.
 {% endcomment %}
 {% template weather_daily_bars_vertical %}
 {% assign overall_min = daily_entries[0].low %}
@@ -393,16 +394,15 @@ whenChartsReady(function () {
 {% if range < 1 %}{% assign range = 1 %}{% endif %}
 
 <div class="flex flex--col flex--stretch-x h--full gap--none {% if inset_top == 0 %}pt--0{% else %}pt--5{% endif %}">
-  {% assign day_limit = num_days | default: 6 %}
-  <div class="flex flex--col flex--stretch-x flex--evenly gap--none" style="flex:1;">
+  <div class="daily-list flex flex--col flex--stretch-x flex--evenly gap--none" style="flex:1;">
 {% if current_temp %}
   {% assign current_temp_int = current_temp | round %}
   {% assign current_marker_pct = current_temp_int | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 | at_most: 100 %}
 {% endif %}
-  {% for entry in daily_entries limit: day_limit %}
+  {% for entry in daily_entries %}
     {% assign left_pct = entry.low | minus: overall_min_int | times: 100 | divided_by: range | at_least: 0 %}
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
-    <div class="daily-row my--0.5 lg:my--1">
+    <div class="daily-row shrink-0 my--0.5 lg:my--1">
       {% if forloop.first and current_temp %}
       <div class="marker-pad" style="padding-left:148px; padding-right:40px;">
         <div class="h--3 lg:h--4" style="position:relative; min-width:0;">
@@ -431,6 +431,64 @@ whenChartsReady(function () {
   {% endfor %}
   </div>
 </div>
+<script>
+(function () {
+  // How many days fit depends on the space the layout actually leaves, and no
+  // static number can carry it: the same half_vertical column gets 308px on an
+  // OG and 294px on a TRMNL X, where the chart above it exists only on the
+  // larger screen. Measure the column, then drop whole rows from the bottom.
+  function fitDailyRows() {
+    var lists = document.querySelectorAll('.daily-list');
+    for (var i = 0; i < lists.length; i++) { fitList(lists[i]); }
+  }
+  function fitList(list) {
+    var rows = Array.prototype.slice.call(list.children);
+    for (var j = 0; j < rows.length; j++) { rows[j].style.display = ''; }
+    // Measure with the rows packed against the top. The column spreads them
+    // evenly again once this is done, and those distributed gaps would
+    // otherwise count against the budget and drop a row that fits.
+    list.style.justifyContent = 'flex-start';
+    try {
+      // Hide one row at a time from the bottom and measure again, rather than
+      // deciding every row from a single reading. Removing a row can change
+      // the column's own height, so one pass settles on a stale budget and
+      // leaves the last row hanging over the edge.
+      for (var guard = 0; guard < 40; guard++) {
+        var budget = list.clientHeight;
+        if (!budget) { return; }
+        var visible = [];
+        for (var k = 0; k < rows.length; k++) {
+          if (rows[k].style.display !== 'none') { visible.push(rows[k]); }
+        }
+        // Row 0 carries today and the current-temperature marker, so it stays
+        // even in a slot too short to hold it.
+        if (visible.length <= 1) { return; }
+        var last = visible[visible.length - 1];
+        var over = last.getBoundingClientRect().bottom - list.getBoundingClientRect().top;
+        if (over <= budget) { return; }
+        last.style.display = 'none';
+      }
+    } finally {
+      list.style.justifyContent = '';
+    }
+  }
+
+  function start() {
+    // watch() re-fits when the screen's device, scale or theme classes change.
+    // Without it the count would be right only for the size first rendered.
+    if (window.TRMNLPaint) { TRMNLPaint.watch('.daily-list', fitDailyRows); }
+    else { fitDailyRows(); }
+  }
+  // Wait for the framework's own layout pass: it wraps pixel-perfect text and
+  // clamps, both of which move row heights. TRMNL_PLUGINS_READY turns true once
+  // that finishes.
+  var tries = 0;
+  (function whenSettled() {
+    if (window.TRMNL_PLUGINS_READY || ++tries > 200) { requestAnimationFrame(start); return; }
+    setTimeout(whenSettled, 50);
+  })();
+})();
+</script>
 {% endtemplate %}
 
 {% comment %}

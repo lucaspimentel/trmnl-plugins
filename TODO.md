@@ -259,15 +259,59 @@ data fix, and an ongoing maintenance chore.
     Inter. Preview says legible; a real OG screen has the last word, and the same look settles the
     3.1 font-flip question left open by the 3.2 bump. Pushed to the staging plugin (316595).
 
-- [ ] **Replace the hand-rolled row limits with the Content Limiter engine**
-  - Three layouts hide daily rows with a hardcoded CSS rule - `quadrant.liquid:2`
-    (`.screen--md .daily-row:nth-child(n+2)`), `half_vertical.liquid:2` (`n+5`) and
-    `half_horizontal.liquid:4` (`n+4`) - on top of a hardcoded `num_days` passed into
-    `weather_daily_bars_vertical`. That is three copies of a per-screen-size guess at how many rows
-    fit, and it is guessing rather than measuring.
-  - `data-list-limit="true"` with `data-list-max-height` measures the real available space and fits
-    what fits. One rule replaces three, the counts stop being per-layout constants, and it adapts to
-    screen sizes nobody enumerated - which is exactly the BYOD and fluid-mashup case below.
+- [x] **Replace the hand-rolled row limits with a measured fit** (done 2026-08-31)
+  - The three `nth-child` cutoffs and all four `num_days` constants are gone. Every layout renders
+    all `days` entries and a script at the end of `weather_daily_bars_vertical` measures the column,
+    then hides one row at a time from the bottom until the last visible row is inside. Today's row
+    always stays, since it carries the current-temperature marker.
+  - **Every count the constants enforced was pessimistic.** Measured, before -> after: quadrant
+    1 -> 2 (OG) and 3 -> 5 (X), half_horizontal 3 -> 4 and 4 -> 6, half_vertical 5 -> 6 and 4 -> 6.
+    Those rows fit the whole time. At `days: 14` nothing overflows anywhere (OG full settles on 12,
+    X full takes all 14, X portrait 8); at `days: 2` nothing is hidden.
+  - **This item named the wrong engine, and neither framework engine fits.** `data-list-limit`
+    filters a container's children to `.item`/`.label` (`plugins.js:948`), so it would have ignored
+    every `.daily-row` while still writing `max-height` on the container and clipping a row
+    mid-glyph. `data-content-limiter` does handle arbitrary children, but its auto height
+    measurement resolves from the nearest `.layout` (`plugins.js:2793-2846`) and our rows sit
+    several flex levels below one, so it needs an explicit pixel budget - and it also shrinks text
+    via `content--small` and clamps the last row mid-content rather than dropping it whole.
+  - **No static budget can express it either**, which is why the fit is measured in the browser.
+    The space the layout leaves differs per device *and* orientation: half_vertical wants 172px
+    subtracted on OG but 486px on X, because the chart above it is `hidden lg:flex`; full wants 112
+    in landscape and 694 in portrait, where the column reflows below the chart. As a fraction it is
+    no better (full is 0.77 / 0.83 / 0.33).
+  - Three things hold the measurement up, and removing any of them breaks it silently:
+    1. `.daily-row` carries `shrink-0`. A flex column shrinks its children by default, so without it
+       the rows squash to fit instead of overflowing and there is nothing left to measure.
+    2. The fit applies `justify-content: flex-start` inline and clears it afterwards, so the
+       column's `flex--evenly` spread returns. Measuring under `space-evenly` counts the distributed
+       gaps against the budget and drops a row that fits. At `days: 6` the renders are pixel-alike
+       to before, so this change is purely functional.
+    3. It waits for `window.TRMNL_PLUGINS_READY` before measuring, because the framework's own
+       layout pass moves row heights, and re-runs through `TRMNLPaint.watch` on a screen class
+       change.
+  - **Fixed a pre-existing flex bug on the way**: two ancestors in `full.liquid` had `min-height:
+    auto`, so at 14 days the daily column grew past its share instead of staying in it, and reported
+    its own overflow as available space. `min-height: 0` on both. The layout was already wrong
+    there, independently of this change.
+
+- [ ] **Use the framework's progress-bar component for the daily temperature range bars**
+  - The bars are hand-built: `border: 1px solid #000` on the track and a `bg--gray-30` fill
+    (`shared.liquid`, `weather_daily_bars_vertical`), with `rounded lg:rounded--full` on both track
+    and fill to fake the clipping a real component gets from `overflow: hidden`. Same class of
+    hardcoding the hourly chart just shed.
+  - `.progress-bar > .track > .fill` paints from `--framework-slot-progress-track-bg-*` and
+    `-fill-bg-*`, so it dithers on a 1-bit screen and goes solid gray on a 4-bit one, and its border
+    comes from `--framework-semantic-border-strong` instead of `#000`.
+  - **The catch**: our bars are *ranges* (low to high), and the component's fill is anchored
+    `left: 0`. It only works by overriding `left` inline per row. That functions today - inline beats
+    the stylesheet - but it is off-label, so a future change to how `.fill` positions (`transform`,
+    `inset`) would break the offset without breaking anything the framework tests.
+  - **The cost**: height. The bars are `h--5 lg:h--7` today (20px OG / 28px X). The component offers
+    6 / 12 / 24 / 32px x `--ui-scale`, and `--ui-scale` resolves to 1 on both OG and X (the same
+    finding that shaped the chart work), so one size class means one height on both devices. Either
+    take 24 everywhere or keep a height override and lose part of the point.
+
 
 - [ ] **Make the daily-forecast column widths proportional instead of fixed pixels**
   - `.day-label` is 68px / 90px and `.temp-label` 34px / 44px (`shared.liquid:71-74`), fixed per
