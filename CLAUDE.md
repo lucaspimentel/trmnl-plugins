@@ -14,6 +14,24 @@ For TRMNL docs: https://docs.trmnl.com/go/llms.txt (append `.md` to any `docs.tr
 - Flex children that should shrink need `min-width: 0` — `plugins.js` measures widths before layout, so without it they expand to full container width
 - Recipe linter counts raw substrings of `font-size`, `padding`, `margin`, etc. across ALL markup (including JS, comments, variable names) — max 6 total. See `.claude/skills/trmnl-dev/references/framework/updates.md` for workarounds.
 
+## Environment Setup
+
+```bash
+bash tools/setup-env.sh          # Ruby + trmnlp, .NET SDK, .env; skip steps with --skip-ruby/--skip-dotnet/--skip-node
+```
+
+Idempotent, safe to re-run. It writes `~/.trmnl-plugins-env.sh` (locale, `rbenv init`, `DOTNET_ROOT`) and
+sources it from the **first line** of `~/.bashrc` — Ubuntu's default `~/.bashrc` returns early for
+non-interactive shells, so anything appended at the end never reaches `bash -c`.
+
+- `trmnl_preview` requires Ruby >= 3.4 (CI pins 4.0); a container shipping Ruby 3.3 needs an rbenv
+  build, which takes several minutes.
+- **`trmnlp` needs a UTF-8 locale.** Under `C`/`POSIX`, Ruby reads templates as US-ASCII and
+  `trmnlp lint` dies with `invalid byte sequence in US-ASCII` on the first non-ASCII character in a
+  template — an environment problem that looks exactly like a broken template.
+- Environment variables are listed in `.env.example`; copy to `.env` (gitignored) and load with
+  `set -a && source .env && set +a`. Secrets come from 1Password, not from a checked-in file.
+
 ## Deploy a Plugin
 
 ```bash

@@ -16,3 +16,7 @@ sixlabors.lic
 
 # temp docs
 docs/trmnl-framework
+
+# env
+.env
+.env.local
