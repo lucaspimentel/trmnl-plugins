@@ -40,14 +40,19 @@ custom_fields:
   learn_more_url: https://github.com/lucaspimentel/trmnl-plugins/tree/main/plugins/weather/README.md
 - keyname: place
   field_type: string
+  group: "Location"
   name: Location
-  description: "Enter a city, a postal code, or a 'latitude, longitude' pair (latitude first). This replaces the old Latitude and Longitude fields below, which are only used while this is left blank. Narrow an ambiguous name with a state or country after a comma: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX, or set Country below), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
+  description: "A city, a postal code, or a 'latitude, longitude' pair, latitude first. Narrow an ambiguous name with a state or country: 'Portland, ME', 'Munich, DE', 'Toronto, Canada'."
+  help_text: "Replaces the Latitude and Longitude fields below, which are used only while this is left blank. Two things to watch: postal codes are not unique across countries (75001 is Paris, France; add ', US' for Addison, TX, or set Country below), and swapped coordinates silently show the wrong place. The screen shows the location it matched, so you can check it there after saving."
   optional: true
   placeholder: 'Boston, MA'
+  maxlength: 120
 - keyname: country
   field_type: select
+  group: "Location"
   name: Country
-  description: "Your country, used only to settle an ambiguous Location. A bare postal code is rarely unique: 02180 is a real code in six countries, and 75001 is both central Paris and Addison, Texas. On Auto your device's time zone is used instead, which is right for most people; set this if your weather comes back from the wrong country, or if you are away from home. Setting it never overrides a country you typed into Location yourself, and never stops a location abroad from working, so you can still look up another country's weather."
+  description: "Your country, used only to settle an ambiguous Location. On Auto your device's time zone is used instead, which is right for most people."
+  help_text: "A bare postal code is rarely unique: 02180 is a real code in six countries, and 75001 is both central Paris and Addison, Texas. Set this if your weather comes back from the wrong country, or if you are away from home. Setting it never overrides a country you typed into Location yourself, and never stops a location abroad from working, so you can still look up another country's weather."
   default: Auto
   options:
   - Auto
@@ -298,24 +303,9 @@ custom_fields:
   - YE - Yemen
   - ZM - Zambia
   - ZW - Zimbabwe
-- keyname: latitude
-  field_type: number
-  name: Latitude
-  description: "Deprecated: use the Location field above instead. Move your location there, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
-  optional: true
-  min: -90
-  max: 90
-  step: any
-- keyname: longitude
-  field_type: number
-  name: Longitude
-  description: "Deprecated: use the Location field above instead. Move your location there, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
-  optional: true
-  min: -180
-  max: 180
-  step: any
 - keyname: units
   field_type: select
+  group: "Forecast"
   name: Units
   description: imperial (°F, mph) or metric (°C, km/h)
   default: imperial
@@ -324,6 +314,7 @@ custom_fields:
   - metric
 - keyname: hours
   field_type: number
+  group: "Forecast"
   name: Hours
   description: Number of hours to show in the Hourly forecast
   placeholder: '25'
@@ -333,8 +324,10 @@ custom_fields:
   step: 1
 - keyname: days
   field_type: number
+  group: "Forecast"
   name: Days
-  description: Number of days to show in the Daily forecast, including today. Pirate Weather only supplies up to 7 days regardless of this setting.
+  description: "Number of days to show in the Daily forecast, including today."
+  help_text: "Pirate Weather only supplies up to 7 days regardless of this setting."
   placeholder: '6'
   default: 6
   min: 1
@@ -342,6 +335,7 @@ custom_fields:
   step: 1
 - keyname: time_format
   field_type: select
+  group: "Display"
   name: Time Format
   description: 12-hour (am/pm) or 24-hour clock for times
   default: 12h
@@ -350,20 +344,44 @@ custom_fields:
   - 24h
 - keyname: show_place
   field_type: select
+  group: "Display"
   name: Show Location
-  description: "Append the location the API matched to the plugin name in the title bar, as in 'LP Weather - Boston, MA'. The name itself is yours to change (the Name field at the top of this page), so you can set it to your city and turn this off. Worth leaving on at least once: a city name or postal code can quietly match somewhere else entirely, and this is how you would notice."
+  description: "Append the location the API matched to the plugin name in the title bar, as in 'LP Weather - Boston, MA'."
+  help_text: "The name itself is yours to change (the Name field at the top of this page), so you can set it to your city and turn this off. Worth leaving on at least once: a city name or postal code can quietly match somewhere else entirely, and this is how you would notice."
   default: 'yes'
   options:
   - 'yes'
   - 'no'
 - keyname: abbreviate_days
   field_type: select
+  group: "Display"
   name: Abbreviate Day Names
-  description: "Shorten the weekday labels in the daily forecast from Wednesday to Wed. Worth turning on for a narrow screen, where a long name can run into the weather icon."
+  description: "Shorten the weekday labels in the daily forecast from Wednesday to Wed."
+  help_text: "Worth turning on for a narrow screen, where a long name can run into the weather icon."
   default: 'no'
   options:
   - 'no'
   - 'yes'
+- keyname: latitude
+  field_type: number
+  group: "Deprecated"
+  name: Latitude
+  description: "Deprecated: use the Location field above instead."
+  help_text: "Move your location to Location, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
+  optional: true
+  min: -90
+  max: 90
+  step: any
+- keyname: longitude
+  field_type: number
+  group: "Deprecated"
+  name: Longitude
+  description: "Deprecated: use the Location field above instead."
+  help_text: "Move your location to Location, either as a city or postal code or as a 'latitude, longitude' pair, then clear this field. It is only used while Location is blank, and will be removed in a future update."
+  optional: true
+  min: -180
+  max: 180
+  step: any
 name: LP Weather
 description: 'Weather: current, hourly, daily'
 refresh_interval: 60
