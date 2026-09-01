@@ -313,23 +313,42 @@ data fix, and an ongoing maintenance chore.
     take 24 everywhere or keep a height override and lose part of the point.
 
 
-- [ ] **Make the daily-forecast column widths proportional instead of fixed pixels**
-  - `.day-label` is 68px / 90px and `.temp-label` 34px / 44px (`shared.liquid:71-74`), fixed per
-    screen size. This is the root of GitHub [#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1):
-    the abbreviated-day setting shipped as an *escape hatch* for a BYOD Kindle where the full name
-    ran into the icon, rather than a label that adapts.
-  - Container query units are the fix and the plugin already uses them - `full.liquid:8,12` carries
-    `w--[64cqw]` / `portrait:w--[75cqw]`. The full set is `w--[Ncqw]`, `h--[Ncqh]` plus
-    `w--min-`/`w--max-`/`h--min-`/`h--max-` forms, they take responsive prefixes, and the context is
-    established by `.layout` itself (`container-type: size`), so they resolve correctly inside a
-    mashup cell where the slot size is not knowable in advance.
+- [x] **Make the daily-forecast column widths measured instead of fixed pixels (done)**
+  - The widths are gone from CSS. The script that already fits the rows now also measures what the
+    day name and temperature actually need at whatever type the device resolved, takes the widest
+    across the list, and writes it on every row.
+  - **The bug was already live on the flagship, not just on a BYOD panel.** "Wednesday" measures
+    92px at 16px type inside a 90px box on the TRMNL X, and `.day-label` has `overflow: visible`, so
+    a single word that cannot wrap ran under the weather icon on every X screen showing a Wednesday.
+    On OG it measured 68px in a 68px box: exactly zero slack. Boxes are now 70 / 94.
+  - **Container query units, which this item named as the fix, cannot do it**, and the reasoning
+    that got written down here was wrong twice over:
+    1. **There is no container context to resolve against.** A probe with `width: 100cqw` inside
+       `.daily-list` comes back as the *browser viewport* (1280px in preview); `containerType` is
+       `normal` on every ancestor, because these templates never render a `.layout` element, which is
+       what establishes it. The existing `w--[36cqw]`/`w--[64cqw]` in `full.liquid:8,12` land on the
+       right pixel by luck: flex-shrink produces 275.0px from a viewport basis and 275.0px from a
+       percentage basis, and the measured value is 276.6px. Anything that relied on `cqw` meaning
+       "share of the slot" would be reading the window instead.
+    2. Even with a `.layout` added, `cqw` is a share of the *slot*, not of the daily column, and the
+       column is 36% of the slot in `full` and effectively all of it in `quadrant`. One number cannot
+       serve both.
+  - **Auto-abbreviation, added at the same time**, closes [#1](https://github.com/lucaspimentel/trmnl-plugins/issues/1):
+    if the bar would be left under a quarter of the column, the names fall back to their short form
+    and the widths are re-measured once. **Abbreviate Day Names** stays as a manual override, and the
+    swap only ever goes full to short, so setting it still means something on a wide screen.
+  - **The ▼ marker had to be reworked in the same change, not by choice**: it was aligned by a
+    hand-summed `padding-left:148px` (68 + 2 + 36 + 2 + 34 + 4 + 1) plus a `screen--lg` copy, which
+    measured widths invalidate. It now reads the first bar's rect. That offset was already 5px wrong
+    on X and only looked right because the two errors cancelled.
+  - **Side effect: the recipe linter budget went from 4 of 6 to 0.** Those four `padding` substrings
+    were the marker shim and were the plugin's entire spend.
 
-- [ ] **Free the linter budget by moving the marker off its padding shim (needs 3.3)**
-  - The ▼ current-temperature marker is aligned over the first day's bar with a padding shim -
-    `.marker-pad` at `shared.liquid:75` plus an inline `padding-left:148px; padding-right:40px` at
-    `shared.liquid:406`. Measured: those four `padding` substrings are **4 of the recipe linter's
-    budget of 6**, and they are the only four the plugin spends. Every future style has to fit in the
-    remaining two.
+- [ ] **Move the marker to the framework's Position utilities (needs 3.3)**
+  - ~~Free the linter budget by moving the marker off its padding shim~~ - **the budget half is
+    already done**, as a forced consequence of the measured column widths above. The shim and its
+    `screen--lg` copy are gone, the marker is positioned from the first bar's real rect, and the
+    linter count is 0 of 6. What remains is only the cosmetic question below.
   - 3.3's Position utilities (`relative`, `absolute`, `inset--{size}`, `top/right/bottom/left--{size}`,
     `z--0`..`z--3`) are the intended replacement. **Only a partial win, so do not oversell it**: the
     offsets ride the spacing scale and explicitly do not accept `[Npx]` or a percentage, and the

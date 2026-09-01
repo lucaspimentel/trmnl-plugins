@@ -75,11 +75,6 @@
   row's laid-out position rather than what is painted.
 {%- endcomment -%}
 .daily-list { overflow: hidden; }
-.day-label { width: 68px; }
-.temp-label { width: 34px; }
-.screen--lg .day-label { width: 90px; }
-.screen--lg .temp-label { width: 44px; }
-.screen--lg .marker-pad { padding-left: 196px; padding-right: 52px; }
 .screen--lg .wi-sz-xl { font: 140px/1 'weathericons'; }
 .screen--lg .wi-sz-md { font: 30px/1 'weathericons'; }
 .screen--lg .chart-temp { font: 700 20px/1 inherit; }
@@ -411,15 +406,15 @@ whenChartsReady(function () {
     {% assign width_pct = entry.high | minus: entry.low | times: 100 | divided_by: range | at_least: 1 %}
     <div class="daily-row shrink-0 my--0.5 lg:my--1">
       {% if forloop.first and current_temp %}
-      <div class="marker-pad" style="padding-left:148px; padding-right:40px;">
-        <div class="h--3 lg:h--4" style="position:relative; min-width:0;">
-          <span class="fs-10" style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); bottom:-2px;">&#9660;</span>
-        </div>
+      <div class="daily-marker h--3 lg:h--4" data-marker-pct="{{ current_marker_pct }}" style="position:relative; min-width:0;">
+        <span class="fs-10" style="position:absolute; left:{{ current_marker_pct }}%; transform:translateX(-50%); bottom:-2px;">&#9660;</span>
       </div>
       {% endif %}
       <div class="flex flex--row gap--[2px] lg:gap--xsmall">
         <div class="day-label shrink-0">
-          <div class="description lg:description--large" data-pixel-perfect="true" style="line-height:1.2;">{% if forloop.first %}Today{% elsif abbreviate_days %}{{ entry.date | date: "%a" }}{% else %}{{ entry.date | date: "%A" }}{% endif %}</div>
+          {%- if forloop.first -%}{%- assign day_full = "Today" -%}{%- assign day_short = "Today" -%}
+          {%- else -%}{%- assign day_short = entry.date | date: '%a' -%}{%- if abbreviate_days -%}{%- assign day_full = day_short -%}{%- else -%}{%- assign day_full = entry.date | date: '%A' -%}{%- endif -%}{%- endif -%}
+          <div class="day-name description lg:description--large" data-pixel-perfect="true" data-day-full="{{ day_full }}" data-day-short="{{ day_short }}" style="line-height:1.2;">{{ day_full }}</div>
           {% if entry.precipitation_probability >= 10 %}
           <div class="flex flex--row flex--left gap--[6px]">
             <i class="wi wi-umbrella wi-sz-xs"></i>
@@ -429,7 +424,7 @@ whenChartsReady(function () {
         </div>
         <div class="flex flex--center-x w--9 lg:w--12 shrink-0 gap--none"><i class="wi {{ entry.icon_class }} wi-sz-md"></i></div>
         <div class="temp-label flex flex--right shrink-0 mr--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.low }}&deg;</span></div>
-        <div class="h--5 lg:h--7 rounded lg:rounded--full" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
+        <div class="daily-bar h--5 lg:h--7 rounded lg:rounded--full" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
           <div class="bg--gray-30 h--full rounded lg:rounded--full" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
         <div class="temp-label flex flex--left shrink-0 ml--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
@@ -448,9 +443,79 @@ whenChartsReady(function () {
     var lists = document.querySelectorAll('.daily-list');
     for (var i = 0; i < lists.length; i++) { fitList(lists[i]); }
   }
+  // The day name is the one part of a row whose width is not ours to choose,
+  // and it was hardcoded twice, once per screen size. Both were tuned to the
+  // longest weekday and one had already drifted: "Wednesday" needs 68px at 12px
+  // type, which the OG box matched exactly, and 92px at 16px, which is 2px more
+  // than the TRMNL X box gave it, so the name ran under the weather icon. Read
+  // what the text actually needs at whatever type the device resolved.
+  function widestNatural(els) {
+    var widest = 0;
+    for (var i = 0; i < els.length; i++) {
+      els[i].style.width = '';
+      widest = Math.max(widest, els[i].getBoundingClientRect().width);
+    }
+    return widest;
+  }
+  function setWidth(els, width) {
+    for (var i = 0; i < els.length; i++) { els[i].style.width = width + 'px'; }
+  }
+  function writeName(el, text) {
+    // The pixel-perfect pass has already wrapped this text in its own span. Keep
+    // that wrapper when there is exactly one, so a shortened name still renders
+    // through it.
+    if (el.children.length === 1) { el.children[0].textContent = text; }
+    else { el.textContent = text; }
+  }
+  function fitLabels(list) {
+    var names = list.querySelectorAll('.day-name');
+    var days = list.querySelectorAll('.day-label');
+    var temps = list.querySelectorAll('.temp-label');
+    if (!days.length) { return; }
+    for (var i = 0; i < names.length; i++) {
+      writeName(names[i], names[i].getAttribute('data-day-full') || names[i].textContent);
+    }
+    // One width for every row, or the bars would start at a different offset on
+    // each line. Two pixels of slack: none is what the TRMNL X was running on.
+    setWidth(temps, Math.ceil(widestNatural(temps)) + 2);
+    setWidth(days, Math.ceil(widestNatural(days)) + 2);
+    var bar = list.querySelector('.daily-bar');
+    if (!bar) { return; }
+    // A column can be too narrow to hold a full weekday and still leave a bar
+    // worth reading. Shortening the names is what the Abbreviate Day Names
+    // setting was for; do it here so the setting is a preference rather than a
+    // repair. Only ever full to short, so a user who asked for short names keeps
+    // them on a wide screen.
+    var floor = Math.max(list.clientWidth * 0.25, scaled(list, 56));
+    if (bar.getBoundingClientRect().width >= floor) { return; }
+    for (var j = 0; j < names.length; j++) {
+      var short = names[j].getAttribute('data-day-short');
+      if (short) { writeName(names[j], short); }
+    }
+    setWidth(days, Math.ceil(widestNatural(days)) + 2);
+  }
+  function scaled(el, value) {
+    return window.TRMNLPaint ? TRMNLPaint.px(value, { el: el }) : value;
+  }
+  // The marker used to be aligned over the first bar by a hand-summed offset
+  // (68 + 2 + 36 + 2 + 34 + 4 + 1), which measured widths invalidate. Read the
+  // bar's real position instead.
+  function placeMarker(list) {
+    var marker = list.querySelector('.daily-marker');
+    var bar = list.querySelector('.daily-bar');
+    if (!marker || !bar || !marker.firstElementChild) { return; }
+    var pct = parseFloat(marker.getAttribute('data-marker-pct'));
+    if (isNaN(pct)) { return; }
+    var b = bar.getBoundingClientRect();
+    marker.firstElementChild.style.left = (b.left - marker.getBoundingClientRect().left + b.width * pct / 100) + 'px';
+  }
   function fitList(list) {
     var rows = Array.prototype.slice.call(list.children);
     for (var j = 0; j < rows.length; j++) { rows[j].style.display = ''; }
+    // Widths first: a longer name can wrap the precipitation line and change a
+    // row's height, which is what the pass below is measuring.
+    fitLabels(list);
+    placeMarker(list);
     // Measure with the rows packed against the top. The column spreads them
     // evenly again once this is done, and those distributed gaps would
     // otherwise count against the budget and drop a row that fits.
