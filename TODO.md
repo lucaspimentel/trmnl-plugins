@@ -166,15 +166,63 @@ Open items from `api/docs/geographic-telemetry.md` and `api/docs/place-input.md`
 and both environments are pinned to `geo-data-20260829`; what is left is a measurement, a deferred
 data fix, and an ongoing maintenance chore.
 
-- [ ] **Read `weather.geocoder` on a full week of traffic, then delete `OpenMeteoGeocodingClient`**
+- [ ] **Decide whether to delete `OpenMeteoGeocodingClient`** (was "read `weather.geocoder` on a
+  full week"; **the reading is done, the decision is not** - retitled 2026-09-02)
   - This is the last step of the geo rollout and the whole point of the exercise: a quiet
     `open-meteo` count in the `ForecastServed` logs is what licenses removing the vendor geocoder
     (`api/src/TrmnlApi/Services/OpenMeteoGeocodingClient.cs`), which is still wired in as the
-    fallback for a local miss. Do not delete it before the reading.
+    fallback for a local miss.
   - Unlike the `hint=` reading, which was binary and was taken early, this one is a *rate* question
-    and wants the full week.
+    and wanted the full week.
   - Deleting it saves code and a failure mode, **not money**: geocoding is included in the
     Open-Meteo weather subscription already being paid for.
+  - **First reading taken 2026-09-02. Answer: do not delete. The count is not quiet.** Production
+    v2, last 7 days, grouped on `@Geocoder` in the `ForecastServed` logs:
+    `none` 43,696 / `local` 2,803 / `open-meteo` **120**. `none` is the coordinate path that never
+    forward-geocodes, so the number that matters is the 2,923 requests that did: **local 95.9%,
+    vendor 4.1%**.
+  - **The window is only ~4.5 days, not the week this item asks for.** The rollout reached prod on
+    **2026-08-29** - before that, v2 `ForecastServed` lines carry no `Geocoder` attribute at all
+    (15,136 of them, all on 08-28/08-29, which is the whole of an apparent count gap and not a
+    dropped field). Retake the reading **on or after 2026-09-05** for a clean seven days.
+  - **The vendor count is flat, not decaying**, which is the part that actually blocks deletion:
+    29 / 31 / 33 per full day (08-30, 08-31, 09-01). It is not a warm-up tail that will fall to
+    zero on its own.
+  - **All 120 are one install.** One coordinate (`44.4,-72.3`), one label - Hardwick, `US-VT`.
+    ~30/day is one device on its refresh interval.
+  - **It is not the obvious dataset gap.** Probed staging with `Hardwick`, `Hardwick, VT`,
+    `Hardwick, Vermont`, `Hardwick, US` and `05843`: **every one resolves `geocoder=local`**, to
+    44.5,-72.4 (and bare `Hardwick` finds a Georgia one). So the dataset holds the town and the
+    comma-qualifier path works. The vendor answers 44.4,-72.3 - a *different* point - and `city=`
+    is our own reverse lookup labelling it, so the user is typing something we do not have, and
+    Open-Meteo is landing them near Hardwick. Most likely a place under the `cities1000`
+    population floor (a village or a neighbouring hamlet).
+  - **Deliberately not knowable from here:** the raw place string is not logged, by design. Asked
+    and answered 2026-09-02 - **do not add it**, and the reasoning matters because this will be
+    re-proposed. `place` is free text with no granularity bound: a user can type a street address
+    or a landmark, so it breaks the F1 ceiling the whole telemetry design rests on (see the PII
+    section of `api/docs/geographic-telemetry.md`, whose one argument for allowing the city label
+    is that a city name is *coarser* than `42.4,-71.1`). Direct log submission also skips the
+    Agent's scrubbing, so there is no second line of defense, and the aggregate is already a
+    home-location dataset with GDPR exposure. It would buy one string from one install.
+  - If this one install is worth chasing, the lever is the population floor in
+    `api/tools/GeoDataBuilder` - rebuild against `cities500` and re-probe the five spellings
+    above - not more telemetry.
+  - **If the vendor rate ever stops being one device** and the *shape* of the failing input is
+    genuinely needed, the bounded version stays under the F1 ceiling: on the local-miss-then-
+    vendor-hit path only, emit bucketed input length, comma-segment count,
+    `GeoText.LooksPostal`, and the distance from the vendor's answer to the nearest local
+    candidate. That separates misspelling / unqualified-ambiguous / below-the-floor without
+    emitting anything personal. Do not build it before the rate justifies it.
+  - **Revised exit condition.** "Quiet" needs restating, because 4.1% will not reach zero: the
+    vendor is the *misspelling and long-tail* fallback and something will always miss. Either
+    accept a small standing fallback rate and delete anyway (accepting that those users get a
+    `place_not_found` instead), or keep the client. This is now a judgement call, not a
+    measurement one - the measurement is done.
+  - **The `lat_lon` item below may settle this without a decision.** It resolves the location in
+    TRMNL's own autocomplete before our API is called, so free-text place input goes away and
+    the forward geocoder - local *and* vendor - has no job left on that path. Worth checking
+    whether that item lands before spending anything on this one.
 
 - [ ] **Fix the stripped-punctuation postal collisions (deferred, needs a full dataset cycle)**
   - `GeoText.NormalizePostal` removes spaces and hyphens, so Poland's `02-180` and a US `02180`
@@ -220,9 +268,12 @@ data fix, and an ongoing maintenance chore.
     split on the comma server-side, as `country` already does.
   - **Sequencing, which is the actual cost.** Not a drop-in swap for `place`:
     1. `lat_lon` resolves the location before our API is called, so it bypasses `TrmnlApi.Geo`'s
-       *forward* geocoding entirely. Finish the `weather.geocoder` reading above **first**, or that
-       week of data is muddied mid-measurement. Reverse lookup (coordinates to an on-screen label)
-       still earns the dataset's keep.
+       *forward* geocoding entirely. ~~Finish the `weather.geocoder` reading above **first**, or
+       that week of data is muddied mid-measurement.~~ **Unblocked 2026-09-02: the reading is
+       taken.** A clean seven-day retake is still available on or after 2026-09-05, but the
+       finding it would confirm (a flat ~4% vendor rate from a single install) is not one this
+       work would muddy. Reverse lookup (coordinates to an on-screen label) still earns the
+       dataset's keep.
     2. It also removes the reason for the **Country** field, since the autocomplete disambiguates
        interactively, and moots the deferred postal-collision item - Poland's `02-180` versus a US
        `02180` stops being ours to solve.

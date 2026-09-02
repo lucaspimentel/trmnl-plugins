@@ -200,9 +200,24 @@ more than the checkbox.
      Colorado) polls with `tz=America/New_York`. This is the risk the design named, and it stays
      harmless only because the zone is a tie-break among already-valid matches and never a filter.
 
-   Still outstanding from this item: **`weather.geocoder`**, per step 9. A quiet `open-meteo` count
-   is what licenses retiring the vendor geocoder, and it is the whole point of the exercise. That
-   one does want the full week, since it is a rate question rather than a yes-or-no.
+   **`weather.geocoder` was read on 2026-09-02** (step 9). Production v2 over 7 days:
+   `none` 43,696 / `local` 2,803 / `open-meteo` 120 - so of the 2,923 requests that actually
+   forward-geocoded, **local served 95.9% and the vendor 4.1%**. The vendor count is **flat at
+   ~30/day, not decaying**, and every one of the 120 is a single install: one coordinate
+   (`44.4,-72.3`), labelled Hardwick, `US-VT`.
+
+   Two things that reading settled. The window was only ~4.5 days, because the rollout reached
+   prod on 2026-08-29 and earlier v2 lines carry no `Geocoder` attribute at all - that accounts
+   for 15,136 otherwise-unexplained lines on 08-28/08-29, and is not a dropped field. And the
+   fallback is **not** a plain dataset hole: `Hardwick`, `Hardwick, VT`, `Hardwick, Vermont`,
+   `Hardwick, US` and `05843` all resolve `geocoder=local` when probed against staging, to
+   44.5,-72.4. The vendor returns a *different* point, and `city=Hardwick` is our own reverse
+   lookup labelling it, so the input is something below the `cities1000` population floor that
+   Open-Meteo places near Hardwick. The raw string is not logged and should not be.
+
+   So the measurement is finished and the decision is not: 4.1% will never reach zero, because the
+   vendor is the misspelling-and-long-tail fallback by construction. Retiring it now means those
+   callers get `place_not_found` instead. See the retirement note below.
 
 8. **Refresh `api/src/TrmnlApi.Geo/zone.tab`** when a new IANA release lands. Nothing will tell
    you it has gone stale, and the only thing that would notice a bad copy is
@@ -276,8 +291,11 @@ would have answered the dropdown question above in one look instead of several.
    than one glance at a device.
 8. **Promote to production**: same two build args, on the `production` environment, then push the
    prod plugin.
-9. **After about a week**, read `weather.geocoder` in the `ForecastServed` logs. A quiet
-   `open-meteo` count is what licenses deleting `OpenMeteoGeocodingClient` - not before. Deleting it
+9. ~~**After about a week**, read `weather.geocoder` in the `ForecastServed` logs.~~ First reading
+   taken **2026-09-02**; numbers and what they settled are in step 7 above. The answer is **do not
+   delete `OpenMeteoGeocodingClient` yet**: the `open-meteo` count is not quiet, it is flat at
+   ~4.1% of forward-geocoded requests. Retake on or after **2026-09-05** for a clean seven days,
+   then decide deliberately rather than waiting for a zero that will not arrive. Deleting it
    saves code and a failure mode, not money: geocoding is included in the Open-Meteo weather
    subscription the service already pays for, so it is not a separate line item to cancel.
 
