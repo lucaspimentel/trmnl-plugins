@@ -259,8 +259,9 @@ Two fixes were tried on paper first, against the real data, and both failed.
   stays **New York** rather than Berlin. It is kept, but only as the floor.
 
 What actually settles it is that **`{{ trmnl.user.time_zone_iana }}` interpolates in
-`polling_url`**. That had to be proved rather than assumed - Liquid filters do not work there, and
-`trmnl.plugin_settings.*` does not resolve in templates at all - so the parameter was shipped
+`polling_url`**. That had to be proved rather than assumed - `trmnl.plugin_settings.*` does not
+resolve in templates at all, and filters were wrongly believed not to run there either - so the
+parameter was shipped
 logging-only first, and a forced refresh produced a real TRMNL request carrying
 `tz=America/New_York`. The plugin now sends it and the API acts on it.
 

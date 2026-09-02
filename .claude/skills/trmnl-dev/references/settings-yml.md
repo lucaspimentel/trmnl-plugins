@@ -109,7 +109,7 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 | `copyable` | Read-only text with copy button | n/a | Display-only; shows a value users can copy |
 | `copyable_webhook_url` | Read-only webhook URL with copy button | n/a | Auto-populated with the plugin's webhook URL |
 | `plugin_instance_select` | Dropdown of the user's plugin instances | plugin instance ID | For "data only" / Plugin Merge strategy |
-| `lat_lon` | Autocomplete over cities, addresses and postal codes | `"lat,lon"` string, e.g. `33.7490,-84.3880` | User may also type coordinates directly. Parse it server-side — see the filter trap below |
+| `lat_lon` | Autocomplete over cities, addresses and postal codes | `"lat,lon"` string, e.g. `33.7490,-84.3880` | User may also type coordinates directly. `| split: ',' | first` works here — see `polling_url` interpolation below |
 | `xhrSelect` | Dropdown populated from an `endpoint` | selected option value | Single or multi |
 | `xhrSelectSearch` | Searchable dropdown populated from an `endpoint` | selected option value | |
 
@@ -139,26 +139,50 @@ Reference any custom field value using standard Liquid syntax (no `##` prefix):
 https://api.example.com/data?lat={{ latitude }}&lon={{ longitude }}&key={{ api_key }}
 ```
 
-### Liquid filters in `polling_url` — they do NOT run
+### Liquid filters in `polling_url` — they DO run
 
-**Verified the hard way, and it contradicts TRMNL's own documentation.** A filter in `polling_url`
-is not applied: `{{ place | split: ',' | first }}` sends the unsplit value, silently. The `country`
-field was served as though unset because of this, and TRMNL's help article recommends exactly this
-broken pattern for `lat_lon`.
+**Verified 2026-09-02.** `&country={{ country | prepend: 'aq_' }}` was pushed to a staging plugin,
+and a real device poll logged the prepended value server-side.
 
-Send the raw value and parse it server-side:
+This reference previously claimed the opposite, as did four other files in the repo. The claim rested
+on a single experiment that could not support it. A `select` field sent:
 
 ```
-# wrong - the filter never runs
+country={{ country | split: ' - ' | first }}
+```
+
+with option text `US - United States of America`, and the whole label arrived server-side. But
+**select values are slugified before interpolation**, to `us_-_united_states_of_america`, and the
+delimiter ` - ` does not occur in that string. `split` therefore returns a one-element array and
+`first` hands the label straight back — the same observable result whether or not the filter ran.
+Slugification alone explains it. TRMNL's help article was never recommending a broken pattern.
+
+Two things remain true and are the actual traps:
+
+- **`select` values are slugified**, so write filters against the slug, or put the key first in the
+  option text and parse the leading token server-side.
+- **A filter puts `: ` into the YAML scalar**, so the line has to be quoted or `settings.yml` will
+  not parse at all. Use single quotes for filter arguments inside the double-quoted scalar:
+  `"...&c={{ country | prepend: 'x_' }}"`.
+
+So the `lat_lon` pattern TRMNL documents is fine — `lat_lon` is not a select, and its value keeps a
+real comma to split on:
+
+```
 https://api.example.com/?lat={{ lat_lon | split: ',' | first }}
-# right - split on the comma in your own API
-https://api.example.com/?latlon={{ lat_lon }}
 ```
 
-A filter also puts `: ` into the YAML scalar, so the line has to be quoted or `settings.yml` will
-not parse at all.
+#### Check interpolation with the Parse button, not by deploying
 
-**`trmnl.user.*` is the exception and DOES interpolate.** `&tz={{ trmnl.user.time_zone_iana }}`
+The plugin settings page (`trmnl.com/plugin_settings/<id>/edit`) has a **Parse** button under the
+Polling URL box that renders the URL with the current field values substituted. It shows filter
+output and slugified select values directly, so it answers "what will actually be sent?" in one
+click. It agreed exactly with what the server sent when the two were checked against each other.
+
+Reach for it first. The `country` bug above was one button-press from being diagnosed correctly:
+the preview would have read `country=us_-_united_states_of_america`, with the missing ` - ` visible.
+
+**`trmnl.user.*` interpolates too.** `&tz={{ trmnl.user.time_zone_iana }}`
 arrives as `tz=America/New_York`, verified on a device. Time zone, locale and UTC offset are
 therefore available to a backend without defining a custom field at all.
 

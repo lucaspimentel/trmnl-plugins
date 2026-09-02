@@ -107,7 +107,7 @@ public class WeatherV2Endpoint
         // A bare postal code is ambiguous across dozens of countries and nothing in the string
         // says which one the caller is in; their time zone says it without anyone having to set a
         // thing. TRMNL does interpolate it into polling_url, which was proved on a real device
-        // rather than assumed - Liquid filters do not work there. See docs/place-input.md.
+        // rather than assumed, since nothing there was taken on trust. See docs/place-input.md.
         var timeZone = query["tz"].FirstOrDefault();
 
         // Tagged here rather than beside the served-forecast log line so that a request ending in

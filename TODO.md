@@ -259,13 +259,14 @@ data fix, and an ongoing maintenance chore.
     coordinate pair, or a city name quietly matching the wrong continent, rendering the wrong
     weather with no error. Picking from a list makes that nearly impossible, which is the same
     problem `show_place` exists to let people catch only *after* the fact.
-  - **Do not follow the article's parsing TIP.** It suggests
-    `?lat={{ lat_lon | split: ',' | first }}` in the `polling_url`, which is exactly the pattern
-    that does not work here - Liquid filters are not applied in `polling_url` (see `CLAUDE.md`;
-    learned from `country`, where the filter silently never ran and the strict parser then served a
-    user as though the field were unset). A filter also puts `: ` in the YAML scalar, so the line
-    would have to be quoted or `settings.yml` will not parse. Send `&latlon={{ lat_lon }}` raw and
-    split on the comma server-side, as `country` already does.
+  - **The article's parsing TIP is fine.** It suggests
+    `?lat={{ lat_lon | split: ',' | first }}` in the `polling_url`, and Liquid filters *do* run
+    there (verified 2026-09-02; see `CLAUDE.md`). The earlier claim to the contrary came from
+    `country`, a `select` whose value was slugified before the filter saw it, so the filter matched
+    nothing - a slugification bug misread as a filter bug. `lat_lon` is not a select, so its comma
+    survives and the split works. A filter does put `: ` in the YAML scalar, so the line has to be
+    quoted, with single quotes around any filter argument. Sending `&latlon={{ lat_lon }}` raw and
+    splitting server-side works too, and is what `country` does.
   - **Sequencing, which is the actual cost.** Not a drop-in swap for `place`:
     1. `lat_lon` resolves the location before our API is called, so it bypasses `TrmnlApi.Geo`'s
        *forward* geocoding entirely. ~~Finish the `weather.geocoder` reading above **first**, or

@@ -154,10 +154,10 @@ These cost real debugging time. They are inline here rather than behind a fetch.
 
 - **`settings.yml` must be at `src/settings.yml`.** trmnlp ignores one at the plugin root, and the
   symptom is empty data rather than an error.
-- **Liquid filters are NOT applied in `polling_url`.** A `{{ x | split: ',' | first }}` silently
-  never runs. Send the raw `{{ keyname }}` and parse it server-side. This bites `lat_lon` in
-  particular, where TRMNL's own help article recommends the broken pattern. A filter also puts `: `
-  into the YAML scalar, so the line must be quoted or the file will not parse.
+- **Liquid filters DO run in `polling_url`** (verified 2026-09-02). The trap is `select`, not
+  filters: its values are slugified before the filter sees them, so a filter written against the
+  option text matches nothing. A filter also puts `: ` into the YAML scalar, so the line must be
+  quoted, with single quotes for filter arguments. See `references/settings-yml.md`.
 - **`select` option values are slugified.** `US - United States` arrives as
   `us_-_united_states`. Put the key first in the option text and parse the leading token server-side.
 - **`trmnl.user.*` DOES interpolate in `polling_url`**, unlike the two above — so time zone, locale
