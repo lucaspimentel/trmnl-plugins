@@ -181,6 +181,38 @@ data fix, and an ongoing maintenance chore.
     `weather.via_legacy_host:1`. Same signal as the decommission item above, and the two retire
     together.
 
+- [ ] **Adopt `field_type: lat_lon` for the Location field (found 2026-09-02)**
+  - TRMNL has a geographic field type the plugin is not using:
+    [`lat_lon`](https://help.trmnl.com/en/articles/10513740-custom-plugin-form-builder.md) renders an
+    autocomplete over cities, addresses and postal codes, and stores the pick as a comma-separated
+    `"lat,lon"` string. The user may also type coordinates directly. The same article lists
+    `xhrSelect` and `xhrSelectSearch`, which are also new to us.
+  - **Why it is worth doing:** it kills the failure mode the current design most fears - a swapped
+    coordinate pair, or a city name quietly matching the wrong continent, rendering the wrong
+    weather with no error. Picking from a list makes that nearly impossible, which is the same
+    problem `show_place` exists to let people catch only *after* the fact.
+  - **Do not follow the article's parsing TIP.** It suggests
+    `?lat={{ lat_lon | split: ',' | first }}` in the `polling_url`, which is exactly the pattern
+    that does not work here - Liquid filters are not applied in `polling_url` (see `CLAUDE.md`;
+    learned from `country`, where the filter silently never ran and the strict parser then served a
+    user as though the field were unset). A filter also puts `: ` in the YAML scalar, so the line
+    would have to be quoted or `settings.yml` will not parse. Send `&latlon={{ lat_lon }}` raw and
+    split on the comma server-side, as `country` already does.
+  - **Sequencing, which is the actual cost.** Not a drop-in swap for `place`:
+    1. `lat_lon` resolves the location before our API is called, so it bypasses `TrmnlApi.Geo`'s
+       *forward* geocoding entirely. Finish the `weather.geocoder` reading above **first**, or that
+       week of data is muddied mid-measurement. Reverse lookup (coordinates to an on-screen label)
+       still earns the dataset's keep.
+    2. It also removes the reason for the **Country** field, since the autocomplete disambiguates
+       interactively, and moots the deferred postal-collision item - Poland's `02-180` versus a US
+       `02180` stops being ours to solve.
+    3. Migration is the real work. The plugin is public and forked, existing installs have `place`
+       set as a string, and a new keyname does not inherit those values. `place` has to stay as a
+       fallback for a while, so the plugin briefly carries *three* input modes (`lat_lon`, `place`,
+       deprecated `latitude`/`longitude`) before it carries two. Silently resolving to nothing is
+       the one outcome to avoid.
+    4. v2 only. v1 is frozen.
+
 ## Weather display & accuracy
 
 - [ ] **Allow enabling/disabling the different subviews (current status, hourly forecast, daily forecast) and adjust layout accordingly**
