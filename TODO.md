@@ -701,7 +701,28 @@ data fix, and an ongoing maintenance chore.
     clip horizontally instead - at **1x3** the detail column is cut mid-word (`Overcas`,
     `Humidit y 67%`) and at both **1x1 and 1x3** the title bar timestamp is truncated
     (`Wed 12:1`). Same root cause as (2) above, one notch less severe.
-  - **What is left to do**, in order: give the chart a height that can shrink (proportional, or a
-    measured fit like the daily rows already have), then give the current-conditions block a shrink
-    budget. Re-run the harness after each. Nothing mashup-specific is needed - fixing these two
-    fixes the standalone views' behaviour in a small slot as well.
+  - **Fix (1) is done, 2026-09-02. 3x1, 2x1 and 1x2 now render correctly.** The chart's flex
+    ancestors got `min-height: 0` (`half_horizontal.liquid`, `half_vertical.liquid` and the
+    template's own wrapper), which is what a flex item needs before it will go below its content
+    height - the default `min-height: auto` is why a fixed-px chart refused to shrink at all. That
+    alone was not enough: a shrunk chart is still drawn, and at ~50px Highcharts piles the hour
+    icons and their labels onto a flat line. So `weather_hourly_chart`'s build now measures the
+    container and, below a floor (150px dense / 110px otherwise - the vertical axis margin plus
+    enough plot to read a curve against), hides the wrapper and returns `null` instead of building.
+    That is the same call OG already makes below `lg`, where the chart is never rendered.
+    `TRMNLCharts.watch` stores `buildFn() || null` and guards its own destroy, so returning `null`
+    is safe. `weather_current_compact` also got `shrink-0`, so the block above the chart keeps its
+    natural height rather than being squashed until its icon and text spill over the chart.
+  - **Verified after the fix**: X `full` / `half_horizontal` / `half_vertical` / `quadrant` and OG
+    `full` / `half_horizontal` / `half_vertical` / `quadrant` all unchanged, `trmnlp lint` clean.
+  - **A regression found and backed out along the way, worth knowing.** The first attempt also put
+    `style="min-height:0;"` on `full.liquid`'s left column - the element carrying `w--[64cqw]`.
+    That silently broke the arbitrary-value width on OG `full`: the detail column collapsed to one
+    character per line and the daily bars fell back to short day names. **Do not add an inline
+    `style` attribute to an element that carries an arbitrary-value class**; put the rule in a
+    `<style>` block instead. `full.liquid` needed no change anyway - the cells it lands in (2x2,
+    3x2, 3x3) fail on width, not height.
+  - **Still open: fix (2), the current-conditions block's shrink budget.** 2x2 remains broken and
+    2x1 still crowds - the detail text runs into the daily bars - and it is the same cause as OG's
+    horizontal clipping at 1x1 / 1x3. The block needs `min-width: 0` and a way to give up the
+    detail column (or scale it) when the slot is narrow. Re-run the harness after.

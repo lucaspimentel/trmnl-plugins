@@ -102,7 +102,7 @@
   Params: current, icon_size (default 64), show_extra (default true — shows humidity + wind)
 {% endcomment %}
 {% template weather_current_compact %}
-<div class="flex flex--row flex--center-x w--full pt--1.5 pb--1">
+<div class="flex flex--row flex--center-x shrink-0 w--full pt--1.5 pb--1">
   <i class="wi {{ current.icon_class }} shrink-0 {% if icon_size == 48 %}wi-sz-48{% else %}wi-sz-lg{% endif %}"></i>
   <div class="value--xlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
   <div class="flex flex--col flex--stretch-x gap--[2px]">
@@ -144,8 +144,8 @@
     {% assign hour_times = hour_times | append: ',"' | append: entry.time | append: '"' %}
   {% endif %}
 {% endfor %}
-<div class="flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1;">
-  <div id="{{ chart_id }}" class="w--full" style="height:{{ chart_height | default: 260 }}px; image-rendering: pixelated;"></div>
+<div class="flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1; min-height:0;">
+  <div id="{{ chart_id }}" class="w--full" style="height:{{ chart_height | default: 260 }}px; min-height:0; image-rendering: pixelated;"></div>
 </div>
 <script>
 var chartEl = '{{ chart_id }}';
@@ -275,6 +275,23 @@ whenChartsReady(function () {
     // screen, and it is re-read on every watch() rebuild.
     var screen = TRMNLPaint.screen(chartEl);
     var dense = !!(screen && screen.classList.contains('screen--lg'));
+    // The chart shrinks with its slot, and in a short one there is less room than
+    // the axis furniture alone needs: Highcharts still draws, piling the hour
+    // icons and their labels onto a flat line. Below the floor there is nothing
+    // legible left, so drop the chart and hand the space back - the same call OG
+    // already makes below lg, where the chart is never rendered at all. The floor
+    // is the vertical margin (86 dense / 66 otherwise) plus enough plot to read a
+    // curve against. Unhide before measuring: a hidden wrapper measures 0 and
+    // would never come back.
+    var node = document.getElementById(chartEl);
+    var wrap = node && node.parentElement;
+    if (wrap) {
+      wrap.style.removeProperty('display');
+      if (node.getBoundingClientRect().height < (dense ? 150 : 110)) {
+        wrap.style.setProperty('display', 'none');
+        return null;
+      }
+    }
     var ink = TRMNLCharts.paint('black', { el: chartEl });
     var labelStyle = TRMNLCharts.textStyle('chart-label', { el: chartEl });
     return Highcharts.chart(chartEl, TRMNLCharts.merge(base, {

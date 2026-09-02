@@ -1,8 +1,8 @@
 <div class="flex flex--col flex--stretch-x w--full h--full gap--none">
   {% if current and current.temperature %}
-  <div class="flex flex--col flex--stretch-x pt--2 gap--none" style="flex:1;">
+  <div class="flex flex--col flex--stretch-x pt--2 gap--none" style="flex:1; min-height:0;">
     {% render "weather_current_compact", current: current %}
-    <div class="hidden lg:flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1;">
+    <div class="hidden lg:flex flex--col flex--stretch-x flex--bottom gap--none" style="flex:1; min-height:0;">
       {% render "weather_hourly_chart", hourly: hourly, daily: daily, current_time: current.time, chart_height: 280, time_format: meta.time_format %}
     </div>
     <div class="pb--2 pl--2 pr--1.5" style="flex:1; min-height:0;">
