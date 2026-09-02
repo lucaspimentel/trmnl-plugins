@@ -123,6 +123,12 @@ does. `ruby -run -e httpd` will not do: the bundled Ruby has no webrick. Use
 `python -m http.server 8765`, and prefer `ThreadingHTTPServer` — the single-threaded default stalls
 under Playwright's navigation waits and shows up as a 60s `domcontentloaded` timeout.
 
+**Take each screenshot in a fresh browser**, as both scripts do. Reusing one browser and navigating
+with `playwright-cli goto` is faster and silently wrong: a navigation that fails leaves the previous
+page up, and the screenshot is of the wrong view with nothing in the output saying so. This cost a
+round of "regressions" that were stale pages. `playwright-cli screenshot` also fails to write its
+file every few calls, so check the file exists and retry rather than trusting the exit status.
+
 ### Quick look: `trmnlp build --png`
 
 Built-in lightweight alternative — renders all four layouts to HTML + PNG in one command, no HTTP server or Playwright. Runs JS (Highcharts renders correctly).

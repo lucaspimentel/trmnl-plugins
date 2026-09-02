@@ -200,7 +200,11 @@ All logic lives in `shared.liquid`, rendered via `{% render %}` from layout file
 
 Every layout passes `time_format: meta.time_format` to `weather_hourly_chart` and `title_bar` so rendered times follow the `time_format` setting.
 
-Daily bars per layout: every layout renders all `days` entries (up to 14, fewer if Pirate Weather serves the response) and a script at the end of `weather_daily_bars_vertical` hides the rows that do not fit. Nothing is hardcoded per layout any more: it measures the column, then hides one row at a time from the bottom and measures again until the last visible row is inside. Today's row always stays, since it carries the current-temperature marker.
+Daily bars per layout: every layout renders all `days` entries (up to 14, fewer if Pirate Weather serves the response) and a script at the end of `weather_daily_bars_vertical` hides the rows that do not fit. Nothing is hardcoded per layout any more: it measures the column, then hides one row at a time from the bottom and measures again until the last visible row is inside. Today's row is the last to go, since it carries the current-temperature marker, but it does go: a slot too short for even one row used to keep it and leave the marker floating over a row clipped away under the title bar.
+
+The current-conditions block fits the same way, horizontally. `weather_current_fit` (rendered by both current-conditions templates, guarded so one copy runs) measures what the details column may occupy - the block's width less the icon and the temperature, which are `shrink-0` because they are the reading itself - and hides detail lines from the bottom until the widest one left fits. Wind goes first, then humidity, then the feels-like reading; the condition is last. If nothing fits, the whole column goes and the slot shows the icon and the temperature alone. Half a word of "Humidity" reads as a broken screen where an icon and a number reads as a small one. `.current-details` also carries `min-width: 0; overflow: hidden`, so if the script never runs the text clips inside its own column instead of running out over the daily bars.
+
+Both fits and the chart's own floor exist for the same reason: a Fluid Mashup cell owns the size, so a view can land in a slot far smaller than any standalone layout. See `tools/build-mashup-preview.sh`.
 
 Two things that keep the measurement honest, and that will silently break it if removed:
 

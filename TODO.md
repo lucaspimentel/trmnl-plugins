@@ -722,7 +722,30 @@ data fix, and an ongoing maintenance chore.
     `style` attribute to an element that carries an arbitrary-value class**; put the rule in a
     `<style>` block instead. `full.liquid` needed no change anyway - the cells it lands in (2x2,
     3x2, 3x3) fail on width, not height.
-  - **Still open: fix (2), the current-conditions block's shrink budget.** 2x2 remains broken and
-    2x1 still crowds - the detail text runs into the daily bars - and it is the same cause as OG's
-    horizontal clipping at 1x1 / 1x3. The block needs `min-width: 0` and a way to give up the
-    detail column (or scale it) when the slot is narrow. Re-run the harness after.
+  - **Fix (2) is done too, 2026-09-02. Every size in the sweep now renders correctly.** The
+    current-conditions block fits horizontally the way the daily rows fit vertically:
+    `weather_current_fit` measures what the details column may occupy - the block's width less the
+    icon and the temperature, both `shrink-0` because they are the reading itself - and hides
+    detail lines from the bottom until the widest one left fits. Wind first, then humidity, then
+    feels-like; the condition is last, and if nothing fits the column goes entirely.
+    `.current-details` also carries `min-width: 0; overflow: hidden`, so a script failure clips
+    inside the column rather than running out over the daily bars. Measuring the column's own
+    `scrollWidth` was tried first and is wrong: the column is flex-sized, so its width is an effect
+    of the text in it and it cannot be asked whether the text fits - it dropped every line on OG
+    1x1 where two fitted.
+  - `fitDailyRows` changed with it: today's row is still the last to go but it does now go. A slot
+    too short for even one row used to keep it and leave the ▼ marker floating over a row clipped
+    away under the title bar, which is what OG 1x1 showed once the details stopped filling that
+    space.
+  - **Verified across the sweep**: OG 1x1 / 1x3 and X 3x1 / 2x1 / 2x2 / 1x2 all clean, and all
+    eight standalone layouts (four per device) unchanged. `trmnlp lint` clean. X 2x1 is the one
+    that shows the graduated drop working - it keeps `Overcast` and `Feels 74°` and sheds the other
+    two.
+  - **A methodology note that cost a false alarm**: an early round of "regressions" was stale
+    pages. Reusing one browser and navigating with `playwright-cli goto` leaves the previous page
+    up when a navigation fails, so the screenshot is of the wrong view with nothing saying so. Both
+    preview scripts now open a fresh browser per shot; see `CLAUDE.md`.
+  - **Left alone deliberately**: the OG title bar truncates its timestamp (`Wed 1:15`) in a
+    one-column cell. That is `title_bar`'s own text budget, not the current-conditions block, and
+    it is a clipped label rather than content running over its neighbour. Worth a look only if a
+    narrow cell turns out to be a shape anyone actually uses.

@@ -85,16 +85,96 @@
   Params: current
 {% endcomment %}
 {% template weather_current %}
-<div class="flex flex--row flex--center-x w--full pt--2 lg:pt--4 pb--1 gap--[12px] lg:gap--large">
+<div class="current-block flex flex--row flex--center-x w--full pt--2 lg:pt--4 pb--1 gap--[12px] lg:gap--large">
   <i class="wi {{ current.icon_class }} shrink-0 wi-sz-xl"></i>
   <div class="value--xxlarge lg:value--mega shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
-  <div class="flex flex--col flex--stretch-x gap--[2px] lg:gap--xsmall">
+  <div class="current-details flex flex--col flex--stretch-x gap--[2px] lg:gap--xsmall">
     <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
     <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
-    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
+    <div class="current-extra value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="current-extra value--xxsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
   </div>
 </div>
+{% render "weather_current_fit" %}
+{% endtemplate %}
+
+{% comment %}
+  weather_current_fit: drops detail lines from the current-conditions block when the
+  slot is too narrow to hold them. Rendered by both current-conditions templates;
+  the guard keeps one copy running when a layout somehow renders both.
+{% endcomment %}
+{% template weather_current_fit %}
+<style>
+/* The details column is the only part of the block that can give: the icon and the
+   temperature are shrink-0 on purpose, since they are the reading itself. Without
+   this the column keeps its widest line and the whole block runs out over whatever
+   sits beside it - the daily bars, in the layouts that have them. min-width:0 turns
+   that spill into a clip inside the column, which is what is left if the script
+   below never runs. */
+.current-details { min-width: 0; overflow: hidden; }
+</style>
+<script>
+(function () {
+  if (window.__wxFitCurrent) { return; }
+  window.__wxFitCurrent = true;
+  function fitCurrent() {
+    var blocks = document.querySelectorAll('.current-block');
+    for (var i = 0; i < blocks.length; i++) {
+      var block = blocks[i];
+      var details = block.querySelector('.current-details');
+      if (!details) { continue; }
+      // Measure from the full block every time: the screen this lands on can change
+      // under watch(), and a line hidden for a narrow slot has to come back for a
+      // wide one.
+      details.style.removeProperty('display');
+      var lines = [];
+      for (var j = 0; j < details.children.length; j++) {
+        details.children[j].style.removeProperty('display');
+        lines.push(details.children[j]);
+      }
+      // What the column may occupy, taken from its siblings rather than from itself:
+      // the details column is flex-sized, so its own width is an effect of the text
+      // in it and cannot be asked whether the text fits.
+      var avail = block.clientWidth;
+      for (var k = 0; k < block.children.length; k++) {
+        if (block.children[k] !== details) {
+          avail -= block.children[k].getBoundingClientRect().width;
+        }
+      }
+      var columnGap = parseFloat(window.getComputedStyle(block).columnGap) || 0;
+      avail -= columnGap * (block.children.length - 1);
+      // Drop from the bottom, which is the order they can be spared in: wind, then
+      // humidity, then the feels-like reading. The condition is the last to go.
+      for (var n = lines.length; n > 0; n--) {
+        var widest = 0;
+        for (var m = 0; m < n; m++) {
+          widest = Math.max(widest, lines[m].scrollWidth);
+        }
+        if (widest <= avail) { break; }
+        lines[n - 1].style.setProperty('display', 'none');
+      }
+      // Nothing fits: keep the icon and the temperature and give the column's space
+      // back. Half a word of "Humidity" reads as a broken screen, where an icon and
+      // a number reads as a small one.
+      if (lines.length && lines[0].style.display === 'none') {
+        details.style.setProperty('display', 'none');
+      }
+    }
+  }
+
+  function start() {
+    if (window.TRMNLPaint) { TRMNLPaint.watch('.current-block', fitCurrent); }
+    else { fitCurrent(); }
+  }
+  // Same wait as the daily rows: the framework's own pass wraps pixel-perfect text
+  // and resolves the type scale, both of which move the widths measured here.
+  var tries = 0;
+  (function whenSettled() {
+    if (window.TRMNL_PLUGINS_READY || ++tries > 200) { requestAnimationFrame(start); return; }
+    setTimeout(whenSettled, 50);
+  })();
+})();
+</script>
 {% endtemplate %}
 
 {% comment %}
@@ -102,18 +182,19 @@
   Params: current, icon_size (default 64), show_extra (default true — shows humidity + wind)
 {% endcomment %}
 {% template weather_current_compact %}
-<div class="flex flex--row flex--center-x shrink-0 w--full pt--1.5 pb--1">
+<div class="current-block flex flex--row flex--center-x shrink-0 w--full pt--1.5 pb--1">
   <i class="wi {{ current.icon_class }} shrink-0 {% if icon_size == 48 %}wi-sz-48{% else %}wi-sz-lg{% endif %}"></i>
   <div class="value--xlarge shrink-0" data-pixel-perfect="true" style="line-height:1; white-space:nowrap;">{{ current.temperature }}&deg;</div>
-  <div class="flex flex--col flex--stretch-x gap--[2px]">
+  <div class="current-details flex flex--col flex--stretch-x gap--[2px]">
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">{{ current.condition }}</div>
     <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Feels {{ current.apparent_temperature }}&deg;</div>
     {% if show_extra != false %}
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
-    <div class="value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
+    <div class="current-extra value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Humidity {{ current.relative_humidity }}%</div>
+    <div class="current-extra value--xxsmall" data-pixel-perfect="true" style="white-space:nowrap;">Wind {{ current.wind_speed }} {{ current.wind_direction }}</div>
     {% endif %}
   </div>
 </div>
+{% render "weather_current_fit" %}
 {% endtemplate %}
 
 {% comment %}
@@ -549,9 +630,17 @@ whenChartsReady(function () {
         for (var k = 0; k < rows.length; k++) {
           if (rows[k].style.display !== 'none') { visible.push(rows[k]); }
         }
-        // Row 0 carries today and the current-temperature marker, so it stays
-        // even in a slot too short to hold it.
-        if (visible.length <= 1) { return; }
+        // Row 0 carries today and the current-temperature marker, so it is the
+        // last to go. It does go, though: a slot too short even for one row used
+        // to keep it and show the marker floating over a row clipped away below
+        // the title bar, which reads as a bug rather than as a small screen.
+        if (!visible.length) { return; }
+        if (visible.length === 1) {
+          if (visible[0].getBoundingClientRect().bottom - list.getBoundingClientRect().top > budget) {
+            visible[0].style.display = 'none';
+          }
+          return;
+        }
         var last = visible[visible.length - 1];
         var over = last.getBoundingClientRect().bottom - list.getBoundingClientRect().top;
         if (over <= budget) { return; }

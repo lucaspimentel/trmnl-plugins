@@ -193,11 +193,6 @@ if $SCREENSHOT; then
     esac
   }
 
-  # One browser for the whole run, driven with `goto`. Opening and closing it per
-  # screenshot makes the local server drop connections, which surfaces as a 60s
-  # "waiting until domcontentloaded" timeout on the second shot onwards.
-  playwright-cli open --browser=msedge "about:blank" > /dev/null
-
   for name in "${VARIANT_NAMES[@]}"; do
     dims=$(screen_size_for_variant "$name")
     viewport_w="${dims%% *}"
@@ -209,10 +204,15 @@ if $SCREENSHOT; then
       [[ -f "$page" ]] || continue
       render_png="$SCREENSHOT_DIR/render-${name}-mashup-${size}.png"
       echo "Taking screenshot of ${name}/mashup-${size} (${viewport_w}x${viewport_h}) → $render_png"
-      playwright-cli goto "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null
+      # A fresh browser per shot. Reusing one and navigating with `goto` looks
+      # faster and silently is not: a failed navigation leaves the previous page
+      # up and the screenshot is of the wrong view, with nothing in the output to
+      # say so. Needs a threaded HTTP server, or the open stalls - see CLAUDE.md.
+      playwright-cli open --browser=msedge "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null
       playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null
       sleep 3
       playwright-cli screenshot --filename="$render_png" > /dev/null
+      playwright-cli close > /dev/null
       if $ONEBIT; then
         if command -v magick &>/dev/null; then
           magick "$render_png" -colorspace Gray -threshold 60% -type Bilevel "$render_png"
@@ -223,6 +223,4 @@ if $SCREENSHOT; then
       fi
     done
   done
-
-  playwright-cli close > /dev/null
 fi
