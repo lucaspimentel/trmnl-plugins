@@ -303,6 +303,7 @@ data fix, and an ongoing maintenance chore.
     there, independently of this change.
 
 - [ ] **Use the framework's progress-bar component for the daily temperature range bars**
+  **(watch item, not scheduled - 2026-09-02)**
   - The bars are hand-built: `border: 1px solid #000` on the track and a `bg--gray-30` fill
     (`shared.liquid`, `weather_daily_bars_vertical`), with `rounded lg:rounded--full` on both track
     and fill to fake the clipping a real component gets from `overflow: hidden`. Same class of
@@ -318,7 +319,19 @@ data fix, and an ongoing maintenance chore.
     6 / 12 / 24 / 32px x `--ui-scale`, and `--ui-scale` resolves to 1 on both OG and X (the same
     finding that shaped the chart work), so one size class means one height on both devices. Either
     take 24 everywhere or keep a height override and lose part of the point.
-
+  - **Exit condition, stated exactly:** adopt when the framework stops anchoring `.fill` at
+    `left: 0` - either an `inset`/offset-based fill or a range variant. Recheck on each
+    framework release; 3.3.0 did not touch the component (its release notes cover maps,
+    theming, Position utilities and outlines), and the Position utilities do not help here
+    because their offsets reject percentages, which is exactly what a range offset needs.
+  - **Do not adopt before then.** It costs an off-label inline `left` override per row plus a
+    20px -> 24px height change on OG, which is more than the styling win is worth today.
+  - **Promote it early if** the hand-built bars actually look wrong on a device: the 1-bit
+    dithering is the thing the component would fix, and a present-tense defect outranks this.
+  - Kept rather than deleted because the goal is right and the blocker is someone else's to
+    lift: `#000` and `bg--gray-30` are exactly the hardcoding that made the 2.3.7 -> 3.2.0 bump
+    shift things unexpectedly, and a release that changes how `.fill` positions would break an
+    override adopted early - so this wants watching either way.
 
 - [x] **Make the daily-forecast column widths measured instead of fixed pixels (done)**
   - The widths are gone from CSS. The script that already fits the rows now also measures what the
@@ -351,20 +364,17 @@ data fix, and an ongoing maintenance chore.
   - **Side effect: the recipe linter budget went from 4 of 6 to 0.** Those four `padding` substrings
     were the marker shim and were the plugin's entire spend.
 
-- [ ] **Move the marker to the framework's Position utilities (needs 3.3 - unblocked 2026-09-02)**
-  - ~~Free the linter budget by moving the marker off its padding shim~~ - **the budget half is
-    already done**, as a forced consequence of the measured column widths above. The shim and its
-    `screen--lg` copy are gone, the marker is positioned from the first bar's real rect, and the
-    linter count is 0 of 6. What remains is only the cosmetic question below.
-  - 3.3's Position utilities (`relative`, `absolute`, `inset--{size}`, `top/right/bottom/left--{size}`,
-    `z--0`..`z--3`) are the intended replacement. **Only a partial win, so do not oversell it**: the
-    offsets ride the spacing scale and explicitly do not accept `[Npx]` or a percentage, and the
-    marker's position is a computed percentage, so an inline `left:{{ pct }}%` stays. What goes is the
-    padding shim. Note also that positioned elements are skipped by the terminalize measuring passes
-    (clamp, fit-value, content-limiter), so anything moved out of flow has to carry its own sizing.
-  - ~~Blocked on the same gem-allowlist problem as the 3.3 bump above.~~ **Not blocked** - that
-    problem turned out not to exist (see the corrected note above). `framework_version: 3.3.1`
-    renders locally with the pinned gem today, so this is ready to pick up.
+- [x] **~~Move the marker to the framework's Position utilities~~ (dropped 2026-09-02 - nothing left to win)**
+  - The item existed for the recipe-linter budget, and that is already banked: the `padding-left`
+    shim and its `screen--lg` copy are gone as a side effect of the measured column widths above,
+    and the count is 0 of 6.
+  - What remained was swapping two inline declarations for 3.3's Position utilities while the
+    inline `left:{{ pct }}%` stays regardless, since those offsets take neither `[Npx]` nor a
+    percentage. The marker is placed by `placeMarker` in JS (`shared.liquid:503-510`), so nothing
+    observable changes. Churn in working code, with a live risk of regressing the placement, for no
+    gain on screen.
+  - Unlike the progress-bar item above, no future framework release makes this worth more than it is
+    today, which is why it is dropped outright rather than kept as a watch item.
 
 - [x] **Improve cross-user cache dedup for nearby coordinates (closed — already implemented at the only workable granularity)**
   - **This already works.** `WeatherCache.CacheKey` (`api/src/TrmnlApi/Services/WeatherCache.cs:30-31`) formats the coordinates with `:F2`, which *rounds* rather than truncates, so the cache is keyed on a 0.01 deg grid: roughly 1.1 km north-south, and about 0.8 km east-west at 42 deg N. Two requests anywhere inside the same cell (e.g. `42.3649` and `42.3601`) already collapse to one entry and one upstream call. The item was originally written as if no dedup existed; it does.
