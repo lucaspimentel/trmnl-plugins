@@ -509,6 +509,7 @@ whenChartsReady(function () {
         <div class="daily-bar h--5 lg:h--7 rounded lg:rounded--full" style="flex:1; border:1px solid #000; min-width:0; position:relative;">
           <div class="bg--gray-30 h--full rounded lg:rounded--full" style="position:absolute; left:{{ left_pct }}%; width:{{ width_pct }}%;"></div>
         </div>
+        <div class="temp-dash shrink-0 gap--none" style="display:none;"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;"> - </span></div>
         <div class="temp-label flex flex--left shrink-0 ml--1 gap--none"><span class="value--xsmall lg:value--small" data-pixel-perfect="true" style="white-space:nowrap;">{{ entry.high }}&deg;</span></div>
       </div>
     </div>
@@ -549,11 +550,23 @@ whenChartsReady(function () {
     if (el.children.length === 1) { el.children[0].textContent = text; }
     else { el.textContent = text; }
   }
+  function showAll(els) {
+    for (var i = 0; i < els.length; i++) { els[i].style.removeProperty('display'); }
+  }
+  function hideAll(els) {
+    for (var i = 0; i < els.length; i++) { els[i].style.setProperty('display', 'none'); }
+  }
   function fitLabels(list) {
     var names = list.querySelectorAll('.day-name');
     var days = list.querySelectorAll('.day-label');
     var temps = list.querySelectorAll('.temp-label');
+    var bars = list.querySelectorAll('.daily-bar');
+    var dashes = list.querySelectorAll('.temp-dash');
     if (!days.length) { return; }
+    // The ladder below is walked from the top on every pass, so put back what a
+    // narrower column hid: measuring a hidden bar reports 0 and it never returns.
+    showAll(bars);
+    hideAll(dashes);
     for (var i = 0; i < names.length; i++) {
       writeName(names[i], names[i].getAttribute('data-day-full') || names[i].textContent);
     }
@@ -575,6 +588,13 @@ whenChartsReady(function () {
       if (short) { writeName(names[j], short); }
     }
     setWidth(days, Math.ceil(widestNatural(days)) + 2);
+    // Last rung. Under about 40px a range bar can no longer show where the range
+    // sits, only that it exists, and the fill rounds to a dot: a 2x2 mashup cell
+    // leaves it 14px against the 87px the smallest standalone column gives it.
+    // Drop the bar and let the two temperatures read as the range instead.
+    if (bar.getBoundingClientRect().width >= scaled(list, 40)) { return; }
+    hideAll(bars);
+    showAll(dashes);
   }
   function scaled(el, value) {
     return window.TRMNLPaint ? TRMNLPaint.px(value, { el: el }) : value;
@@ -588,6 +608,9 @@ whenChartsReady(function () {
     if (!marker || !bar || !marker.firstElementChild) { return; }
     var pct = parseFloat(marker.getAttribute('data-marker-pct'));
     if (isNaN(pct)) { return; }
+    // Nothing to point at once the bars are gone.
+    if (!bar.getClientRects().length) { marker.style.setProperty('display', 'none'); return; }
+    marker.style.removeProperty('display');
     var b = bar.getBoundingClientRect();
     marker.firstElementChild.style.left = (b.left - marker.getBoundingClientRect().left + b.width * pct / 100) + 'px';
   }
