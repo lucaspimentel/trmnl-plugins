@@ -129,7 +129,7 @@ if $SCREENSHOT; then
   # Resolve output directory
   if [[ -z "$OUTPUT_DIR" ]]; then
     SCREENSHOT_DIR="$PLUGIN_DIR"
-  elif [[ "$OUTPUT_DIR" == /* ]]; then
+  elif [[ "$OUTPUT_DIR" == /* || "$OUTPUT_DIR" == [A-Za-z]:* ]]; then
     SCREENSHOT_DIR="$OUTPUT_DIR"
   else
     SCREENSHOT_DIR="$PLUGIN_DIR/$OUTPUT_DIR"

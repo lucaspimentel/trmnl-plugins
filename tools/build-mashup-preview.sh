@@ -17,7 +17,8 @@
 # --device, --orientation, --screenshot, --1bit, --output: as in build-preview.sh.
 #
 # Output: <plugin-dir>/_build/{og,x,x-portrait}/mashup-<CxR>.html
-# Screenshots (--screenshot) need an HTTP server on port 8765 serving <plugin-dir>/_build/.
+# --screenshot starts its own HTTP server on port 8765 and stops it again, unless one is
+#   already listening there, in which case it must be serving <plugin-dir>/_build/.
 
 set -e
 
@@ -185,6 +186,30 @@ if $SCREENSHOT; then
     SCREENSHOT_DIR="$PLUGIN_DIR/$OUTPUT_DIR"
   fi
   mkdir -p "$SCREENSHOT_DIR"
+
+  # The pages pull the framework CSS and JS over https, so they have to be served
+  # rather than opened from disk: playwright-cli refuses the file: protocol.
+  port_listening() {
+    python -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',8765))==0 else 1)" 2>/dev/null
+  }
+
+  SERVER_PID=""
+  if port_listening; then
+    echo "Using the HTTP server already on port 8765 — it must be serving $BUILD_DIR."
+  else
+    python -m http.server 8765 --bind 127.0.0.1 --directory "$BUILD_DIR" > /dev/null 2>&1 &
+    SERVER_PID=$!
+    trap '[[ -n "$SERVER_PID" ]] && kill "$SERVER_PID" 2>/dev/null' EXIT
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      if port_listening; then break; fi
+      sleep 1
+    done
+    if ! port_listening; then
+      echo "Could not start an HTTP server on port 8765." >&2
+      exit 1
+    fi
+    echo "Serving $BUILD_DIR on port 8765."
+  fi
 
   # A mashup always occupies the whole screen, whatever the cell size.
   screen_size_for_variant() {

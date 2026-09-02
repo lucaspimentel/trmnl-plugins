@@ -118,16 +118,19 @@ takes the same `--device`/`--orientation`/`--screenshot`/`--1bit`/`--output` fla
 in a cell defaults to the shape core would pick (wide -> `half_horizontal`, tall ->
 `half_vertical`, 1x1 -> `quadrant`, square -> `full`); override per cell with `--cell 2x2:quadrant`.
 
-Screenshots need an HTTP server on port 8765 serving `<plugin-dir>/_build/`, as `build-preview.sh`
-does. `ruby -run -e httpd` will not do: the bundled Ruby has no webrick. Use
-`python -m http.server 8765`, and prefer `ThreadingHTTPServer` — the single-threaded default stalls
-under Playwright's navigation waits and shows up as a 60s `domcontentloaded` timeout.
+`--screenshot` starts its own server on port 8765 and stops it again, so there is nothing to set
+up; it reuses one already listening there, which then has to be serving the same `_build/`.
+`build-preview.sh` still expects you to have started one. `ruby -run -e httpd` will not do — the
+bundled Ruby has no webrick — but `python -m http.server` is fine and has been threaded since 3.7.
 
-**Take each screenshot in a fresh browser**, as both scripts do. Reusing one browser and navigating
-with `playwright-cli goto` is faster and silently wrong: a navigation that fails leaves the previous
-page up, and the screenshot is of the wrong view with nothing in the output saying so. This cost a
-round of "regressions" that were stale pages. `playwright-cli screenshot` also fails to write its
-file every few calls, so check the file exists and retry rather than trusting the exit status.
+**`playwright-cli` is the flaky part, not the server**, and it fails in two ways that both look like
+success:
+
+- `screenshot` writes no file every few calls and still exits 0. Check the file exists and retry;
+  do not trust the exit status. Under `set -e` an unguarded call also ends a sweep partway.
+- Navigating a reused browser with `goto` can silently not navigate, leaving the previous page up
+  so the screenshot is of the wrong view. Both scripts open a fresh browser per shot for this
+  reason. It cost a round of "regressions" that were stale pages, so do not optimise it away.
 
 ### Quick look: `trmnlp build --png`
 
