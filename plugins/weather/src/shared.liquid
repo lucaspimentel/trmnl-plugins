@@ -99,18 +99,13 @@
 {% endtemplate %}
 
 {% comment %}
-  weather_current_fit: drops detail lines from the current-conditions block when the
-  slot is too narrow to hold them. Rendered by both current-conditions templates;
-  the guard keeps one copy running when a layout somehow renders both.
+  weather_current_fit: hides detail lines that do not fit the block's width.
+  Rendered by both current-conditions templates; the guard keeps one copy running.
 {% endcomment %}
 {% template weather_current_fit %}
 <style>
-/* The details column is the only part of the block that can give: the icon and the
-   temperature are shrink-0 on purpose, since they are the reading itself. Without
-   this the column keeps its widest line and the whole block runs out over whatever
-   sits beside it - the daily bars, in the layouts that have them. min-width:0 turns
-   that spill into a clip inside the column, which is what is left if the script
-   below never runs. */
+/* The fallback if the script below never runs: the text clips inside the column
+   instead of running out over whatever sits beside it. */
 .current-details { min-width: 0; overflow: hidden; }
 </style>
 <script>
@@ -123,18 +118,16 @@
       var block = blocks[i];
       var details = block.querySelector('.current-details');
       if (!details) { continue; }
-      // Measure from the full block every time: the screen this lands on can change
-      // under watch(), and a line hidden for a narrow slot has to come back for a
-      // wide one.
+      // Measure from the full block every time: a line hidden for a narrow slot has
+      // to come back when watch() re-runs on a wider one.
       details.style.removeProperty('display');
       var lines = [];
       for (var j = 0; j < details.children.length; j++) {
         details.children[j].style.removeProperty('display');
         lines.push(details.children[j]);
       }
-      // What the column may occupy, taken from its siblings rather than from itself:
-      // the details column is flex-sized, so its own width is an effect of the text
-      // in it and cannot be asked whether the text fits.
+      // Taken from the siblings, not from the column itself: the column is
+      // flex-sized, so its width is an effect of the text and cannot answer this.
       var avail = block.clientWidth;
       for (var k = 0; k < block.children.length; k++) {
         if (block.children[k] !== details) {
@@ -143,8 +136,7 @@
       }
       var columnGap = parseFloat(window.getComputedStyle(block).columnGap) || 0;
       avail -= columnGap * (block.children.length - 1);
-      // Drop from the bottom, which is the order they can be spared in: wind, then
-      // humidity, then the feels-like reading. The condition is the last to go.
+      // Bottom-up, which is the order they can be spared in.
       for (var n = lines.length; n > 0; n--) {
         var widest = 0;
         for (var m = 0; m < n; m++) {
@@ -153,9 +145,7 @@
         if (widest <= avail) { break; }
         lines[n - 1].style.setProperty('display', 'none');
       }
-      // Nothing fits: keep the icon and the temperature and give the column's space
-      // back. Half a word of "Humidity" reads as a broken screen, where an icon and
-      // a number reads as a small one.
+      // Nothing fits: give the column's space back rather than clip a word.
       if (lines.length && lines[0].style.display === 'none') {
         details.style.setProperty('display', 'none');
       }
@@ -356,14 +346,8 @@ whenChartsReady(function () {
     // screen, and it is re-read on every watch() rebuild.
     var screen = TRMNLPaint.screen(chartEl);
     var dense = !!(screen && screen.classList.contains('screen--lg'));
-    // The chart shrinks with its slot, and in a short one there is less room than
-    // the axis furniture alone needs: Highcharts still draws, piling the hour
-    // icons and their labels onto a flat line. Below the floor there is nothing
-    // legible left, so drop the chart and hand the space back - the same call OG
-    // already makes below lg, where the chart is never rendered at all. The floor
-    // is the vertical margin (86 dense / 66 otherwise) plus enough plot to read a
-    // curve against. Unhide before measuring: a hidden wrapper measures 0 and
-    // would never come back.
+    // Below a legibility floor the chart is hidden rather than drawn flat. Unhide
+    // before measuring: a hidden wrapper reads 0 and would never come back.
     var node = document.getElementById(chartEl);
     var wrap = node && node.parentElement;
     if (wrap) {
@@ -630,10 +614,8 @@ whenChartsReady(function () {
         for (var k = 0; k < rows.length; k++) {
           if (rows[k].style.display !== 'none') { visible.push(rows[k]); }
         }
-        // Row 0 carries today and the current-temperature marker, so it is the
-        // last to go. It does go, though: a slot too short even for one row used
-        // to keep it and show the marker floating over a row clipped away below
-        // the title bar, which reads as a bug rather than as a small screen.
+        // Row 0 carries today and the marker, so it is the last to go - but it
+        // does go, or the marker is left floating over a row clipped away.
         if (!visible.length) { return; }
         if (visible.length === 1) {
           if (visible[0].getBoundingClientRect().bottom - list.getBoundingClientRect().top > budget) {
