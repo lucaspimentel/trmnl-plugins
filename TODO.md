@@ -745,6 +745,25 @@ data fix, and an ongoing maintenance chore.
     pages. Reusing one browser and navigating with `playwright-cli goto` leaves the previous page
     up when a navigation fails, so the screenshot is of the wrong view with nothing saying so. Both
     preview scripts now open a fresh browser per shot; see `CLAUDE.md`.
+  - **Re-tested against the issue's own three configurations, 2026-09-02, and all three are
+    clean.** Their screenshots were pulled down and compared shape by shape:
+    - **the wide banner** (their "1x3", 1023x259) is the one captioned *significant overlap*, and
+      the reported screenshot shows exactly the failure since fixed: the current-conditions block
+      drawn on top of the chart. It now renders as current conditions with all four detail lines,
+      three daily rows, and no chart - which is the legibility floor doing its job at 260px.
+    - **the tall column** (their "3x1", 337x761), captioned *minimal cropping*, now carries full
+      details, a readable chart and six daily rows where the reported shot managed four.
+    - **the single cell** (their "1x1", 342x258), captioned *minimal padding needs*, renders
+      cleanly with full details and two daily rows.
+  - **Mind the axis order: the issue labels these rows x columns and this repo labels them columns
+    x rows.** So its "1x3" is the wide banner and its "3x1" is the tall column - the exact opposite
+    of the `--cell` values above, where 3x1 is three columns wide. Every finding in this item uses
+    the repo's order. Check the shape, not the label; the harness usage text says so too.
+  - **One difference from the reported screenshots that is not a defect.** The single cell shows
+    two daily rows where the reporter's older build fitted three. Measured: the list gets 111px,
+    the two rows cost 46 and 35, and a third would end at 131px. It genuinely does not fit, so the
+    fit is right. The space went into a taller current-conditions block, not into slack. Worth
+    revisiting only as a deliberate density decision about that block's padding in `quadrant`.
   - **Left alone deliberately**: the OG title bar truncates its timestamp (`Wed 1:15`) in a
     one-column cell. That is `title_bar`'s own text budget, not the current-conditions block, and
     it is a clipped label rather than content running over its neighbour. Worth a look only if a

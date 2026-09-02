@@ -7,8 +7,11 @@
 # not the view, owns the size, so a view can land in a slot no standalone layout ever sees
 # (a 3x1 banner, a 1x3 column). This builds those slots so they can be looked at.
 #
-# --cell <CxR>[:layout]:  cell size in grid tracks, columns x rows (1..3 each). Repeatable.
-#                          Default cells: 3x1, 1x1, 1x3 — the sizes reported in issue #7.
+# --cell <CxR>[:layout]:  cell size in grid tracks, COLUMNS x ROWS (1..3 each). Repeatable.
+#                          Note issue #7 labels the same shapes rows x columns, so its
+#                          "1x3" (the wide banner) is 3x1 here and its "3x1" (the tall
+#                          column) is 1x3. Check the shape, not the label.
+#                          Default cells: 3x1, 1x1, 1x3 — every shape that issue reports.
 #                          The layout suffix overrides which view is placed in the cell;
 #                          the default per size is the one core would pick by shape.
 # --device, --orientation, --screenshot, --1bit, --output: as in build-preview.sh.
@@ -197,7 +200,6 @@ if $SCREENSHOT; then
     dims=$(screen_size_for_variant "$name")
     viewport_w="${dims%% *}"
     viewport_h="${dims##* }"
-    playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null
     for spec in "${CELLS[@]}"; do
       size="${spec%%:*}"
       page="$BUILD_DIR/$name/mashup-${size}.html"
@@ -208,11 +210,22 @@ if $SCREENSHOT; then
       # faster and silently is not: a failed navigation leaves the previous page
       # up and the screenshot is of the wrong view, with nothing in the output to
       # say so. Needs a threaded HTTP server, or the open stalls - see CLAUDE.md.
-      playwright-cli open --browser=msedge "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null
-      playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null
-      sleep 3
-      playwright-cli screenshot --filename="$render_png" > /dev/null
-      playwright-cli close > /dev/null
+      # The retry is not belt and braces: screenshot writes no file every few
+      # calls and still exits 0, so the file is the only honest check.
+      rm -f "$render_png"
+      for attempt in 1 2 3; do
+        playwright-cli close > /dev/null 2>&1 || true
+        playwright-cli open --browser=msedge "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null 2>&1 || true
+        playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null 2>&1 || true
+        sleep 3
+        playwright-cli screenshot --filename="$render_png" > /dev/null 2>&1 || true
+        playwright-cli close > /dev/null 2>&1 || true
+        if [[ -f "$render_png" ]]; then break; fi
+      done
+      if [[ ! -f "$render_png" ]]; then
+        echo "Failed to capture ${name}/mashup-${size} after 3 attempts." >&2
+        exit 1
+      fi
       if $ONEBIT; then
         if command -v magick &>/dev/null; then
           magick "$render_png" -colorspace Gray -threshold 60% -type Bilevel "$render_png"
