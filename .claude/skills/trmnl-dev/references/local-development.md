@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-# Via RubyGems (requires Ruby 3.x)
+# Via RubyGems (gemspec requires Ruby >= 3.4)
 gem install trmnl_preview
 
 # Or via Docker
@@ -98,27 +98,36 @@ appear to succeed but all data will be zero/empty.
 Plugins in this repository use this layout: `.trmnlp.yml` at the plugin root,
 all liquid files and `settings.yml` under `src/`.
 
-## Static vs Live Data in .trmnlp.yml
+## Static vs Live Data
 
-For development with static sample data, add a `data:` block under `variables:`:
+`.trmnlp.yml` has **no `data:` key**. Its recognized keys are `watch`, `custom_fields`,
+`variables`, `custom_filters`, `time_zone`, `framework_asset_host`, `transform_runtime`,
+`serverless_daemon_url`, and `serverless_daemon_api_key`. Anything else is ignored silently.
 
-```yaml
-variables:
-  trmnl:
-    plugin_settings:
-      instance_name: My Plugin
-  data:
-    some_field: value
-    nested:
-      field: value
-```
+There are three ways to render without hitting the live API:
 
-To switch to live API data, **remove the `data:` block entirely**. trmnlp will
-automatically poll the `polling_url` from `src/settings.yml` on startup and when
-the Poll button is clicked.
+1. **`variables:` in `.trmnlp.yml`** — deep-merged over the assembled data hash, so its keys land
+   where the API response's keys would. Mirror the response's own root shape: `data:` for an
+   array-rooted API, the response's top-level keys directly for an object-rooted one.
 
-**Note**: When switching from static to live data, restart the trmnlp server so it
-picks up the updated `.trmnlp.yml` and re-polls the API fresh.
+   ```yaml
+   variables:
+     trmnl:
+       plugin_settings:
+         instance_name: My Plugin
+     data:              # array-rooted API
+       - some_field: value
+   ```
+
+2. **`static_data` in `src/settings.yml`**, with `strategy: static`. A JSON string, parsed and
+   merged in place of a poll.
+
+3. **The polled-data cache.** trmnlp writes the last successful poll to `data.json` under the XDG
+   cache directory (`$XDG_CACHE_HOME/trmnl/data.json`, else `~/.cache/trmnl/data.json`) and reads
+   it back on the next render. Dropping a saved response there replays it.
+
+To go back to live data, remove the `variables:` overrides (or the `static_data`) and restart the
+server so it re-reads `.trmnlp.yml` and polls fresh.
 
 ## Killing and Restarting the Server (Windows)
 

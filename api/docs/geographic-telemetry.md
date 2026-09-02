@@ -223,8 +223,8 @@ more than the checkbox.
    you it has gone stale, and the only thing that would notice a bad copy is
    `TimeZoneCountryTests.TheEmbeddedTableLoads`. Currently tzdb **2026c**.
 
-9. **The postal-punctuation defect is open and deliberately deferred.** `NormalizePostal` strips
-   hyphens, so Poland's `02-180` answers to a typed `02180`; Poland, Japan, Portugal, Brazil,
+9. **The postal-punctuation defect is open and deliberately deferred.** `NormalizePostal` keeps only ASCII
+   letters and digits, so Poland's `02-180` answers to a typed `02180`; Poland, Japan, Portugal, Brazil,
    Czechia, Slovakia and Sweden punctuate 100% of their codes. It is 5.3% of US ZIP collisions
    against 82% that are genuine. The fix is a raw-code column on `postal`, `GeoSchema.Version` 3,
    a rebuild, a release and a re-pin of both environments - a full dataset cycle for a twentieth of
@@ -396,7 +396,7 @@ serves telemetry, which needs ISO codes that no forward geocoder supplies at all
 ## What the user sees
 
 The `place` block already exists in the v2 response and the title bar already renders it
-(`plugins/weather/src/shared.liquid:456`, guarded by `{% if place %}`). Two things change, and
+(`plugins/weather/src/shared.liquid:698`, guarded by `{% if place %}`). Two things change, and
 **neither is a template change**:
 
 1. The block gets populated for coordinate input, where it was omitted before.
@@ -406,11 +406,14 @@ The `place` block already exists in the v2 response and the title bar already re
 ### The 18-character problem
 
 The title bar appends the subdivision only when the combined label fits in 18 characters
-(`shared.liquid:455`):
+(`shared.liquid:696-697`, one line in the template, unwrapped here for readability):
 
 ```liquid
-{% assign with_admin1 = place.name | append: ", " | append: place.admin1 %}
-{% if with_admin1.size <= 18 %}{% assign place_label = with_admin1 %}{% endif %}
+{% assign place_label = place.name %}
+{% if place.admin1 %}
+  {% assign with_admin1 = place.name | append: ", " | append: place.admin1 %}
+  {% if with_admin1.size <= 18 %}{% assign place_label = with_admin1 %}{% endif %}
+{% endif %}
 ```
 
 `Boston, Massachusetts` is 21 characters, so it silently renders as **`Boston`**. The same happens
@@ -820,7 +823,8 @@ R-tree index**, bundled in the image:
 
 The same file serves the nearest-city query, the forward geocoder and the postal lookup. Cost is
 image size and a build step to produce the file. `GeoDataBuilder` simplifies the polygons at build
-time (Douglas-Peucker, 0.01 degrees by default), drops every column nothing reads, and vacuums; the
+time (NTS `TopologyPreservingSimplifier`, 0.01 degrees by default), drops every column nothing
+reads, and vacuums; the
 artifact is 60-120 MB without that trimming.
 
 ### The file layout
@@ -845,7 +849,9 @@ dotnet run --project api/tools/GeoDataBuilder -- --input <dir> --output geo.sqli
 The input directory needs `ne_10m_admin_1_states_provinces.shp` (with its `.dbf` and `.shx`),
 `cities1000.txt`, `admin1CodesASCII.txt` and the postal `allCountries.txt`. Publish the result as a
 GitHub release asset and point `GEO_DATA_URL` / `GEO_DATA_SHA256` at it in `api/Dockerfile`, which
-verifies the checksum the same way the tracer tarball is verified.
+decompresses the asset and then verifies `sha256sum` against the SQLite file the service actually
+opens. It is the only download in that image that is checksum-verified; the tracer tarball above it
+is piped straight into `tar` unverified.
 
 Leave `GEO_DATA_URL` empty and the image still runs: `Geo__DatabasePath` finds nothing, the null
 implementations are registered, every query goes to the vendor geocoder and no location is shown. A
@@ -912,7 +918,8 @@ and mountain users, where 11 km spans a real gradient).
 slightly different numbers and lands in a private F2 cell. Place input may improve the hit rate
 enough that regrinding the cache key becomes unnecessary.
 
-Note that `FreshTtl` (45 min, set in Railway) is deliberately below the 60 min default
+Note that `FreshTtl` (45 min, set per environment as the `WeatherCache__FreshTtl` deploy-time
+variable, overriding the 10 min code default in `WeatherCacheOptions`) is deliberately below the 60 min default
 refresh interval: an hourly device never self-hits and always gets a live fetch, which keeps
 worst-case staleness on screen at 60 minutes rather than ~125. The cache exists for sub-hourly
 refreshers and for nearby users, not for the default cadence. Do not "fix" it by raising it above

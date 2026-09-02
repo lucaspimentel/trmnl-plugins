@@ -298,8 +298,9 @@ none of this reaches the **vendor** fallback, which still ranks by prominence.
 
 ##### Known and deferred: stripped punctuation invents collisions
 
-`GeoText.NormalizePostal` removes spaces and hyphens, so Poland's `02-180` and a US `02180` become
-one key. Poland, Japan, Portugal, Brazil, Czechia, Slovakia and Sweden write **100%** of their codes
+`GeoText.NormalizePostal` keeps only ASCII letters and digits and upper-cases them, dropping every
+other character rather than spaces and hyphens specifically, so Poland's `02-180` and a US `02180`
+become one key. Poland, Japan, Portugal, Brazil, Czechia, Slovakia and Sweden write **100%** of their codes
 with punctuation, and the normalization makes every one of them collide with a bare code nobody
 would confuse them with. It accounts for **5.3%** of US ZIP collisions; the other 82% are genuine.
 
@@ -542,8 +543,8 @@ history has had that exposure, so a v2 defect is a fleet-wide outage rather than
 ### Where the error renders
 
 The template already has the branch. All four layouts guard on `{% if current and current.temperature %}`
-and fall through to a `wi-na` icon over fixed text: `full.liquid:16`, `half_horizontal.liquid:19`,
-`half_vertical.liquid:15`, and `quadrant.liquid:12`, which shortens the wording for the smaller slot.
+(`full.liquid:6`, `half_horizontal.liquid:6`, `half_vertical.liquid:2`, `quadrant.liquid:2`) and fall
+through to a `wi-na` icon over fixed text, which `quadrant.liquid` shortens for the smaller slot.
 `title_bar` renders outside the branch and degrades on its own, since `shared.liquid` guards the whole
 timestamp span behind `{% if updated_at %}`, leaving just the instance name.
 
@@ -552,8 +553,10 @@ whenever `current.temperature` is nil, which makes a mistyped place, an expired 
 outage, and a malformed `polling_url` produce one identical screen. v2 changes the trigger from
 absent data to a reported error: each layout now has an `{% elsif error %}` arm rendering
 `error.message` and, where the slot has room, `error.hint`, keeping the fixed text as the fallback
-for a response that carries neither forecast nor error. `title_bar` also renders the resolved place
-name (`shared.liquid:448`), which is the on-screen half of the ambiguity mitigation.
+for a response that carries neither forecast nor error - the `{% elsif error %}` arms at
+`full.liquid:16`, `half_horizontal.liquid:18`, `half_vertical.liquid:12` and `quadrant.liquid:9`.
+`title_bar` also renders the resolved place name (`shared.liquid:696-698`), which is the on-screen
+half of the ambiguity mitigation.
 
 That mitigation is narrower in practice than it looks. `place` is only populated when the input was
 geocoded, so a user who pastes a coordinate pair sees no place name and gets no signal that the pair

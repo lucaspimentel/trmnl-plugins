@@ -184,11 +184,14 @@ numeric-looking ones, so they stay facets rather than measures.
 | `weather.first_failure.status`, `weather.first_failure.error` | set only when a provider failed |
 | `weather.input_kind` | v2 only: `coordinates`, `place`, `missing`, or `invalid` |
 | `weather.error_code` | v2 only: which failure, or `client_cancelled` |
+| `weather.test_scenario` | v2 only: the name after `place=test:`, so a test poll is filterable and never mistaken for real traffic. See the table in [place-input.md](place-input.md) |
 | `weather.via_legacy_host` | `1` when the request arrived through the original host's proxy. Set by the tracer from `DD_TRACE_HEADER_TAGS`, not by this code. See [legacy-host-proxy.md](legacy-host-proxy.md) |
 
 v2 also tags where the request resolved to - `weather.geocoder`, `weather.country_code`,
 `weather.country`, `weather.subdivision`, `weather.subdivision_name` and `weather.city`, set by
-`TagPlace`. Their formats and sources are specified once, in
+`TagPlace` - and what steered an ambiguous place there: `weather.country_hint`,
+`weather.declared_country` and `weather.time_zone`, set by `TagPreference`. Their formats and
+sources are specified once, in
 [geographic-telemetry.md](geographic-telemetry.md#what-to-emit), rather than repeated here where the
 two lists would drift apart.
 
@@ -235,8 +238,11 @@ Two things about it are easy to break from this repo without touching Datadog:
 
 - **The body assertion is a contract.** `"fetched_at"` lives in the v2 `meta` block. Renaming or
   moving it fails the check.
-- **Every run is a deliberate cache miss.** `WeatherCacheOptions.FreshTtl` is 10 minutes and the
-  test ticks every 30, so the check never hits a warm entry and always pays a full upstream fetch.
+- **Every run is a deliberate cache miss.** `WeatherCacheOptions.FreshTtl` defaults to 10 minutes in
+  code, and each environment overrides it with the `WeatherCache__FreshTtl` deploy-time variable, so
+  read the deployed value rather than the default before reasoning about this. The test ticks every
+  30 minutes, which is longer than either, so the check never hits a warm entry and always pays a
+  full upstream fetch.
   That is what makes it a useful test of the provider path rather than of the cache, but it means
   the 2s assertion is measuring upstream latency. If it starts flapping on response time, raise the
   threshold or shorten the tick below `FreshTtl` - it is not by itself a regression.
@@ -261,10 +267,18 @@ under `Logging:Datadog:LogLevel`. `Default` is `None`, so nothing ships unless i
 | Category | Min level | Events |
 |---|---|---|
 | `TrmnlApi.Observability.ForecastServed` | Information | one line per served forecast |
+| `TrmnlApi.Observability.UnhandledExceptionLogger` | Error | an exception no endpoint handled |
 | `TrmnlApi.Endpoints.WeatherEndpoint` | Warning | every provider failed, caller got a 502 |
+| `TrmnlApi.Endpoints.WeatherV2Endpoint` | Warning | a place lookup or a forecast failed upstream |
 | `TrmnlApi.Services.WeatherForecastOrchestrator` | Warning | a provider failed; stale cache served instead |
 | `TrmnlApi.Services.WeatherResilience` | Warning | a provider's circuit opened or closed |
-| `TrmnlApi.Observability.UnhandledExceptionLogger` | Error | an exception no endpoint handled |
+| `TrmnlApi.Services.PlaceResolver` | Warning | a place lookup was rejected before reaching the geocoder |
+| `TrmnlApi.Geo.GeoDatabaseHolder` | Warning | no geo dataset at the configured path; locations will not be shown |
+| `TrmnlApi.Geo.SqliteLocalGeocoder` | Warning | local geocoding failed; fell back to the vendor geocoder |
+| `TrmnlApi.Geo.SqlitePlaceLookup` | Warning | reverse geocoding failed; forecast served without a place |
+
+`api/tests/TrmnlApi.Tests/DatadogLogAllowlistTests.cs` asserts this exact set, so adding a category
+to `appsettings.json` without adding it here (and to that test) fails the build.
 
 Console output is unaffected by any of this, so stdout and the platform's own log view keep showing
 everything exactly as before.
@@ -322,6 +336,9 @@ container, under the directory created by `/opt/datadog/createLogPath.sh`
 (`/var/log/datadog/dotnet`). An empty directory means the profiler never loaded: re-check
 `CORECLR_PROFILER_PATH`.
 
-If the tracer starts but no traces arrive, the likely cause is agent connectivity. Set
-`DD_TRACE_AGENT_URL=http://datadog-agent.railway.internal:8126` explicitly and check whether the
-agent bound IPv4-only while private DNS resolved to IPv6.
+If the tracer starts but no traces arrive, the likely cause is agent connectivity. The app service
+normally reaches the agent through `DD_AGENT_HOST` plus the default port; to rule out discovery, set
+`DD_TRACE_AGENT_URL` explicitly to `http://<agent service name>.railway.internal:8126` - the agent
+service is currently named `datadog-agent-rust`, so
+`http://datadog-agent-rust.railway.internal:8126` - and check whether the agent bound IPv4-only
+while private DNS resolved to IPv6.

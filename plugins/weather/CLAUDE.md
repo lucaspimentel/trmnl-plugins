@@ -58,6 +58,7 @@ The staging id lives in `STAGING_IDS` in `tools/push-plugin.sh` as well as here;
 ## API: TrmnlApi
 
 - **Deployed URL**: `https://trmnl-plugins-prod.lucasp.net/api/v2/forecast?place={place}` (the plugin also sends `latitude`/`longitude` as the fallback for a blank `place`). `/api/v1/forecast` is frozen for forked copies of the plugin; never change what a v1 caller can observe
+- **Unresolved: `polling_url` still sends `place={{ place | url_encode }}`.** Everything else in this repo records that **Liquid filters do not run in `polling_url`** (root `CLAUDE.md`; `api/docs/place-input.md`, where the `country` field's filter demonstrably never ran and the raw `{{ country }}` was shipped instead). If that holds, this `url_encode` is dead and `place` goes out unencoded, so a value containing `&`, `+` or `#` is mangled or truncated before the API sees it. Either the filter does run here and the blanket claim needs narrowing, or the encoding has to move server-side. Verify on a real device with a place containing `&` before changing either
 - **Source**: `api/` (repo root)
 - **Auth**: None (anonymous)
 - **Query params**: `place` (v2, city / postal code / `latitude, longitude` pair), `latitude`, `longitude` (required on v1; on v2 the fallback when `place` is blank), `units` (`imperial` default / `metric`), `hours` (1–25, default 25), `days` (1–14, default 6. Pirate Weather only ever supplies up to 7, so requests for more than 7 return fewer entries than requested when Pirate Weather serves them), `provider` (`open-meteo` / `pirate-weather`), `time_format` (`12h` default / `24h`), `show_place` (`yes` default; `no` omits the `place` block, v2 only), `abbreviate_days` (`no` default; `yes` echoes `meta.abbreviate_days: true` so the daily forecast shows `Wed` instead of `Wednesday`, v2 only); `fake=true` injects random precipitation for testing (**v1 only** - on v2 use `place=test:precipitation`)
@@ -261,4 +262,6 @@ cd plugins/weather
 trmnlp serve    # http://localhost:4567
 ```
 
-To use cached data: configure a `data:` block in `.trmnlp.yml` pointing to a file in `assets/` (e.g. `assets/data-2026-02-24T18-30.json`). The filename encodes the `current.time` value used as "now".
+To render without polling: put the response's top-level keys (`current`, `hourly`, `daily`, `meta`, `place`) under `variables:` in `.trmnlp.yml`. **`.trmnlp.yml` has no `data:` key** — an earlier version of this note said it did — and the API's root is an object, so there is no `data` wrapper to nest under either. The other option is `~/.cache/trmnl/data.json`, where trmnlp caches the last successful poll and reads it back.
+
+`assets/data-2026-02-24T18-30.json` is a **raw Open-Meteo response** captured before the backend existed (`current.temperature_2m`, not `current.temperature`), so it does not match what the templates read today. Re-capture from `/api/v2/forecast` before relying on it.

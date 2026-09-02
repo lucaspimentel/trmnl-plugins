@@ -172,6 +172,23 @@ dotnet run --project api/src/TrmnlApi             # local run (http://localhost:
 - APM: traces ship to Datadog through an agent service on the private network; the native tracer is installed by `api/Dockerfile` and its version must stay in sync with the `Datadog.Trace` package. Setup and env vars: `api/docs/observability.md`
 - Logs: sent by the native tracer's direct submission, not through the agent, which cannot tail another service's stdout. Turned on per environment with `DD_LOGS_DIRECT_SUBMISSION_INTEGRATIONS=ILogger` plus `DD_API_KEY` (deploy-time vars, not in the image). The allowlist is `Logging:Datadog:LogLevel` in `api/src/TrmnlApi/appsettings.json`, defaulting to `None`; console output is unaffected. Adding an event means adding its category there
 
+## Legacy Host Proxy (`legacy-proxy/`)
+
+The API's original host still serves `/api/v1/forecast` to forked plugin installs that cannot be
+updated. It now runs a thin forwarding function that relays to the current backend.
+
+- Source is at `legacy-proxy/`, **deliberately outside `api/`** so editing it does not match the API's deployment watch patterns and trigger a rebuild of the main service. Do not move it under `api/`
+- It is **not** in `api/TrmnlApi.slnx`, so `dotnet test api/TrmnlApi.slnx` does not cover it. Build and test it explicitly:
+  ```bash
+  dotnet build legacy-proxy/src/TrmnlLegacyProxy/TrmnlLegacyProxy.csproj
+  dotnet test  legacy-proxy/tests/TrmnlLegacyProxy.Tests/TrmnlLegacyProxy.Tests.csproj
+  ```
+  CI runs it from its own workflow, `.github/workflows/legacy-proxy.yml`
+- Fidelity is the whole point: the query string is forwarded **byte-for-byte and unparsed** (rebuilding it from parsed values drops undocumented params like `fake=true`), the body is relayed as bytes with no JSON round-trip, and status codes pass through unchanged. The tests check exactly these properties
+- It adds `X-Legacy-Proxy: 1`, mapped by the tracer to the span tag `weather.via_legacy_host`. Search on the **tag** name, not the header name. `weather.via_legacy_host` going quiet is the decommission exit condition for the old host
+- It has never run end to end on a developer machine (`func start` and `dotnet run` both fail with a worker gRPC handshake error, cause unknown). Verify changes through the unit tests and the deployed staging copy
+- Full rationale, traffic measurements and rollout: `api/docs/legacy-host-proxy.md`
+
 ## Credentials
 
 `TRMNL_DEVICE_ID`, `TRMNL_DEVICE_API_KEY`, and `TRMNL_API_KEY` (for `trmnlp login`) are in **1Password item "trmnl"**:

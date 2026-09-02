@@ -39,8 +39,10 @@ https://api-v3.mbta.com/alerts?filter[route_type]=0,1&sort=-severity&fields[aler
 
 ## Template Notes
 
+- All markup lives in `src/shared.liquid` as two `{% template %}` blocks, `alert_list` and `title_bar`; each layout file computes `latest_update` (the newest `updated_at` across the alerts) and `{% render %}`s the two blocks with a layout-specific `max_height`
 - Show "No current alerts." when `data` is empty or nil
-- Uses `data-list-limit="true"` + `data-list-max-height` to handle overflow gracefully
+- Overflow is handled by the framework, not by hand: `data-list-limit="true"` + `data-list-max-height` on the list, `data-list-hidden-count="true"` for the "and N more" indicator, `data-list-max-columns="1"`, and `data-content-limiter="true"` on each item
+- `settings.yml` pins no `framework_version`, so this plugin renders against whatever the platform currently serves
 
 ## Local Preview
 

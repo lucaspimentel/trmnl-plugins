@@ -10,7 +10,7 @@ RUN mkdir -p /opt/datadog \
       | tar -xz -C /opt/datadog
 
 # The bundled geographic dataset, built by tools/GeoDataBuilder and published as a release asset.
-# Pinned by URL and verified by sha256, the same way the tracer tarball above is. Leave the URL
+# Pinned by URL and verified by sha256 (unlike the tracer tarball above, which is not). Leave the URL
 # empty and the image still runs: local geocoding and the on-screen location switch off, every
 # query goes to the vendor geocoder, and the service logs a warning at boot. See
 # docs/geographic-telemetry.md.

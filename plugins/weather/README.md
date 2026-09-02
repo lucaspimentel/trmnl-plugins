@@ -11,6 +11,7 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 - Weather icons on the hourly chart x-axis with day/night variants
 - Sunrise and sunset times marked as dashed vertical lines on the chart
 - Multi-day forecast with temperature range bars and weather icons (up to 14 days)
+- Optional abbreviated weekday labels (`Wed` instead of `Wednesday`) for narrow slots
 - 12-hour (am/pm) or 24-hour clock for all displayed times
 - Configurable location by city name, postal code, or coordinates (defaults to Boston, MA)
 - The matched location shown in the title bar, so a wrong match is visible (toggle with **Show Location**)
@@ -18,7 +19,7 @@ A [TRMNL](https://usetrmnl.com/) plugin that displays current conditions, a 24-h
 
 ## Setup
 
-Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Location** field with a city name, postal code, or coordinate pair (latitude first). Your saved **Latitude** and **Longitude** still apply when **Location** is blank. Set **Country** if you use a bare postal code, since the same code is often valid in several countries. Optionally override the **Units**, **Hours**, **Days**, **Time Format**, and **Show Location** fields. The plugin polls the API every 60 minutes.
+Install as a private plugin on [TRMNL](https://usetrmnl.com/). Configure your location by setting the **Location** field with a city name, postal code, or coordinate pair (latitude first). Your saved **Latitude** and **Longitude** still apply when **Location** is blank. Set **Country** if you use a bare postal code, since the same code is often valid in several countries. Optionally override the **Units**, **Hours**, **Days**, **Time Format**, **Show Location**, and **Abbreviate Day Names** fields. The plugin polls the API every 60 minutes.
 
 > **Note:** Coordinate pairs are not checked for order, so a swapped pair can silently show the wrong place. Postal codes are not unique across countries (`02180` is a real code in six, and `75001` is both central Paris and Addison, TX). Your device's time zone settles most of them on its own. Set the **Country** field when it does not, or add the country to **Location** directly (`75001, US`).
 
@@ -44,6 +45,7 @@ Weather data is fetched via a custom ASP.NET Core backend (`api/` in this repo, 
 | `provider` | no | server-configured | Upstream provider: `open-meteo` or `pirate-weather`. The plugin does not send it, so the server default applies |
 | `time_format` | no | `12h` | `12h` (am/pm) or `24h` clock for the hourly labels |
 | `show_place` | no | `yes` | `no` omits the `place` block, which is how the plugin hides the matched location in the title bar. v2 only |
+| `abbreviate_days` | no | `no` | `yes` shortens the daily forecast's weekday labels to `Wed`. Echoed back as `meta.abbreviate_days`. v2 only |
 | `country` | no | — | ISO 3166-1 alpha-2 of the user's country, used only to settle an ambiguous `place`. A preference, not a filter: a location outside it still resolves, and a country typed into `place` wins over it. Read from the leading two letters, so the dropdown's own slugified value works. v2 only |
 | `tz` | no | — | The user's IANA time zone, e.g. `America/New_York`, sent as `{{ trmnl.user.time_zone_iana }}`. Settles an ambiguous postal code the same way `country` does, and only when `country` says nothing, so a user who has set nothing still gets their own country. Postal codes only. v2 only |
 
@@ -56,7 +58,9 @@ cd plugins/weather
 trmnlp serve    # http://localhost:4567
 ```
 
-To test with cached data instead of hitting the live API, set a `data:` block in `.trmnlp.yml` pointing to a file in `assets/` (e.g. `assets/data-2026-02-24T18-30.json`). The filename encodes the `current.time` value used as "now" for the chart.
+To render without hitting the live API, put the response's top-level keys (`current`, `hourly`, `daily`, `meta`, `place`) under `variables:` in `.trmnlp.yml` — there is no `data:` key in that file, and the API's root is an object rather than an array. Alternatively, drop a saved response at `~/.cache/trmnl/data.json`, which is where trmnlp caches the last poll and reads it back from.
+
+`assets/data-2026-02-24T18-30.json` predates the backend: it is a **raw Open-Meteo response**, not the shape `/api/v2/forecast` returns, so it will not render against the current templates as-is. The filename encodes the `current.time` value it was captured at.
 
 ### External Dependencies
 
@@ -65,7 +69,7 @@ To test with cached data instead of hitting the live API, set a `data:` block in
 Used for the hourly temperature spline + precipitation bar chart.
 
 - License: free for non-commercial use
-- Loaded from `https://trmnl.com/js/highcharts/12.3.0/highcharts.js`
+- Loaded from `https://trmnl.com/js/highcharts/12.3.0/highcharts.js`, alongside the `pattern-fill.js` module from the same version, which is required because every framework paint resolves to a dither pattern on an e-ink screen
 
 #### Erik Flowers Weather Icons
 
