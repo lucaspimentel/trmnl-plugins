@@ -194,12 +194,19 @@ data fix, and an ongoing maintenance chore.
     framework (cloned at `D:\source\usetrmnl\trmnl-framework`; the notes live in
     `public/framework/releases/`, which is the only complete changelog - there is no `CHANGELOG.md`
     and GitHub carries a release entry for 3.3.0 only).
-  - **The plugin is now on `framework_version: 3.2.0`, not 2.3.7.** 3.3.0 is the true latest but is
-    **unusable**: the `trmnl_preview` gem allowlists framework versions in
-    `db/data/framework_versions.yml` and stops at 3.2.0 even at its newest published release
-    (0.11.0, which CI pins), so `serve`/`build` die with `unknown framework version: 3.3.0`.
-    `trmnlp lint` does *not* check this, so lint passing proves nothing here. Re-try 3.3.0 when the
-    gem ships a version whose list includes it.
+  - **The plugin is now on `framework_version: 3.2.0`, not 2.3.7.**
+  - ~~3.3.0 is unusable because the `trmnl_preview` gem allowlists framework versions in
+    `db/data/framework_versions.yml` and stops at 3.2.0~~ - **wrong, corrected 2026-09-02.** That
+    bundled file is only an *offline fallback*. `FrameworkVersion.config`
+    (`lib/trmnlp/framework_version.rb:22`) first fetches the live manifest from
+    `usetrmnl/trmnl-framework`, so the accepted list was never tied to the gem's release cadence.
+    Verified by running the installed 0.11.0: 3.3.0 and 3.3.1 both resolve, 3.4.0 is correctly
+    rejected, and `latest` reports 3.3.1. **No gem bump, no PR, no local patch is needed.**
+  - **3.3.1 is the current latest** (released 2026-09-01; 3.3.0 landed 2026-08-27, i.e. before this
+    survey was written). Upstream `trmnlp` `main` goes further still - the `fix-unknown-framework-version`
+    work (#126) drops the manifest check for a `Gem::Version.correct?` gate, so any well-formed
+    number the CDN serves is accepted - but that is unreleased and not required here.
+  - `trmnlp lint` does *not* check `framework_version`, so lint passing still proves nothing about it.
   - **What actually moved on screen, measured by rendering the same data at 2.3.7 and at 3.2.0**
     (`trmnlp build --png`, OG 1-bit): the title bar's background dither got lighter and finer, its
     border went from crisp to nearly invisible, and text renders a shade lighter. All three trace to
@@ -344,7 +351,7 @@ data fix, and an ongoing maintenance chore.
   - **Side effect: the recipe linter budget went from 4 of 6 to 0.** Those four `padding` substrings
     were the marker shim and were the plugin's entire spend.
 
-- [ ] **Move the marker to the framework's Position utilities (needs 3.3)**
+- [ ] **Move the marker to the framework's Position utilities (needs 3.3 - unblocked 2026-09-02)**
   - ~~Free the linter budget by moving the marker off its padding shim~~ - **the budget half is
     already done**, as a forced consequence of the measured column widths above. The shim and its
     `screen--lg` copy are gone, the marker is positioned from the first bar's real rect, and the
@@ -355,7 +362,9 @@ data fix, and an ongoing maintenance chore.
     marker's position is a computed percentage, so an inline `left:{{ pct }}%` stays. What goes is the
     padding shim. Note also that positioned elements are skipped by the terminalize measuring passes
     (clamp, fit-value, content-limiter), so anything moved out of flow has to carry its own sizing.
-  - Blocked on the same gem-allowlist problem as the 3.3 bump above.
+  - ~~Blocked on the same gem-allowlist problem as the 3.3 bump above.~~ **Not blocked** - that
+    problem turned out not to exist (see the corrected note above). `framework_version: 3.3.1`
+    renders locally with the pinned gem today, so this is ready to pick up.
 
 - [x] **Improve cross-user cache dedup for nearby coordinates (closed — already implemented at the only workable granularity)**
   - **This already works.** `WeatherCache.CacheKey` (`api/src/TrmnlApi/Services/WeatherCache.cs:30-31`) formats the coordinates with `:F2`, which *rounds* rather than truncates, so the cache is keyed on a 0.01 deg grid: roughly 1.1 km north-south, and about 0.8 km east-west at 42 deg N. Two requests anywhere inside the same cell (e.g. `42.3649` and `42.3601`) already collapse to one entry and one upstream call. The item was originally written as if no dedup existed; it does.
