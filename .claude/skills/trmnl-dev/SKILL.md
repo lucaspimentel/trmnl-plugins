@@ -122,6 +122,7 @@ copy, because it reads as authoritative.
 | A single platform page | append `.md` to any `https://docs.trmnl.com/go/...` URL |
 | Framework design system | `references/framework/3.3/` — vendored, see below |
 | `settings.yml` form fields | <https://help.trmnl.com/en/articles/10513740-custom-plugin-form-builder.md> |
+| Help-centre articles on plugin technique | `references/help-center-links.md` — a checked index of the general ones |
 | Liquid engine and TRMNL's own filters | <https://github.com/usetrmnl/trmnl-liquid>, or <https://context7.com/usetrmnl/trmnl-liquid/llms.txt> |
 | trmnlp behavior | <https://github.com/usetrmnl/trmnlp> |
 | Framework source | <https://github.com/usetrmnl/trmnl-framework> |
@@ -183,6 +184,7 @@ cover. Read the one that matches the task.
 | `references/template-variables.md` | `trmnl.user`, `trmnl.device`, `trmnl.plugin_settings`, data access |
 | `references/liquid.md` | TRMNL's custom Liquid filters and the syntax caveats |
 | `references/highcharts.md` | What TRMNL requires of a Highcharts config, and what breaks on e-ink |
+| `references/help-center-links.md` | Curated help-centre articles: architecture, Liquid, debugging, design |
 
 Live interactive docs: <https://trmnl.com/framework/docs>.
 Layout examples across 30+ device models: <https://trmnl.com/framework/examples>.
