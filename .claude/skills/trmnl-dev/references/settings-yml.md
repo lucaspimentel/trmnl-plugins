@@ -3,7 +3,11 @@
 `src/settings.yml` defines plugin metadata, data strategy, and custom user-configurable fields.
 Changes are overwritten by `trmnlp pull` — edit locally and push with `trmnlp push --force`.
 
-Docs: https://help.trmnl.com/en/articles/10542599-importing-and-exporting-private-plugins
+Authority for the form fields: <https://help.trmnl.com/en/articles/10513740-custom-plugin-form-builder.md>
+(append `.md` for Markdown). Import/export: <https://help.trmnl.com/en/articles/10542599-importing-and-exporting-private-plugins>
+
+Kept locally because the field-type list drifts and because the `polling_url` section below
+**contradicts** the vendor documentation on a point that has already cost us a bug.
 
 ---
 
@@ -105,6 +109,9 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 | `copyable` | Read-only text with copy button | n/a | Display-only; shows a value users can copy |
 | `copyable_webhook_url` | Read-only webhook URL with copy button | n/a | Auto-populated with the plugin's webhook URL |
 | `plugin_instance_select` | Dropdown of the user's plugin instances | plugin instance ID | For "data only" / Plugin Merge strategy |
+| `lat_lon` | Autocomplete over cities, addresses and postal codes | `"lat,lon"` string, e.g. `33.7490,-84.3880` | User may also type coordinates directly. Parse it server-side — see the filter trap below |
+| `xhrSelect` | Dropdown populated from an `endpoint` | selected option value | Single or multi |
+| `xhrSelectSearch` | Searchable dropdown populated from an `endpoint` | selected option value | |
 
 ### Typical first field pattern
 
@@ -132,13 +139,28 @@ Reference any custom field value using standard Liquid syntax (no `##` prefix):
 https://api.example.com/data?lat={{ latitude }}&lon={{ longitude }}&key={{ api_key }}
 ```
 
-### Liquid filters in `polling_url`
+### Liquid filters in `polling_url` — they do NOT run
 
-Full Liquid is supported:
+**Verified the hard way, and it contradicts TRMNL's own documentation.** A filter in `polling_url`
+is not applied: `{{ place | split: ',' | first }}` sends the unsplit value, silently. The `country`
+field was served as though unset because of this, and TRMNL's help article recommends exactly this
+broken pattern for `lat_lon`.
+
+Send the raw value and parse it server-side:
 
 ```
-https://api.example.com/posts.json?since={{ "now" | date: "%Y-%m-%d" }}
+# wrong - the filter never runs
+https://api.example.com/?lat={{ lat_lon | split: ',' | first }}
+# right - split on the comma in your own API
+https://api.example.com/?latlon={{ lat_lon }}
 ```
+
+A filter also puts `: ` into the YAML scalar, so the line has to be quoted or `settings.yml` will
+not parse at all.
+
+**`trmnl.user.*` is the exception and DOES interpolate.** `&tz={{ trmnl.user.time_zone_iana }}`
+arrives as `tz=America/New_York`, verified on a device. Time zone, locale and UTC offset are
+therefore available to a backend without defining a custom field at all.
 
 ### Multiple URLs (multi-endpoint polling)
 
