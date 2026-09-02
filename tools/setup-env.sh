@@ -76,17 +76,25 @@ setup_ruby() {
   local current=""
   command -v ruby >/dev/null && current="$(ruby -e 'print RUBY_VERSION')"
 
+  # rbenv's shims directory is not on PATH in every image. Add it whenever rbenv is
+  # present, not just on the branch that installs: a later run finds a good-enough
+  # Ruby, skips the install, and would otherwise never see the gems it put there.
+  if command -v rbenv >/dev/null; then
+    export PATH="$(rbenv root)/shims:$PATH"
+    persist 'command -v rbenv >/dev/null && eval "$(rbenv init - bash)"'
+    hash -r
+    current=""
+    command -v ruby >/dev/null && current="$(ruby -e 'print RUBY_VERSION')"
+  fi
+
   if [ -n "$current" ] && version_ge "$current" "$RUBY_MIN"; then
     log "Ruby $current already satisfies >= $RUBY_MIN"
   elif command -v rbenv >/dev/null; then
     log "Ruby ${current:-none} is below $RUBY_MIN; installing $RUBY_VERSION with rbenv (slow, builds from source)"
     rbenv install -s "$RUBY_VERSION"
     rbenv global "$RUBY_VERSION"
-    # rbenv global only takes effect through the shims directory, which is not on
-    # PATH by default in every image -- without this, `ruby` stays the system one.
-    export PATH="$(rbenv root)/shims:$PATH"
-    persist 'command -v rbenv >/dev/null && eval "$(rbenv init - bash)"'
     rbenv rehash
+    hash -r
     log "Ruby is now $(ruby -e 'print RUBY_VERSION')"
   else
     echo "Ruby ${current:-none} is below $RUBY_MIN and rbenv is not installed." >&2
@@ -151,25 +159,39 @@ setup_node() {
 # would be invisible there no matter where the hook is placed in ~/.bashrc. Put a
 # wrapper for each tool in a directory that is already on the default PATH; the
 # wrapper sources $ENV_FILE itself, which also fixes the locale trmnlp needs.
+#
+# ~/.local/bin, not /usr/local/bin: a container image may link `ruby` and `bundle`
+# there for its own system Ruby, and this repo needs a newer one -- overriding them
+# would change the Ruby every other tool in the container sees.
 LINK_DIR=""
 
 pick_link_dir() {
   local d
-  for d in /usr/local/bin "$HOME/.local/bin"; do
-    if [ -d "$d" ] && [ -w "$d" ]; then LINK_DIR="$d"; return 0; fi
+  mkdir -p "$HOME/.local/bin" 2>/dev/null || true
+  for d in "$HOME/.local/bin" /usr/local/bin; do
+    if [ -d "$d" ] && [ -w "$d" ] && case ":$PATH:" in *":$d:"*) true ;; *) false ;; esac; then
+      LINK_DIR="$d"; return 0
+    fi
   done
-  log "No writable directory on the default PATH; tools will only be on PATH in login shells"
+  log "No writable directory on PATH; tools will only be on PATH in login shells"
 }
 
 setup_path_wrappers() {
   pick_link_dir
   [ -n "$LINK_DIR" ] || return 0
+  # `command -v` answers from bash's command hash, which still holds the pre-rbenv
+  # /usr/local/bin/ruby this script probed before it put the shims on PATH. Without
+  # this the wrappers would point back at the system Ruby they exist to bypass.
+  hash -r
   local cmd target
   for cmd in ruby gem bundle bundler trmnlp dotnet; do
     target="$(command -v "$cmd" 2>/dev/null)" || continue
     [ -n "$target" ] || continue
     # Skip a wrapper this script wrote on an earlier run, or we would exec ourselves.
     case "$target" in "$LINK_DIR/$cmd") continue ;; esac
+    # Unlink first: a redirection follows a symlink, and these names are often links
+    # into a system toolchain -- writing through one destroys the binary it points at.
+    rm -f "$LINK_DIR/$cmd"
     cat > "$LINK_DIR/$cmd" <<EOF
 #!/usr/bin/env bash
 # Written by trmnl-plugins tools/setup-env.sh -- makes $cmd reachable from \`bash -c\`.
