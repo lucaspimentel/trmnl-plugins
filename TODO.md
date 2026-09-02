@@ -672,7 +672,7 @@ data fix, and an ongoing maintenance chore.
   - **Re-tested 2026-09-02, with the two prerequisite fixes in.** `tools/build-mashup-preview.sh`
     now renders any view inside a `mashup--3x3` cell of a given size, so this is repeatable:
     `bash tools/build-mashup-preview.sh plugins/weather --device x --screenshot --output _build/shots`.
-    All nine cell sizes on X, plus the three reported sizes on OG.
+    All nine cell sizes on X, which is the only device the platform offers them on.
   - **Two of the three reported sizes are already fixed.** On X, **1x1 is clean** (current
     conditions plus two daily rows, nothing clipped) and **1x3 is clean** (chart plus all six daily
     rows). The measured row fit and the measured column widths did the job the investigation
@@ -696,11 +696,12 @@ data fix, and an ongoing maintenance chore.
     the 2x2 page: cell 677px, `w--[64cqw]` -> 419px, `w--[36cqw]` -> 238px. `cqw` resolves against
     the cell, not the viewport, even though the plugin's root element is not a `.layout`. So the
     container-query work already holds up inside a mashup cell.
-  - **OG fails differently and more mildly.** OG hides the chart entirely below `lg`
-    (`hidden lg:flex`), so the height problem never appears: **3x1 is clean**. The narrow cells
-    clip horizontally instead - at **1x3** the detail column is cut mid-word (`Overcas`,
-    `Humidit y 67%`) and at both **1x1 and 1x3** the title bar timestamp is truncated
-    (`Wed 12:1`). Same root cause as (2) above, one notch less severe.
+  - **OG does not enter into this: Fluid Mashup is a TRMNL X feature.** An earlier round of this
+    item recorded OG cell findings (clipped detail text at 1x3, a truncated title-bar timestamp at
+    1x1). They are struck, not fixed: the framework's mashup CSS is device-agnostic, so the harness
+    will happily render an OG fluid cell that the platform will never serve, and those readings were
+    a fiction. The harness now defaults to X and says so if asked for OG. OG still matters as the
+    standalone-layout regression check, which is what it is used for below.
   - **Fix (1) is done, 2026-09-02. 3x1, 2x1 and 1x2 now render correctly.** The chart's flex
     ancestors got `min-height: 0` (`half_horizontal.liquid`, `half_vertical.liquid` and the
     template's own wrapper), which is what a flex item needs before it will go below its content
@@ -735,10 +736,10 @@ data fix, and an ongoing maintenance chore.
     1x1 where two fitted.
   - `fitDailyRows` changed with it: today's row is still the last to go but it does now go. A slot
     too short for even one row used to keep it and leave the ▼ marker floating over a row clipped
-    away under the title bar, which is what OG 1x1 showed once the details stopped filling that
+    away under the title bar, which is what the 1x1 cell showed once the details stopped filling that
     space.
-  - **Verified across the sweep**: OG 1x1 / 1x3 and X 3x1 / 2x1 / 2x2 / 1x2 all clean, and all
-    eight standalone layouts (four per device) unchanged. `trmnlp lint` clean. X 2x1 is the one
+  - **Verified across the sweep**: X 3x1 / 2x1 / 2x2 / 1x2 / 1x1 / 1x3 all clean, and all eight
+    standalone layouts (four per device, OG included) unchanged. `trmnlp lint` clean. X 2x1 is the one
     that shows the graduated drop working - it keeps `Overcast` and `Feels 74°` and sheds the other
     two.
   - **A methodology note that cost a false alarm**: an early round of "regressions" was stale

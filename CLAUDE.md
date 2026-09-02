@@ -109,6 +109,10 @@ bash tools/build-mashup-preview.sh plugins/<name> --device x --cell 2x2 --cell 3
 bash tools/build-mashup-preview.sh plugins/<name> --screenshot --output _build/shots
 ```
 
+**TRMNL X only** — the platform does not offer Fluid Mashups on OG, so `--device` defaults to `x`
+and warns if you override it. The framework's mashup CSS is device-agnostic, which makes this worth
+saying: an OG cell built here renders perfectly well and is a fiction no device will ever serve.
+
 Wraps a built view in a `mashup--3x3` cell of the requested size (columns x rows, 1-3 each) and
 fills the rest of the grid with placeholders. This is the only way to see what a view does in a
 slot no standalone layout has: the cell, not the view, owns the size, so `w--*`/`h--*` on the view

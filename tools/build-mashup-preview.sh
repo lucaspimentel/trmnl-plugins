@@ -7,6 +7,10 @@
 # not the view, owns the size, so a view can land in a slot no standalone layout ever sees
 # (a 3x1 banner, a 1x3 column). This builds those slots so they can be looked at.
 #
+# TRMNL X only: the platform does not offer Fluid Mashups on OG. The framework's mashup CSS is
+# device-agnostic, so asking for OG here renders a cell that reads fine and that no device will
+# ever show. Hence --device defaults to x rather than to all, and warns if you override it.
+#
 # --cell <CxR>[:layout]:  cell size in grid tracks, COLUMNS x ROWS (1..3 each). Repeatable.
 #                          Note issue #7 labels the same shapes rows x columns, so its
 #                          "1x3" (the wide banner) is 3x1 here and its "3x1" (the tall
@@ -26,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PLUGIN_DIR=""
-DEVICE="all"
+DEVICE="x"
 ORIENTATION="all"
 SCREENSHOT=false
 ONEBIT=false
@@ -63,6 +67,11 @@ BUILD_DIR="$PLUGIN_DIR/_build"
 
 # Rebuild the per-device variants; the mashup pages are derived from them so the
 # screen classes stay defined in one place.
+if [[ "$DEVICE" != "x" ]]; then
+  echo "Warning: the platform offers Fluid Mashups on TRMNL X only, so any OG cell built here is" >&2
+  echo "         a rendering no device will serve. Use OG for standalone layouts instead." >&2
+fi
+
 bash "$SCRIPT_DIR/build-preview.sh" "$PLUGIN_DIR" --device "$DEVICE" --orientation "$ORIENTATION"
 
 # Which view core would place in a cell of this shape.

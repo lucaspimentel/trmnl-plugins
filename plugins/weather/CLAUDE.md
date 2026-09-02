@@ -204,7 +204,7 @@ Daily bars per layout: every layout renders all `days` entries (up to 14, fewer 
 
 The current-conditions block fits the same way, horizontally. `weather_current_fit` (rendered by both current-conditions templates, guarded so one copy runs) measures what the details column may occupy - the block's width less the icon and the temperature, which are `shrink-0` because they are the reading itself - and hides detail lines from the bottom until the widest one left fits. Wind goes first, then humidity, then the feels-like reading; the condition is last. If nothing fits, the whole column goes and the slot shows the icon and the temperature alone. Half a word of "Humidity" reads as a broken screen where an icon and a number reads as a small one. `.current-details` also carries `min-width: 0; overflow: hidden`, so if the script never runs the text clips inside its own column instead of running out over the daily bars.
 
-Both fits and the chart's own floor exist for the same reason: a Fluid Mashup cell owns the size, so a view can land in a slot far smaller than any standalone layout. See `tools/build-mashup-preview.sh`.
+Both fits and the chart's own floor exist for the same reason: a Fluid Mashup cell owns the size, so a view can land in a slot far smaller than any standalone layout. That is a TRMNL X situation - the platform offers Fluid Mashups there only - though the fits are device-agnostic and a narrow OG layout gets the same treatment. See `tools/build-mashup-preview.sh`.
 
 Two things that keep the measurement honest, and that will silently break it if removed:
 
