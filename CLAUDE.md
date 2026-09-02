@@ -99,6 +99,28 @@ Output goes to `_build/{og,x,x-portrait}/`. Each subdirectory gets the TRMNL wra
 - X: `<div class="screen screen--4bit screen--v2 screen--lg screen--1x">`
 - X portrait: same + `screen--portrait`
 
+### Fluid Mashup slots: `tools/build-mashup-preview.sh`
+
+```bash
+bash tools/build-mashup-preview.sh plugins/<name> --device x                       # default cells: 3x1, 1x1, 1x3
+bash tools/build-mashup-preview.sh plugins/<name> --device x --cell 2x2 --cell 3x3 # pick cell sizes
+bash tools/build-mashup-preview.sh plugins/<name> --screenshot --output _build/shots
+```
+
+Wraps a built view in a `mashup--3x3` cell of the requested size (columns x rows, 1-3 each) and
+fills the rest of the grid with placeholders. This is the only way to see what a view does in a
+slot no standalone layout has: the cell, not the view, owns the size, so `w--*`/`h--*` on the view
+are ignored and every fixed pixel value in the plugin is a guess against a size that no longer
+holds. It calls `build-preview.sh` first, so the screen classes stay defined in one place, and it
+takes the same `--device`/`--orientation`/`--screenshot`/`--1bit`/`--output` flags. Which view goes
+in a cell defaults to the shape core would pick (wide -> `half_horizontal`, tall ->
+`half_vertical`, 1x1 -> `quadrant`, square -> `full`); override per cell with `--cell 2x2:quadrant`.
+
+Screenshots need an HTTP server on port 8765 serving `<plugin-dir>/_build/`, as `build-preview.sh`
+does. `ruby -run -e httpd` will not do: the bundled Ruby has no webrick. Use
+`python -m http.server 8765`, and prefer `ThreadingHTTPServer` — the single-threaded default stalls
+under Playwright's navigation waits and shows up as a 60s `domcontentloaded` timeout.
+
 ### Quick look: `trmnlp build --png`
 
 Built-in lightweight alternative — renders all four layouts to HTML + PNG in one command, no HTTP server or Playwright. Runs JS (Highcharts renders correctly).

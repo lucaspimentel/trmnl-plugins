@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# build-mashup-preview.sh — render a plugin view inside a Fluid Mashup (mashup--3x3) cell
+# Usage: ./tools/build-mashup-preview.sh plugins/weather [--device <name>] [--orientation <value>]
+#                                        [--cell <CxR>[:layout]]... [--screenshot] [--1bit] [--output <dir>]
+#
+# Fluid Mashup puts the chosen view inside a .mashup-cell that carves up a 3x3 grid. The cell,
+# not the view, owns the size, so a view can land in a slot no standalone layout ever sees
+# (a 3x1 banner, a 1x3 column). This builds those slots so they can be looked at.
+#
+# --cell <CxR>[:layout]:  cell size in grid tracks, columns x rows (1..3 each). Repeatable.
+#                          Default cells: 3x1, 1x1, 1x3 — the sizes reported in issue #7.
+#                          The layout suffix overrides which view is placed in the cell;
+#                          the default per size is the one core would pick by shape.
+# --device, --orientation, --screenshot, --1bit, --output: as in build-preview.sh.
+#
+# Output: <plugin-dir>/_build/{og,x,x-portrait}/mashup-<CxR>.html
+# Screenshots (--screenshot) need an HTTP server on port 8765 serving <plugin-dir>/_build/.
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+PLUGIN_DIR=""
+DEVICE="all"
+ORIENTATION="all"
+SCREENSHOT=false
+ONEBIT=false
+OUTPUT_DIR=""
+CELLS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --device) DEVICE="$2"; shift ;;
+    --orientation) ORIENTATION="$2"; shift ;;
+    --cell) CELLS+=("$2"); shift ;;
+    --screenshot) SCREENSHOT=true ;;
+    --1bit) ONEBIT=true ;;
+    --output) OUTPUT_DIR="$2"; shift ;;
+    *) PLUGIN_DIR="$1" ;;
+  esac
+  shift
+done
+
+if [[ -z "$PLUGIN_DIR" ]]; then
+  echo "Usage: build-mashup-preview.sh <plugin-dir> [--device <name>] [--cell <CxR>[:layout]] [--screenshot]" >&2
+  exit 1
+fi
+
+if [[ ${#CELLS[@]} -eq 0 ]]; then
+  CELLS=(3x1 1x1 1x3)
+fi
+
+if [[ "$PLUGIN_DIR" != /* ]]; then
+  PLUGIN_DIR="$REPO_ROOT/$PLUGIN_DIR"
+fi
+
+BUILD_DIR="$PLUGIN_DIR/_build"
+
+# Rebuild the per-device variants; the mashup pages are derived from them so the
+# screen classes stay defined in one place.
+bash "$SCRIPT_DIR/build-preview.sh" "$PLUGIN_DIR" --device "$DEVICE" --orientation "$ORIENTATION"
+
+# Which view core would place in a cell of this shape.
+default_layout_for_cell() {
+  local cols="$1" rows="$2"
+  if [[ "$cols" -eq "$rows" && "$cols" -eq 1 ]]; then echo quadrant
+  elif [[ "$cols" -gt "$rows" ]]; then echo half_horizontal
+  elif [[ "$rows" -gt "$cols" ]]; then echo half_vertical
+  else echo full
+  fi
+}
+
+placeholder_cells() {
+  local count="$1" i
+  for ((i = 0; i < count; i++)); do
+    printf '      <div class="mashup-cell"><div class="view view--quadrant"><div class="layout flex flex--center"><span class="label">Plugin %s</span></div></div></div>\n' "$((i + 2))"
+  done
+}
+
+build_cell_page() {
+  local variant_dir="$1" cols="$2" rows="$3" layout="$4"
+  local src="$variant_dir/${layout}.html"
+  local out="$variant_dir/mashup-${cols}x${rows}.html"
+
+  if [[ ! -f "$src" ]]; then
+    echo "Skipping $(basename "$variant_dir")/${cols}x${rows} (${layout}.html not found)" >&2
+    return
+  fi
+
+  local cell_open extra_closes fillers
+  cell_open="      <div class=\"mashup-cell mashup-cell--col-1 mashup-cell--col-span-${cols} mashup-cell--row-1 mashup-cell--row-span-${rows}\">"
+  fillers="$(placeholder_cells "$((9 - cols * rows))")"
+
+  if grep -q '<div class="mashup mashup--' "$src"; then
+    # The view already sits in a fixed mashup: swap that wrapper for the 3x3 grid.
+    # One extra </div> is needed because the cell adds a nesting level.
+    extra_closes=1
+    awk -v open="$cell_open" -v fillers="$fillers" '
+      /<div class="mashup mashup--/ {
+        print "      <div class=\"mashup mashup--3x3\">"
+        if (fillers != "") print fillers
+        print open
+        next
+      }
+      { print }
+    ' "$src" > "$out"
+  else
+    # full.html has no mashup wrapper: add both the grid and the cell after .screen.
+    extra_closes=2
+    awk -v open="$cell_open" -v fillers="$fillers" '
+      { print }
+      /<div class="screen/ && !done {
+        print "      <div class=\"mashup mashup--3x3\">"
+        if (fillers != "") print fillers
+        print open
+        done = 1
+      }
+    ' "$src" > "$out"
+  fi
+
+  local closes=""
+  local i
+  for ((i = 0; i < extra_closes; i++)); do closes+="      </div>"$'\n'; done
+  awk -v closes="$closes" '
+    /<\/body>/ && !done { printf "%s", closes; done = 1 }
+    { print }
+  ' "$out" > "$out.tmp" && mv "$out.tmp" "$out"
+
+  echo "Built: $(basename "$variant_dir")/mashup-${cols}x${rows}.html (${layout})"
+}
+
+# Same variant list build-preview.sh just produced — globbing _build/ instead would
+# pick up stale directories from an earlier run with a different --device.
+case "$DEVICE" in
+  og)  DEVICES=(og) ;;
+  x)   DEVICES=(x) ;;
+  all) DEVICES=(og x) ;;
+  *)   echo "Unknown device: $DEVICE (expected: og, x, all)" >&2; exit 1 ;;
+esac
+case "$ORIENTATION" in
+  landscape) ORIENTATIONS=(landscape) ;;
+  portrait)  ORIENTATIONS=(portrait) ;;
+  all)       ORIENTATIONS=(landscape portrait) ;;
+  *)         echo "Unknown orientation: $ORIENTATION (expected: landscape, portrait, all)" >&2; exit 1 ;;
+esac
+
+VARIANT_NAMES=()
+for dev in "${DEVICES[@]}"; do
+  for orient in "${ORIENTATIONS[@]}"; do
+    if [[ "$dev" == "og" && "$orient" == "portrait" ]]; then continue; fi
+    if [[ "$dev" == "og" ]]; then VARIANT_NAMES+=(og)
+    elif [[ "$orient" == "portrait" ]]; then VARIANT_NAMES+=(x-portrait)
+    else VARIANT_NAMES+=(x)
+    fi
+  done
+done
+
+for name in "${VARIANT_NAMES[@]}"; do
+  variant_dir="$BUILD_DIR/$name"
+  for spec in "${CELLS[@]}"; do
+    size="${spec%%:*}"
+    layout_override=""
+    [[ "$spec" == *:* ]] && layout_override="${spec#*:}"
+    cols="${size%%x*}"
+    rows="${size##*x}"
+    if [[ ! "$cols" =~ ^[1-3]$ || ! "$rows" =~ ^[1-3]$ ]]; then
+      echo "Bad --cell value: $spec (expected <1-3>x<1-3>[:layout])" >&2
+      exit 1
+    fi
+    layout="${layout_override:-$(default_layout_for_cell "$cols" "$rows")}"
+    build_cell_page "$variant_dir" "$cols" "$rows" "$layout"
+  done
+done
+
+if $SCREENSHOT; then
+  if [[ -z "$OUTPUT_DIR" ]]; then
+    SCREENSHOT_DIR="$PLUGIN_DIR"
+  elif [[ "$OUTPUT_DIR" == /* || "$OUTPUT_DIR" == [A-Za-z]:* ]]; then
+    SCREENSHOT_DIR="$OUTPUT_DIR"
+  else
+    SCREENSHOT_DIR="$PLUGIN_DIR/$OUTPUT_DIR"
+  fi
+  mkdir -p "$SCREENSHOT_DIR"
+
+  # A mashup always occupies the whole screen, whatever the cell size.
+  screen_size_for_variant() {
+    case "$1" in
+      og)         echo "800 480" ;;
+      x)          echo "1040 780" ;;
+      x-portrait) echo "780 1040" ;;
+      *) echo "Unknown variant: $1" >&2; exit 1 ;;
+    esac
+  }
+
+  # One browser for the whole run, driven with `goto`. Opening and closing it per
+  # screenshot makes the local server drop connections, which surfaces as a 60s
+  # "waiting until domcontentloaded" timeout on the second shot onwards.
+  playwright-cli open --browser=msedge "about:blank" > /dev/null
+
+  for name in "${VARIANT_NAMES[@]}"; do
+    dims=$(screen_size_for_variant "$name")
+    viewport_w="${dims%% *}"
+    viewport_h="${dims##* }"
+    playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null
+    for spec in "${CELLS[@]}"; do
+      size="${spec%%:*}"
+      page="$BUILD_DIR/$name/mashup-${size}.html"
+      [[ -f "$page" ]] || continue
+      render_png="$SCREENSHOT_DIR/render-${name}-mashup-${size}.png"
+      echo "Taking screenshot of ${name}/mashup-${size} (${viewport_w}x${viewport_h}) → $render_png"
+      playwright-cli goto "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null
+      playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null
+      sleep 3
+      playwright-cli screenshot --filename="$render_png" > /dev/null
+      if $ONEBIT; then
+        if command -v magick &>/dev/null; then
+          magick "$render_png" -colorspace Gray -threshold 60% -type Bilevel "$render_png"
+          echo "Converted to 1-bit (no dithering): $render_png"
+        else
+          echo "ImageMagick not found — skipping 1-bit conversion"
+        fi
+      fi
+    done
+  done
+
+  playwright-cli close > /dev/null
+fi

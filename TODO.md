@@ -669,3 +669,39 @@ data fix, and an ongoing maintenance chore.
   - One detail to know when testing: a cell always gets the compact title bar
     (`_title_bar.scss:131-144` matches `.mashup-cell .title_bar`), regardless of which view class
     the plugin supplied.
+  - **Re-tested 2026-09-02, with the two prerequisite fixes in.** `tools/build-mashup-preview.sh`
+    now renders any view inside a `mashup--3x3` cell of a given size, so this is repeatable:
+    `bash tools/build-mashup-preview.sh plugins/weather --device x --screenshot --output _build/shots`.
+    All nine cell sizes on X, plus the three reported sizes on OG.
+  - **Two of the three reported sizes are already fixed.** On X, **1x1 is clean** (current
+    conditions plus two daily rows, nothing clipped) and **1x3 is clean** (chart plus all six daily
+    rows). The measured row fit and the measured column widths did the job the investigation
+    predicted they would. **3x1 is still broken.**
+  - **X results, all nine sizes.** Clean: 1x1, 1x3, 3x2, 2x3, 3x3. Broken: **3x1, 2x1, 1x2, 2x2**.
+  - **The rule behind that split, which is the useful finding:** a cell fails exactly when it is
+    *smaller in some dimension than the standalone view the layout was tuned for*. 3x2, 2x3 and 3x3
+    are full-width or full-height, so they escape. What is left is not a mashup problem at all -
+    it is the same fixed-pixel sizing, in the two places the earlier work did not reach:
+    1. **The hourly chart height is a fixed pixel value** (`chart_height` -> `height:{{ }}px` at
+       `plugins/weather/src/shared.liquid:148`; 230 in `full`, 200 in `half_horizontal`, 280 in
+       `half_vertical`). It does not shrink, so in a short cell the current-conditions block above
+       it is squashed to nothing and its text paints over the chart. That is the reported
+       "overlap", and it is what 3x1 (260px tall on X, against the 390px `half_horizontal` was
+       tuned for), 2x1 and 1x2 all show.
+    2. **The current-conditions block has no shrink budget** - a 110px icon plus the large
+       temperature plus the detail column, with no `min-width: 0` and no scaling. In 2x2 the left
+       column measures 419px against the ~653px a standalone `full` gives it, so the detail text
+       runs out over the daily bars.
+  - **Widths are fine; that guess was wrong and is worth writing down.** Measured in the browser on
+    the 2x2 page: cell 677px, `w--[64cqw]` -> 419px, `w--[36cqw]` -> 238px. `cqw` resolves against
+    the cell, not the viewport, even though the plugin's root element is not a `.layout`. So the
+    container-query work already holds up inside a mashup cell.
+  - **OG fails differently and more mildly.** OG hides the chart entirely below `lg`
+    (`hidden lg:flex`), so the height problem never appears: **3x1 is clean**. The narrow cells
+    clip horizontally instead - at **1x3** the detail column is cut mid-word (`Overcas`,
+    `Humidit y 67%`) and at both **1x1 and 1x3** the title bar timestamp is truncated
+    (`Wed 12:1`). Same root cause as (2) above, one notch less severe.
+  - **What is left to do**, in order: give the chart a height that can shrink (proportional, or a
+    measured fit like the daily rows already have), then give the current-conditions block a shrink
+    budget. Re-run the harness after each. Nothing mashup-specific is needed - fixing these two
+    fixes the standalone views' behaviour in a small slot as well.
