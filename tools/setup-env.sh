@@ -31,8 +31,9 @@ done
 log() { printf '\n==> %s\n' "$*"; }
 
 # Environment this repo needs in every future shell. Kept in its own file, sourced
-# from the first line of ~/.bashrc: Ubuntu's default ~/.bashrc returns early for
-# non-interactive shells, so anything appended at the end never reaches `bash -c`.
+# from the first line of ~/.bashrc for interactive shells. That is not enough on its
+# own: `bash -c`, which is how Claude Code and CI run commands, reads no startup file
+# at all, so see setup_path_wrappers below for how the tools reach those shells.
 ENV_FILE="$HOME/.trmnl-plugins-env.sh"
 
 persist() {
@@ -58,10 +59,12 @@ setup_locale() {
     *)
       log "Setting LANG=C.UTF-8 (trmnlp fails on UTF-8 templates under the C locale)"
       export LANG=C.UTF-8 LC_ALL=C.UTF-8
-      persist 'export LANG=C.UTF-8'
-      persist 'export LC_ALL=C.UTF-8'
       ;;
   esac
+  # Persisted even when this shell is already UTF-8: the wrappers below source this
+  # file from shells that may not be.
+  persist "export LANG=${LANG:-C.UTF-8}"
+  persist "export LC_ALL=${LC_ALL:-${LANG:-C.UTF-8}}"
 }
 
 # Compares dotted versions: version_ge 3.4.9 3.4 -> true
@@ -82,7 +85,7 @@ setup_ruby() {
     # rbenv global only takes effect through the shims directory, which is not on
     # PATH by default in every image -- without this, `ruby` stays the system one.
     export PATH="$(rbenv root)/shims:$PATH"
-    persist 'eval "$(rbenv init - bash)"'
+    persist 'command -v rbenv >/dev/null && eval "$(rbenv init - bash)"'
     rbenv rehash
     log "Ruby is now $(ruby -e 'print RUBY_VERSION')"
   else
@@ -141,6 +144,43 @@ setup_node() {
   fi
 }
 
+# --- Reachability from non-interactive shells --------------------------------
+
+# ~/.bashrc is only read by interactive shells. Claude Code and CI invoke tools
+# through `bash -c`, which reads no startup file, so rbenv shims and $HOME/.dotnet
+# would be invisible there no matter where the hook is placed in ~/.bashrc. Put a
+# wrapper for each tool in a directory that is already on the default PATH; the
+# wrapper sources $ENV_FILE itself, which also fixes the locale trmnlp needs.
+LINK_DIR=""
+
+pick_link_dir() {
+  local d
+  for d in /usr/local/bin "$HOME/.local/bin"; do
+    if [ -d "$d" ] && [ -w "$d" ]; then LINK_DIR="$d"; return 0; fi
+  done
+  log "No writable directory on the default PATH; tools will only be on PATH in login shells"
+}
+
+setup_path_wrappers() {
+  pick_link_dir
+  [ -n "$LINK_DIR" ] || return 0
+  local cmd target
+  for cmd in ruby gem bundle bundler trmnlp dotnet; do
+    target="$(command -v "$cmd" 2>/dev/null)" || continue
+    [ -n "$target" ] || continue
+    # Skip a wrapper this script wrote on an earlier run, or we would exec ourselves.
+    case "$target" in "$LINK_DIR/$cmd") continue ;; esac
+    cat > "$LINK_DIR/$cmd" <<EOF
+#!/usr/bin/env bash
+# Written by trmnl-plugins tools/setup-env.sh -- makes $cmd reachable from \`bash -c\`.
+. "$ENV_FILE"
+exec "$target" "\$@"
+EOF
+    chmod +x "$LINK_DIR/$cmd"
+  done
+  log "Wrapped ruby, gem, bundle, trmnlp and dotnet into $LINK_DIR for non-interactive shells"
+}
+
 # --- .env --------------------------------------------------------------------
 
 setup_env_file() {
@@ -159,6 +199,7 @@ setup_locale
 $SKIP_RUBY   || setup_ruby
 $SKIP_DOTNET || setup_dotnet
 $SKIP_NODE   || setup_node
+setup_path_wrappers
 setup_env_file
 
 log "Done. Versions:"
@@ -166,5 +207,5 @@ command -v ruby    >/dev/null && ruby -v
 command -v trmnlp  >/dev/null && echo "trmnlp $(trmnlp version)"
 command -v dotnet  >/dev/null && dotnet --version
 echo
-echo "Open a new shell (or source $ENV_FILE) to pick up PATH and locale, then:"
+echo "These tools are on PATH for new shells, interactive or not. Load repo secrets with:"
 echo "    set -a && source .env && set +a"

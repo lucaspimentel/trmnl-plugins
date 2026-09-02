@@ -21,8 +21,10 @@ bash tools/setup-env.sh          # Ruby + trmnlp, .NET SDK, .env; skip steps wit
 ```
 
 Idempotent, safe to re-run. It writes `~/.trmnl-plugins-env.sh` (locale, `rbenv init`, `DOTNET_ROOT`) and
-sources it from the **first line** of `~/.bashrc` — Ubuntu's default `~/.bashrc` returns early for
-non-interactive shells, so anything appended at the end never reaches `bash -c`.
+sources it from the **first line** of `~/.bashrc`, which covers interactive shells only. `bash -c`
+— how Claude Code and CI run commands — reads no startup file at all, so the script also drops
+wrappers for `ruby`, `gem`, `bundle`, `trmnlp` and `dotnet` into `/usr/local/bin` (already on the
+default PATH); each sources the env file and execs the real binary.
 
 - `trmnl_preview` requires Ruby >= 3.4 (CI pins 4.0); a container shipping Ruby 3.3 needs an rbenv
   build, which takes several minutes.
