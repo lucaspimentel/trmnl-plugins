@@ -17,12 +17,32 @@ so items whose premise was instance fragmentation or Functions-specific hosting 
     quiet in Datadog. That tag is set by `DD_TRACE_HEADER_TAGS=x-legacy-proxy:weather.via_legacy_host`
     on the receiving service and is the only place fork traffic can be counted, since the old host
     strips query strings and client IPs. Search the tag name, not the header name.
-  - **Deletable now, no waiting:** `trmnl-plugins-api-staging`. It has no traffic and runs a proxy
-    nobody calls.
+  - **Nothing here is deletable yet (corrected 2026-09-02).** The prod proxy is not a trickle: it
+    is carrying about **33% of all traffic, ~18K requests per day**, so `weather.via_legacy_host:1`
+    is nowhere near quiet and the exit condition above is a long way off. And
+    `trmnl-plugins-api-staging` is **not** idle-and-forgotten as previously recorded - it is the
+    pre-production test target, exercised by hand before changes go to prod. Its traffic is low
+    because only one person generates it, not because nobody calls it. It retires with the prod
+    app, not before.
   - **Still open and now the largest single thing left:** the once-a-minute caller sending invalid
     parameters, unchanged through the cutover at ~10 per ten minutes, roughly a quarter of the load
     on a host being retired. Ruled out already: App Insights availability tests and a Function App
     healthcheck. Find it and stop it.
+  - **Re-measured 2026-09-02 and the description above still holds exactly.** Legacy-host 400s are
+    1,436/day against that host's 5,814/day, so **24.7%** - a quarter, and the same 24.6% over 7
+    days. It is 8.0% of all traffic (17,879/day total, of which the legacy host is 32.5%). The rate
+    is 0.997/minute, so "once a minute" is literal and has not drifted. Note the quarter is of the
+    *legacy host*, not of all traffic; both numbers are above so the next reader does not have to
+    re-derive which is which.
+  - **New and useful: every single 400 arrives through the old host.** Zero 400s reach the
+    container host directly (measured over the same day). So the caller is pointed at the **Azure
+    URL specifically**, not at the current one - it is not a fork that followed the migration, and
+    it will disappear on its own the moment that app is deleted. That reframes it: the caller does
+    not have to be *found*, it has to be *outlived*. It stops being anyone's problem when the
+    prod Function App goes, which is the same event this whole item is waiting on.
+  - Still not identifiable from the receiving end, as stated above: no `@http.useragent` is tagged
+    on those spans and `@weather.input_kind` is absent (the request fails before that tag is set),
+    on top of the stripped query strings and client IPs.
   - Low priority, but unresolved: **the proxy has never run end to end on a developer machine.**
     `func start` and `dotnet run` both die with an `Unavailable` gRPC handshake error; the cause is
     genuinely unknown and two earlier explanations were guesses that did not hold. Only worth time
