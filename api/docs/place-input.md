@@ -520,9 +520,14 @@ Unchanged for as long as it exists: `latitude` and `longitude` as separate requi
 current JSON schema, and plain-text error responses with their existing status codes. No new fields,
 because a fork's template may iterate structures it does not expect to grow.
 
-v1 does gain the place **telemetry** tags from
-[geographic-telemetry.md](geographic-telemetry.md#what-to-emit) internally, since those are emitted
-server-side and are invisible to the caller.
+v1 was expected to gain the place **telemetry** tags from
+[geographic-telemetry.md](geographic-telemetry.md#what-to-emit) internally, on the grounds that they
+are emitted server-side and invisible to the caller. **It never did.** The place lookup is injected
+into `WeatherV2Endpoint` only, `TagPlace` is called from there alone, and v1's `ForecastServed` line
+carries `cache`/`provider`/`requested` and nothing else. So `weather.city`, `weather.subdivision`,
+`weather.country_code`, `weather.geocoder` and the country-preference tags are **v2-only**: a
+legacy-host request is invisible in any facet built on them, which matters when reading fork
+traffic. Adding them to v1 is possible - they change no response byte - but has not been done.
 
 ## Migrating the plugin
 
@@ -570,9 +575,12 @@ for a response that carries neither forecast nor error - the `{% elsif error %}`
 `title_bar` also renders the resolved place name (`shared.liquid:696-698`), which is the on-screen
 half of the ambiguity mitigation.
 
-That mitigation is narrower in practice than it looks. `place` is only populated when the input was
-geocoded, so a user who pastes a coordinate pair sees no place name and gets no signal that the pair
-was swapped. Closing that needs the reverse lookup, which is item 13's decision.
+That mitigation was originally narrower than it looks: `place` was populated only when the input was
+geocoded, so a pasted coordinate pair showed no place name and gave no signal that it was swapped.
+The bundled reverse lookup closed that. `BuildPlace` now runs on every path - `place.name` falls
+back to the reverse-lookup city when nothing was typed - and the block is omitted only when the
+dataset has no name for the coordinates at all, or when `show_place=no` was sent. A swapped pair
+now shows the wrong city on screen, which is the whole point.
 
 ## Sharing internals across versions
 

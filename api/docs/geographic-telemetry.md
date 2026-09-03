@@ -618,7 +618,15 @@ gaps were narrower:
   where the query string is parsed rather than beside the log call.
 
 `weather.country_hint` is set on every request, including the ones that end in a miss, because the
-signal that was in play is most worth knowing about the answers that went wrong. The other two
+signal that was in play is most worth knowing about the answers that went wrong.
+
+Since 2026-09-02 it names the level that **actually ranked**, not the strongest one supplied. The
+levels are tried in order and one whose set intersects no candidate is skipped, so a Country
+dropdown value that matched nothing now shows as `weather.declared_country` set alongside
+`weather.country_hint=tz` (or `none`) rather than swallowing the slot. That pairing is the query for
+"how often is the dropdown contributing nothing". Only a local place hit can report this; the
+coordinate paths and the misses never rank anything, so there the tag still reports the strongest
+signal the caller sent. The other two
 follow the omit-when-empty rule the place tags use. Note that `region` is **not** one of the hint
 values: the US+EU floor applies underneath `none`, so a floor answer reads as `none`, which is what
 production shows.
