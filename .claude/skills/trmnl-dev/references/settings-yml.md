@@ -33,12 +33,15 @@ static_data: ''             # JSON string, e.g. '{"key": "value"}'
 
 # Plugin metadata
 name: My Plugin             # Display name on the TRMNL UI
-refresh_interval: 15        # Minutes between data refreshes (15 | 60 | 360 | 720 | 1440)
+description: ''             # One-line summary; written back by `trmnlp push`
+refresh_interval: 15        # Minutes between data refreshes (UI offers 15 | 60 | 360 | 720 | 1440)
 id: 12345                   # Plugin ID (assigned by TRMNL, do not set manually)
+framework_version: 3.3.1    # Pin the design-system version this plugin renders against
+serverless_language:        # Language for a sandbox transform; blank when unused
 
 # User-configurable fields shown on the plugin settings page
 custom_fields:
-  - keyname: instance_name  # identifier used in templates and polling_url
+  - keyname: instance_name  # identifier used in polling_url (not readable from templates)
     name: My Plugin         # label shown in the TRMNL UI
     field_type: author_bio  # see field types below
     description: ''         # optional help text shown under the field
@@ -56,7 +59,7 @@ custom_fields:
 |-------|------|----------|-------------|
 | `strategy` | string | yes | `polling`, `webhook`, or `static` |
 | `name` | string | yes | Plugin display name |
-| `refresh_interval` | integer | yes | Minutes between refreshes. Valid: `15`, `60`, `360`, `720`, `1440` |
+| `refresh_interval` | integer | yes | Minutes between refreshes. The UI dropdown offers `15`, `60`, `360`, `720`, `1440`, but any integer set in the file is accepted and pushed — `plugins/mbta-alerts` runs at `30` |
 | `no_screen_padding` | `'yes'`/`'no'` | no | Remove outer screen padding. Quotes required. Default: `'no'` |
 | `dark_mode` | `'yes'`/`'no'` | no | Invert display colors. Quotes required. Default: `'no'` |
 | `id` | integer | no | Assigned by TRMNL — do not set manually |
@@ -65,6 +68,10 @@ custom_fields:
 | `polling_headers` | string | no | HTTP headers string, e.g. `'X-API-Key: abc123'` |
 | `polling_body` | string | no | Request body for POST requests |
 | `static_data` | string | static | JSON string used as data when `strategy: static` |
+| `description` | string | no | One-line summary shown in the TRMNL UI. `trmnlp push` writes the server's copy back into the file |
+| `framework_version` | string | no | Design-system version to render against, e.g. `3.3.1`. Omit to track whatever the platform currently serves — `plugins/mbta-alerts` does, `plugins/weather` pins it |
+| `serverless_language` | string | no | Language for a sandbox transform (see below). Blank when unused |
+| `oauth_*` | mixed | no | ~20 keys (`oauth_enabled`, `oauth_authorize_url`, `oauth_token_url`, …) for plugins that authenticate against an OAuth provider. `trmnlp push` writes the full set back into the file even when OAuth is off, so expect them to appear after a push |
 
 ---
 
@@ -74,7 +81,7 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `keyname` | yes | Identifier. Used in `polling_url` as `{{ keyname }}` and in templates as `trmnl.plugin_settings.keyname` |
+| `keyname` | yes | Identifier. Used in `polling_url` as `{{ keyname }}`. **Not** readable from a template — see `template-variables.md` |
 | `name` | yes | Label shown in TRMNL UI |
 | `field_type` | yes | Input type (see below) |
 | `description` | no | Help text displayed under the field |
@@ -85,6 +92,11 @@ Each entry in `custom_fields` defines one user-configurable input on the plugin 
 | `default` | no | Pre-filled value that is submitted if the user leaves the field untouched (all field types). Unlike `placeholder`, which is hint-only and not submitted. |
 | `min` | no | Minimum value for `number` fields |
 | `max` | no | Maximum value for `number` fields |
+| `group` | no | Section heading the field is filed under on the settings page. Fields sharing a value are grouped together, in first-appearance order |
+| `help_text` | no | Longer explanation shown below `description`, for the caveats that do not fit a one-liner |
+| `optional` | no | `true` lets the user leave the field blank. Fields are required by default |
+| `maxlength` | no | Character limit for text inputs |
+| `category` | no | On the `author_bio` entry only: comma-separated catalogue categories, e.g. `environment,custom` |
 | `step` | no | Decimal grid for `number` fields. Renders as an HTML5 `step` attribute, so an off-grid value (e.g. a 6-decimal coordinate under `step: 0.001`) is rejected as "invalid" with no "too long" wording. Use `step: any` for free-form decimal precision. |
 
 ---
@@ -209,7 +221,7 @@ Build URL sets at runtime:
 
 ```liquid
 {% assign ids = recipe_ids | split: "," %}
-{% for id in ids %}https://api.example.com/items/##{{ id }}.json
+{% for id in ids %}https://api.example.com/items/{{ id }}.json
 {% endfor %}
 ```
 

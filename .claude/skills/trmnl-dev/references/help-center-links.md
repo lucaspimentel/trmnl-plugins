@@ -34,7 +34,7 @@ custom filters.
 - Custom Plugin Form Builder — https://help.trmnl.com/en/articles/10513740-custom-plugin-form-builder.md
 - Reusing Markup with Shared — https://help.trmnl.com/en/articles/13216853-reusing-markup-with-shared.md
 - Skipping Screens within Plugin Markup — https://help.trmnl.com/en/articles/13615138-skipping-screens-within-plugin-markup.md
-- Parsing plugins with the Sandbox Runtime — https://help.trmnl.com/en/articles/12996946-parsing-plugins-with-the-sandbox-runtime.md (stub; see `settings-yml.md` on `sandbox_transform`)
+- Parsing plugins with the Sandbox Runtime — https://help.trmnl.com/en/articles/12996946-parsing-plugins-with-the-sandbox-runtime.md (stub; see the "Sandbox Transform (advanced)" section of `settings-yml.md`)
 - Using Google Sheets with Private Plugins — https://help.trmnl.com/en/articles/11400219-using-google-sheets-with-private-plugins.md
   — an exception to the rule above: it is a technique for polling a sheet as a data source, not a setup guide
 
