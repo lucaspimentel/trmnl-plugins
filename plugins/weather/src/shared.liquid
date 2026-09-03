@@ -702,7 +702,7 @@ whenChartsReady(function () {
   date do not fit together. The weekday says enough there: a screen refreshing every
   hour is rarely showing a timestamp whose year is in question.
 {%- endcomment -%}
-  {% if short_time %}{% if time_format == "24h" %}{% assign stamp_format = "%a %H:%M" %}{% else %}{% assign stamp_format = "%a %-I:%M %p" %}{% endif %}{% else %}{% if time_format == "24h" %}{% assign stamp_format = "%Y/%-m/%-d %H:%M" %}{% else %}{% assign stamp_format = "%Y/%-m/%-d %-I:%M %p" %}{% endif %}{% endif %}
+  {% if short_time %}{% if time_format == "24h" %}{% assign stamp_format = "%a %H:%M" %}{% else %}{% assign stamp_format = "%a %-I:%M %p" %}{% endif %}{% else %}{% if time_format == "24h" %}{% assign stamp_format = "%Y/%-m/%-d · %H:%M" %}{% else %}{% assign stamp_format = "%Y/%-m/%-d · %-I:%M %p" %}{% endif %}{% endif %}
   {% assign stamp = updated_at | date: "%s" | plus: trmnl.user.utc_offset | date: stamp_format %}
 {%- comment -%}
   A refresh glyph carries what the word Updated used to, in a fraction of the width.
