@@ -9,7 +9,7 @@ trmnlp init <plugin-name>
 ```
 
 This creates the standard directory structure under `<plugin-name>/` with `src/` containing
-the Liquid files and settings.yml, plus `.trmnlp.yml` for local dev config and `bin/dev`.
+the Liquid files and settings.yml, plus `.trmnlp.yml` for local dev config and a `bin/trmnlp` launcher.
 
 Plugins in this repository use the trmnlp `src/` layout: `.trmnlp.yml` at the plugin root,
 all liquid files and `settings.yml` under `src/`. Always follow this layout when adding new plugins.
@@ -42,13 +42,13 @@ custom_fields:
 
 Key settings:
 - `strategy`: `polling` (TRMNL fetches your URL) or `webhook` (you POST to TRMNL)
-- `polling_url`: The API endpoint. Use `fields[resource]=field1,field2` to limit response size. Reference custom field values with `##{{ keyname }}` interpolation.
-- `refresh_interval`: Minutes between data refreshes
+- `polling_url`: The API endpoint. Use `fields[resource]=field1,field2` to limit response size. Reference custom field values with plain Liquid, `{{ keyname }}` — there is no `##` prefix.
+- `refresh_interval`: Minutes between data refreshes. The UI offers a fixed set of choices, but a value outside it is accepted in `settings.yml` (`plugins/mbta-alerts` uses `30`)
 - `polling_headers`: Optional HTTP headers (e.g., for auth)
 
-**Custom fields** let users configure plugin inputs (API keys, locations, preferences) via the TRMNL UI. Each field appears as a form input on the plugin settings page. Reference values in `polling_url` with `##{{ keyname }}`, and in templates with `trmnl.plugin_settings.keyname`.
+**Custom fields** let users configure plugin inputs (API keys, locations, preferences) via the TRMNL UI. Each field appears as a form input on the plugin settings page. Reference values in `polling_url` with `{{ keyname }}`. They are **not** readable from a template: `trmnl.plugin_settings.<keyname>` renders empty, so route anything a template needs through the API response instead.
 
-Available `field_type` values: `author_bio`, `string`, `multi_string`, `text`, `number`, `password`, `boolean`, `date`, `time`, `select`, `time_zone`, `url`, `code`, `copyable`, `copyable_webhook_url`, `plugin_instance_select`.
+Available `field_type` values: `author_bio`, `string`, `multi_string`, `text`, `number`, `password`, `boolean`, `date`, `time`, `select`, `time_zone`, `url`, `code`, `copyable`, `copyable_webhook_url`, `plugin_instance_select`, `lat_lon`, `xhrSelect`, `xhrSelectSearch`. See `settings-yml.md` for what each one renders and returns.
 
 Example — configurable location for a weather plugin:
 ```yaml
@@ -69,7 +69,7 @@ custom_fields:
 ```
 Then in `polling_url`:
 ```
-https://api.example.com/weather?lat=##{{ latitude }}&lon=##{{ longitude }}
+https://api.example.com/weather?lat={{ latitude }}&lon={{ longitude }}
 ```
 
 **shared.liquid** — define reusable template blocks. Always handle the empty/error state

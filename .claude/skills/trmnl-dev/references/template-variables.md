@@ -39,13 +39,18 @@ Variables available inside every Liquid template at render time.
 | Variable | Type | Description |
 |----------|------|-------------|
 | `trmnl.plugin_settings.instance_name` | string | User-configured label for this plugin instance |
-| `trmnl.plugin_settings.<keyname>` | any | Value of any custom field defined in `settings.yml` |
 
-Custom field values are accessed by their `keyname` from `settings.yml`:
+**Custom fields are not readable here.** A field defined in `settings.yml` does *not* resolve under
+`trmnl.plugin_settings.<keyname>` — it renders empty server-side, so a setting appears to have no
+effect on the device:
+
 ```liquid
-{{ trmnl.plugin_settings.latitude }}
-{{ trmnl.plugin_settings.api_key }}
+{{ trmnl.plugin_settings.latitude }}   {# empty, however the user set it #}
 ```
+
+A custom field's job is `polling_url` interpolation. To get its value into a template, send it to
+your backend in the polling URL and echo it back in the response, where it becomes an ordinary
+data variable (`meta.time_format` in `plugins/weather` is this pattern).
 
 ---
 
@@ -101,6 +106,10 @@ variables:
   data:
     some_field: value
 ```
+
+Note that overriding `plugin_settings.<keyname>` this way works **locally only** — trmnlp will
+render the value, the device will not. Do not use a local preview to conclude that a custom field
+is readable from a template.
 
 Custom field values for the `polling_url` are set under `custom_fields`:
 
