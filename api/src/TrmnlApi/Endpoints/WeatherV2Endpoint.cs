@@ -110,10 +110,15 @@ public class WeatherV2Endpoint
         // rather than assumed, since nothing there was taken on trust. See docs/place-input.md.
         var timeZone = query["tz"].FirstOrDefault();
 
+        // What the caller supplied, which is all that can be said before anything is ranked. A
+        // local hit replaces it below with the level that actually settled the ranking, since a
+        // hint that matches no candidate is skipped rather than used. See CountryHint.
+        var countryHint = CountryHint.Resolve(preferredCountry, timeZone).Source;
+
         // Tagged here rather than beside the served-forecast log line so that a request ending in
         // a miss carries them too. "Which signal was in play?" is most worth asking about the
         // answers that went wrong, and those never reach the bottom of this method.
-        TagPreference(span, preferredCountry, timeZone);
+        TagPreference(span, preferredCountry, timeZone, countryHint);
 
         var placeParam = query["place"].FirstOrDefault();
 
@@ -190,6 +195,10 @@ public class WeatherV2Endpoint
                     latitude = hit.Latitude;
                     longitude = hit.Longitude;
                     matchedName = hit.CityName;
+                    // The level that ranked, which is not always the strongest one supplied: a
+                    // declared country the code is not in is skipped for the time zone below it.
+                    countryHint = hit.Hint;
+                    span?.SetTag(TagCountryHint, countryHint);
                     break;
                 }
 
@@ -321,10 +330,12 @@ public class WeatherV2Endpoint
             // field that would have answered "did the dropdown reach us" without guessing.
             CountryPreference.Parse(preferredCountry) ?? "-",
             TimeZoneTag(timeZone),
-            // Which of the two the ranking actually used, resolved by the same code the geocoder
-            // uses so the two cannot disagree. Without it, "is the time zone doing anything?" is
-            // unanswerable, which is the mistake the field above was added to stop repeating.
-            CountryHint.Resolve(preferredCountry, timeZone).Source);
+            // Which level the ranking actually used, reported by the geocoder itself so the two
+            // cannot disagree. Without it, "is the time zone doing anything?" is unanswerable,
+            // which is the mistake the field above was added to stop repeating. A declared country
+            // that ranked nothing now shows as declared= set with hint= something else, which is
+            // how often that case turns up in real traffic.
+            countryHint);
 
         return Results.Json(weatherResponse, WeatherEndpoint.JsonOptions);
     }
@@ -376,7 +387,7 @@ public class WeatherV2Endpoint
     /// docs/geographic-telemetry.md.
     /// </para>
     /// </remarks>
-    private static void TagPreference(ISpan? span, string? preferredCountry, string? timeZone)
+    private static void TagPreference(ISpan? span, string? preferredCountry, string? timeZone, string countryHint)
     {
         if (span is null)
         {
@@ -385,7 +396,9 @@ public class WeatherV2Endpoint
 
         // Always set. "none" is a real answer rather than a missing one - it is the case the
         // region floor runs under - so leaving the tag off would hide it instead of reporting it.
-        span.SetTag(TagCountryHint, CountryHint.Resolve(preferredCountry, timeZone).Source);
+        // A local hit overwrites this with the level that actually ranked; until one happens, the
+        // strongest signal supplied is the most that can honestly be claimed.
+        span.SetTag(TagCountryHint, countryHint);
 
         // The other two follow TagPlace's rule and are set only when the caller supplied them.
         if (CountryPreference.Parse(preferredCountry) is { } declared)

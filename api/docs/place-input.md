@@ -277,6 +277,17 @@ logging-only first, and a forced refresh produced a real TRMNL request carrying
 Every level is still a preference and never a filter: each one only reorders matches that were
 already valid, and an empty intersection keeps every candidate rather than producing a miss.
 
+**A level that matches no candidate is skipped, not consumed.** The levels are tried in order and
+the first one that intersects the surviving candidates settles the ranking; the rest are never
+reached. This is the rule above applied to the chain rather than to one set, and it had to be
+written into the code: `CountryHint.Resolve` used to return on the first signal that *parsed*, and
+`PostalJurisdictions.Accepting` never returns an empty set, so a readable Country value always won
+the slot even when it matched nothing. A device in `America/New_York` asking for `02180` with a
+country declared that has no `02180` answered **Guri-si, KR** on population, with the time zone
+never consulted. It now answers Stoneham, and the reported hint names the level that actually
+ranked - so a dropdown value that contributed nothing shows as `declared=` set alongside
+`hint=tz` or `hint=none`, which is how the frequency of that case is counted.
+
 **ZIP+4 is the one postal form that names its own country.** No country in the source data writes
 `NNNNN-NNNN`, checked against every raw code in it. It also used to miss outright: the full form
 normalized to nine digits and matched no row at all.

@@ -249,33 +249,33 @@ data fix, and an ongoing maintenance chore.
     `weather.via_legacy_host:1`. Same signal as the decommission item above, and the two retire
     together.
 
-- [ ] **A declared country that matches nothing swallows the time-zone hint (found 2026-09-02)**
-  - `CountryHint.Resolve` returns on the first branch that parses: a readable Country dropdown
-    value wins and the caller's time zone is never consulted. `PostalJurisdictions.Accepting`
-    always returns a non-empty set (at minimum the country itself), so "declared" is chosen even
-    when that set intersects no candidate for the code being looked up. The intersection then
-    empties, every candidate survives as designed, and ranking falls through to population - the
-    exact outcome the time zone was added to prevent.
-  - Observed while probing whether Liquid filters run in `polling_url`: `country=aq_` made the
-    ranking answer **Guri-si, KR** for `02180` on a device whose time zone is `America/New_York`,
-    where `hint=tz` had been answering Stoneham, MA correctly. The log line reads
+- [x] **A declared country that matches nothing swallows the time-zone hint (fixed 2026-09-02)**
+  - `CountryHint.Resolve` returned on the first branch that *parsed*, and
+    `PostalJurisdictions.Accepting` never returns an empty set, so a readable Country dropdown
+    value always won the slot - even when it intersected no candidate for the code being looked
+    up. The intersection then emptied, every candidate survived as designed, and population
+    decided: `country=aq_` answered **Guri-si, KR** for `02180` on a device whose time zone is
+    `America/New_York`, where `hint=tz` had been answering Stoneham, MA. The log line read
     `declared=AQ ... hint=declared`.
-  - **Caveat on how much this matters: unquantified.** The only observation is a synthetic one
-    using a country nobody can select, so it proves the mechanism and says nothing about how often
-    a real dropdown value lands here. A stale setting after moving, or a country set once and then
-    a code typed from somewhere else, are the plausible shapes. Worth measuring before fixing:
-    count requests where `hint=declared` and the declared set matched no candidate.
-  - **Whether it is a bug at all is a real question.** Declared outranking time zone is deliberate
-    and documented (`api/docs/place-input.md`, levels 2 and 4). What looks wrong is narrower: the
-    class remarks say a hint "may not turn a working input into a miss", and here a declared
-    country consumes the slot without contributing, discarding a signal that would have worked.
-  - `PostalJurisdictions` already fixes one instance of this class - declaring `US` for a Puerto
-    Rico ZIP once answered Warsaw - but by widening the accepted set, not by falling through.
-    Falling through to the next signal when the declared set matches nothing would cover the
+  - **The fix is a chain rather than a first match.** `CountryHint.Candidates` returns the
+    caller's signals strongest first; the geocoder appends the postal-only floors (a ZIP+4's
+    implied US, then `HomeRegion`) and takes the first level whose set intersects the surviving
+    candidates. A level that matches nothing is skipped, so declared -> time zone -> region floor
+    all get their turn. Precedence between signals is unchanged: declared still beats the time
+    zone whenever it matches something, and a typed qualifier still beats both.
+  - **The reported hint now names the level that ranked**, carried back on `GeoMatch.Hint` rather
+    than re-derived at the log line. The floors report `none`, which is what they reported before,
+    so the existing `hint=` facet keeps its meaning.
+  - **The measurement this item asked for comes free**, and was never taken beforehand
+    deliberately: the case is now countable in the `ForecastServed` logs as `declared` set while
+    `hint` is something else. Worth reading a week after this ships - the only observation so far
+    is the synthetic one above, using a country nobody can select.
+  - `PostalJurisdictions` already fixed one instance of this class - declaring `US` for a Puerto
+    Rico ZIP once answered Warsaw - by widening the accepted set. The fall-through covers the
     general case, and would have covered that one too.
-  - Cost looks small: continue past a declared country whose set intersects no candidate rather
-    than returning, and report the hint that was actually used. The care is in the tests, since
-    the existing ones pin the current precedence.
+  - Two existing tests take a different route to the same answer and say so now: `75001` with `DE`
+    or `PR` declared reaches the region floor, which holds both France and the US, so population
+    still settles it.
 
 - [ ] **Adopt `field_type: lat_lon` for the Location field (found 2026-09-02)**
   - TRMNL has a geographic field type the plugin is not using:

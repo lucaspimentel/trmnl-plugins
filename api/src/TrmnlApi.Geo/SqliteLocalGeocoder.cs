@@ -62,10 +62,12 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             var resolved = qualifiers.Select(q => ResolveQualifier(connection, q)).ToArray();
 
             // The dropdown first, then the caller's time zone. See CountryHint for the layering.
-            var (preference, _) = CountryHint.Resolve(preferredCountry, timeZone);
+            var levels = CountryHint.Candidates(preferredCountry, timeZone);
 
             if (GeoText.LooksPostal(subject))
             {
+                var postalLevels = levels.ToList();
+
                 // A ZIP+4 is the one postal form that names its own country. No other country in
                 // the source data writes NNNNN-NNNN, so the five digits in front are a US ZIP and
                 // nothing else. Worth handling for its own sake as well: the full form used to
@@ -73,19 +75,21 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
                 if (ZipPlusFour(subject) is { } zip)
                 {
                     subject = zip;
-                    preference ??= PostalJurisdictions.Accepting("US");
+                    postalLevels.Add((PostalJurisdictions.Accepting("US"), CountryHint.None));
                 }
 
-                // With nothing declared and no time zone, prefer where the users are. Postal only:
-                // see HomeRegion for why a city name must not get the same treatment.
-                var postal = FindPostal(connection, subject, resolved, preference ?? HomeRegion.Countries);
+                // With nothing usable said, prefer where the users are. Postal only: see
+                // HomeRegion for why a city name must not get the same treatment.
+                postalLevels.Add((HomeRegion.Countries, CountryHint.None));
+
+                var postal = FindPostal(connection, subject, resolved, postalLevels);
                 if (postal is not null)
                 {
                     return postal;
                 }
             }
 
-            return FindCity(connection, subject, resolved, preference);
+            return FindCity(connection, subject, resolved, levels);
         }
         catch (Exception ex)
         {
@@ -151,8 +155,38 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             || (candidate.Admin1 is not null && qualifier.Raw.Equals(candidate.Admin1, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// The first level whose set matches at least one candidate, and the name of that level.
+    /// </summary>
+    /// <remarks>
+    /// Skipping a level that matches nothing is what keeps a hint a preference rather than a veto.
+    /// A declared country the code is not in used to end the search here, taking the caller's time
+    /// zone down with it and leaving population to settle a code the time zone would have settled
+    /// correctly. When no level matches, nothing is narrowed - the same "an empty intersection
+    /// keeps every candidate" rule, applied to the chain rather than to one set.
+    /// </remarks>
+    private static (IReadOnlySet<string>? Countries, string Source) FirstMatching(
+        IReadOnlyList<(IReadOnlySet<string> Countries, string Source)> levels,
+        IEnumerable<string> candidateCountries)
+    {
+        var countries = candidateCountries.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (set, source) in levels)
+        {
+            if (countries.Any(set.Contains))
+            {
+                return (set, source);
+            }
+        }
+
+        return (null, CountryHint.None);
+    }
+
     private GeoMatch? FindCity(
-        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, IReadOnlySet<string>? preferredCountry)
+        SqliteConnection connection,
+        string subject,
+        IReadOnlyList<Qualifier> qualifiers,
+        IReadOnlyList<(IReadOnlySet<string> Countries, string Source)> levels)
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -168,7 +202,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
         command.Parameters.AddWithValue("$n", GeoText.Normalize(subject));
 
         using var reader = command.ExecuteReader();
-        Candidate? best = null;
+        var candidates = new List<Candidate>();
 
         while (reader.Read())
         {
@@ -188,6 +222,22 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
                 continue;
             }
 
+            candidates.Add(candidate);
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        // Names get the caller's own signals and nothing else: HomeRegion is postal-only, for the
+        // reason in its remarks. The candidates have to be in hand before a level can be chosen,
+        // which is why they are collected rather than ranked as they are read.
+        var (preferredCountry, hint) = FirstMatching(levels, candidates.Select(c => c.Country));
+
+        Candidate? best = null;
+        foreach (var candidate in candidates)
+        {
             // Population is the whole ranking, which is what makes bare "Portland" mean Oregon
             // and bare "Cambridge" mean the English one, matching the vendor. A declared country
             // outranks it, and only ever as a tiebreak between matches that were all already
@@ -198,7 +248,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             }
         }
 
-        return best is null ? null : new GeoMatch(Snap(best.Lat), Snap(best.Lon), best.Name);
+        return best is null ? null : new GeoMatch(Snap(best.Lat), Snap(best.Lon), best.Name, hint);
 
         static bool Ranks(Candidate candidate, Candidate best, IReadOnlySet<string>? preferredCountry)
         {
@@ -217,7 +267,10 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
     }
 
     private GeoMatch? FindPostal(
-        SqliteConnection connection, string subject, IReadOnlyList<Qualifier> qualifiers, IReadOnlySet<string>? preferredCountry)
+        SqliteConnection connection,
+        string subject,
+        IReadOnlyList<Qualifier> qualifiers,
+        IReadOnlyList<(IReadOnlySet<string> Countries, string Source)> levels)
     {
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT country, lat, lon FROM postal WHERE code = $c";
@@ -254,20 +307,17 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
         // by the biggest city nearby sends 02180 to Seoul rather than to Stoneham, Massachusetts.
         // The set covers the declared country's own postal territories too - see
         // PostalJurisdictions, which exists because 00784 with the US declared answered Warsaw.
+        // A declared country the code is not in is skipped rather than allowed to settle nothing:
+        // the time zone, then the region floor, still get their turn.
+        var (preferredCountry, hint) = FirstMatching(levels, filtered.Select(r => r.Country));
         if (preferredCountry is not null)
         {
-            var preferred = filtered
-                .Where(r => preferredCountry.Contains(r.Country))
-                .ToList();
-            if (preferred.Count > 0)
-            {
-                filtered = preferred;
-            }
+            filtered = filtered.Where(r => preferredCountry.Contains(r.Country)).ToList();
         }
 
         if (filtered.Count == 1)
         {
-            return new GeoMatch(Snap(filtered[0].Lat), Snap(filtered[0].Lon), CityName: null);
+            return new GeoMatch(Snap(filtered[0].Lat), Snap(filtered[0].Lon), CityName: null, hint);
         }
 
         var best = filtered[0];
@@ -282,7 +332,7 @@ public sealed class SqliteLocalGeocoder : ILocalGeocoder
             }
         }
 
-        return new GeoMatch(Snap(best.Lat), Snap(best.Lon), CityName: null);
+        return new GeoMatch(Snap(best.Lat), Snap(best.Lon), CityName: null, hint);
     }
 
     private static long LargestPopulationNearby(SqliteConnection connection, double latitude, double longitude)

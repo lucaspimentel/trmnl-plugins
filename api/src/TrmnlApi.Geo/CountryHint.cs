@@ -11,6 +11,12 @@ namespace TrmnlApi.Geo;
 /// A hint is always a tie-break and never a filter: every level below only reorders matches that
 /// were already valid, and none may turn a working input into a miss.
 /// </para>
+/// <para>
+/// The levels are tried in order and a level whose set intersects no candidate is <b>skipped</b>
+/// rather than consumed. A declared country that matches nothing used to end the search here, so
+/// the caller's time zone was never consulted and ranking fell through to population - which is
+/// precisely what the time zone was added to prevent. See <see cref="Candidates"/>.
+/// </para>
 /// </remarks>
 public static class CountryHint
 {
@@ -24,27 +30,52 @@ public static class CountryHint
     public const string None = "none";
 
     /// <summary>
-    /// The countries to prefer and the name of the signal they came from. The set is null when
-    /// nothing usable was supplied.
+    /// Every signal the caller supplied, strongest first, so a level that turns out to match
+    /// nothing can be skipped for the next one. Empty when nothing usable was supplied.
     /// </summary>
-    public static (IReadOnlySet<string>? Countries, string Source) Resolve(
+    /// <remarks>
+    /// Only the caller's own signals appear here. The postal-only floors - a ZIP+4's implied
+    /// United States, and <see cref="HomeRegion"/> - are appended by the lookup that knows the
+    /// input was postal, and report <see cref="None"/>, because they are facts about the input or
+    /// guesses about the audience rather than something the caller told us.
+    /// </remarks>
+    public static IReadOnlyList<(IReadOnlySet<string> Countries, string Source)> Candidates(
         string? declaredCountry,
         string? timeZone)
     {
+        var levels = new List<(IReadOnlySet<string>, string)>(2);
+
         // Anything unreadable - a blank, the dropdown's "Auto" - means no preference rather than
         // an error, because a setting nobody can see is a bad reason to refuse a forecast.
         // CountryPreference also accepts the dropdown's slugified label, which is what actually
         // arrives from the plugin.
         if (CountryPreference.Parse(declaredCountry) is { } declared)
         {
-            return (PostalJurisdictions.Accepting(declared), Declared);
+            levels.Add((PostalJurisdictions.Accepting(declared), Declared));
         }
 
         if (TimeZoneCountry.Parse(timeZone) is { } inferred)
         {
-            return (PostalJurisdictions.Accepting(inferred), TimeZone);
+            levels.Add((PostalJurisdictions.Accepting(inferred), TimeZone));
         }
 
-        return (null, None);
+        return levels;
+    }
+
+    /// <summary>
+    /// The strongest signal the caller supplied and the name of it. The set is null when nothing
+    /// usable was supplied.
+    /// </summary>
+    /// <remarks>
+    /// This answers "what did they tell us", which is all the coordinate paths can report: nothing
+    /// was ranked, so no level can have matched or missed. A lookup that ranks candidates must use
+    /// <see cref="Candidates"/> and report the level that actually settled it.
+    /// </remarks>
+    public static (IReadOnlySet<string>? Countries, string Source) Resolve(
+        string? declaredCountry,
+        string? timeZone)
+    {
+        var levels = Candidates(declaredCountry, timeZone);
+        return levels.Count == 0 ? (null, None) : (levels[0].Countries, levels[0].Source);
     }
 }

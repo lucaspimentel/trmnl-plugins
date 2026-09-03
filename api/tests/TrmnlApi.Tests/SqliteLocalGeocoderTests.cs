@@ -110,11 +110,14 @@ public class SqliteLocalGeocoderTests : IDisposable
     public void Find_DeclaredCountryTheCodeIsNotIn_KeepsThePopulationWinner()
     {
         // A preference, not a filter. 75001 exists in neither Germany nor anywhere else in the
-        // fixture bar France and the US, and a German user still deserves an answer.
+        // fixture bar France and the US, and a German user still deserves an answer. Germany is
+        // skipped rather than applied, so the region floor decides - and it holds both France and
+        // the US, so population settles it exactly as before.
         var match = Build().Find("75001", preferredCountry: "DE");
 
         Assert.NotNull(match);
         Assert.Equal(48.86, match.Value.Latitude);
+        Assert.Equal(CountryHint.None, match.Value.Hint);
     }
 
     [Fact]
@@ -172,8 +175,9 @@ public class SqliteLocalGeocoderTests : IDisposable
     public void Find_DeclaringATerritory_DoesNotWidenToTheSovereign()
     {
         // The relationship is one-directional. Declaring PR is more precise than declaring US, so
-        // it must not start accepting mainland matches: 75001 exists in the US but not in PR, and
-        // the population ranking, not the preference, has to settle it.
+        // it must not start accepting mainland matches: 75001 exists in the US but not in PR, so
+        // PR is skipped and the region floor, which holds both candidates, leaves the population
+        // ranking to settle it.
         var match = Build().Find("75001", preferredCountry: "PR");
 
         Assert.NotNull(match);
@@ -308,6 +312,59 @@ public class SqliteLocalGeocoderTests : IDisposable
 
         Assert.NotNull(match);
         Assert.Equal(60.2, match.Value.Latitude);
+        Assert.Equal(CountryHint.Declared, match.Value.Hint);
+    }
+
+    [Fact]
+    public void Find_ADeclaredCountryTheCodeIsNotIn_FallsThroughToTheTimeZone()
+    {
+        // The bug. A declared country whose set matches no candidate used to be chosen anyway,
+        // consuming the slot without contributing: the intersection emptied, every candidate
+        // survived, and population answered Seoul - the exact outcome the time zone exists to
+        // prevent. Germany has no 02180, so the time zone must get its turn.
+        var match = Build().Find("02180", preferredCountry: "DE", timeZone: "America/New_York");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.48, match.Value.Latitude);
+        // And the reported hint names the level that did the work, not the one that was set.
+        Assert.Equal(CountryHint.TimeZone, match.Value.Hint);
+    }
+
+    [Fact]
+    public void Find_ADeclaredCountryTheCodeIsNotIn_WithNoTimeZone_ReachesTheRegionFloor()
+    {
+        // The chain runs all the way down: a stale dropdown value with no time zone behind it
+        // leaves the caller no worse off than having set nothing at all.
+        var match = Build().Find("02180", preferredCountry: "DE");
+
+        Assert.NotNull(match);
+        Assert.Equal(60.2, match.Value.Latitude);
+        // The floors report "none": they are a guess about the audience, not something the
+        // caller told us, and the hint facet counts what callers said.
+        Assert.Equal(CountryHint.None, match.Value.Hint);
+    }
+
+    [Fact]
+    public void Find_ZipPlusFourAgainstADeclaredCountryTheCodeIsNotIn_StillMeansTheUnitedStates()
+    {
+        // The same skip, one level lower: Germany matches nothing, so the shape of the input gets
+        // to speak. Before, the declared country suppressed the ZIP+4 floor and answered Seoul.
+        var match = Build().Find("02180-1234", preferredCountry: "DE");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.48, match.Value.Latitude);
+    }
+
+    [Fact]
+    public void Find_ACityNameWithADeclaredCountryItIsNotIn_KeepsThePopulationWinner()
+    {
+        // Names get the caller's signals and no floors, so a skipped level leaves population in
+        // charge. The invariant either way: a hint may never turn a working input into a miss.
+        var match = Build().Find("Boston", preferredCountry: "KI");
+
+        Assert.NotNull(match);
+        Assert.Equal(42.36, match.Value.Latitude);
+        Assert.Equal(CountryHint.None, match.Value.Hint);
     }
 
     [Fact]
