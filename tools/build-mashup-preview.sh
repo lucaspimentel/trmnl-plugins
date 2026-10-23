@@ -247,7 +247,7 @@ if $SCREENSHOT; then
       # The retry is not belt and braces: screenshot writes no file every few
       # calls and still exits 0, so the file is the only honest check.
       rm -f "$render_png"
-      for attempt in 1 2 3; do
+      for _ in 1 2 3; do
         playwright-cli close > /dev/null 2>&1 || true
         playwright-cli open --browser=msedge "http://localhost:8765/${name}/mashup-${size}.html" > /dev/null 2>&1 || true
         playwright-cli resize "$viewport_w" "$viewport_h" > /dev/null 2>&1 || true
