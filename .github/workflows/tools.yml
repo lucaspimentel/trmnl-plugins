@@ -30,8 +30,10 @@ jobs:
 
       # Trmnl.Cli has no tests; this proves it compiles. Directory.Build.props sets
       # TreatWarningsAsErrors, so a package with a known vulnerability also fails here.
+      # Debug, not Release: ImageSharp 4.1+ fails a Release build with no Six Labors license,
+      # but only warns in Debug (ContinueOnError on Debug configurations in its .targets).
       - name: Build
-        run: dotnet build Trmnl.Cli.csproj --configuration Release
+        run: dotnet build Trmnl.Cli.csproj --configuration Debug
 
   lint-scripts:
     runs-on: ubuntu-latest
