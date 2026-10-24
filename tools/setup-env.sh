@@ -80,7 +80,8 @@ setup_ruby() {
   # present, not just on the branch that installs: a later run finds a good-enough
   # Ruby, skips the install, and would otherwise never see the gems it put there.
   if command -v rbenv >/dev/null; then
-    export PATH="$(rbenv root)/shims:$PATH"
+    PATH="$(rbenv root)/shims:$PATH"
+    export PATH
     persist 'command -v rbenv >/dev/null && eval "$(rbenv init - bash)"'
     hash -r
     current=""
