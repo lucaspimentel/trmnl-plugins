@@ -1,0 +1,7 @@
+# Dependabot version updates for the GitHub Actions used by the workflows.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/" # Workflow manifests live under .github/workflows
+    schedule:
+      interval: "weekly"
