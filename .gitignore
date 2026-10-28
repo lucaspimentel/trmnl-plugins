@@ -7,9 +7,10 @@ plugins/*/_build/
 # screenshots
 plugins/*/render*.png
 
-# Claude
-.claude/*.local.*
+# coding agents
 CLAUDE.local.md
+.claude/*.local.json
+.pi/*.local.json
 
 # SixLabors license
 sixlabors.lic
