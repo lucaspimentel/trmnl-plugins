@@ -676,7 +676,13 @@ data fix, and an ongoing maintenance chore.
     provider choice. Would need a user-facing provider selector (custom field) plumbed through
     `polling_url`, plus a new provider implementation for MET Norway.
 
-- [ ] **Support for Fluid Mashup layouts** ([#7](https://github.com/lucaspimentel/trmnl-plugins/issues/7))
+- [x] **Support for Fluid Mashup layouts (done 2026-10-28)** ([#7](https://github.com/lucaspimentel/trmnl-plugins/issues/7))
+  - **Closed after a re-render on 2026-10-28**, against the current templates (including the larger
+    TRMNL X chart text): X 3x1, 1x1 and 1x3 are clean, nothing runs over its neighbour. The sizes
+    named below were already verified in the 2026-09-02 sweep.
+  - **One cosmetic follow-up, not blocking:** in the 1x3 cell (~333px wide) the 21px hour labels no
+    longer all fit, so two read `1…` instead of `12am` / `12pm`. Standalone layouts are unaffected.
+    Worth a look only if narrow tall cells turn out to be a shape anyone uses.
   - TRMNL's new Fluid Mashup feature allows many more grid sizes (3x3 fluid grid) than the plugin's
     current fixed layouts (`full`, `half_horizontal`, `half_vertical`, `quadrant` in
     `plugins/weather/src/`). User provided screenshots showing cropping/overlap issues at 3x1, 1x1,
