@@ -75,7 +75,7 @@
 .daily-list { overflow: hidden; }
 .screen--lg .wi-sz-xl { font: 140px/1 'weathericons'; }
 .screen--lg .wi-sz-md { font: 30px/1 'weathericons'; }
-.screen--lg .wi-sz-16 { font: 20px/1 'weathericons'; }
+.screen--lg .wi-sz-16 { font: 24px/1 'weathericons'; }
 </style>
 
 {% comment %}
@@ -359,14 +359,14 @@ whenChartsReady(function () {
     // The framework's chart-label role is 13px on both devices, which reads as
     // the smallest text on a TRMNL X screen. A text role resolves the font family
     // per display density, so OG keeps its pixel font and only X is enlarged.
-    var labelStyle = TRMNLCharts.textStyle(dense ? 'text--base' : 'chart-label', { el: chartEl });
+    var labelStyle = TRMNLCharts.textStyle(dense ? 'text--large' : 'chart-label', { el: chartEl });
     return Highcharts.chart(chartEl, TRMNLCharts.merge(base, {
       // Only the two chart-level dimensions are merged here: options() installs
       // an events.render hook that repaints the axis strokes as dither patterns,
       // and merge() would replace the whole events object.
       // animation is already false in options(); it is restated because the lint
       // rule greps the markup for it and cannot see a value resolved at runtime.
-      chart: { animation: false, ['mar'+'gin']: px(dense ? [36, 12, 64, 12] : [22, 8, 44, 8]), spacing: [0, 0, 0, 0] },
+      chart: { animation: false, ['mar'+'gin']: px(dense ? [42, 24, 70, 24] : [22, 8, 44, 8]), spacing: [0, 0, 0, 0] },
       xAxis: TRMNLCharts.merge(base.xAxis, {
         categories: [{{ hour_labels }}],
         tickInterval: 4,
@@ -374,7 +374,7 @@ whenChartsReady(function () {
         // so the vertical grid the framework defaults on is redundant here.
         gridLineWidth: 0,
         labels: dense
-          ? { rotation: 0, align: 'center', y: px(24), style: labelStyle }
+          ? { rotation: 0, align: 'center', y: px(28), style: labelStyle }
           : { rotation: 0, align: 'center', y: px(16) },
         plotLines: sunPlotLines().map(function(pl) {
           var nearEdge = pl.value > hourTimes.length * 0.8;
